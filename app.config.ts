@@ -1,4 +1,4 @@
-import { ExpoConfig } from 'expo/config';
+import type { ExpoConfig } from 'expo/config';
 
 export default (): ExpoConfig => ({
   name: 'RALB Codex Edition',
@@ -42,4 +42,3 @@ export default (): ExpoConfig => ({
     appFlavor: 'codex-edition',
   },
 });
-

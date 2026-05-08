@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
+    "resolveJsonModule": true,
     "paths": {
       "@/*": ["./*"]
     }
@@ -10,4 +11,3 @@
   "include": ["app", "src", "app.config.ts"],
   "exclude": ["node_modules", "supabase"]
 }
-

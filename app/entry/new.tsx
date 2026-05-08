@@ -1,8 +1,14 @@
 import React from 'react';
+import { ChevronDown, ChevronUp, Copy, Save, Star } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { HeightUnit } from '@/src/domain/logbook/types';
-import { useCreateEntry } from '@/src/domain/logbook/use-logbook';
+import type { HeightUnit } from '@/src/domain/logbook/types';
+import {
+  useCreateEntry,
+  useCreateEntryTemplate,
+  useEntries,
+  useEntryTemplates,
+} from '@/src/domain/logbook/use-logbook';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { Button, Card, Field, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
@@ -11,6 +17,10 @@ export default function NewEntryScreen() {
   const { colors, radii, spacing, typography } = useTheme();
   const profile = useProfile();
   const createEntry = useCreateEntry();
+  const entries = useEntries();
+  const templates = useEntryTemplates();
+  const createTemplate = useCreateEntryTemplate();
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState<string | null>(null);
   const [employer, setEmployer] = React.useState('');
   const [site, setSite] = React.useState('');
   const [client, setClient] = React.useState('');
@@ -21,19 +31,24 @@ export default function NewEntryScreen() {
   const [heightUnit, setHeightUnit] = React.useState<HeightUnit>('ft');
   const [description, setDescription] = React.useState('');
   const [hours, setHours] = React.useState('8');
+  const [templateName, setTemplateName] = React.useState('');
+  const [showDetails, setShowDetails] = React.useState(false);
+  const [showTemplateSave, setShowTemplateSave] = React.useState(false);
 
   const parsedHours = Number(hours);
   const parsedHeight = Number(maxHeight);
   const canSave =
-    employer.trim().length > 0 &&
     site.trim().length > 0 &&
-    client.trim().length > 0 &&
     workTask.trim().length > 0 &&
+    Number.isFinite(parsedHours) &&
+    parsedHours > 0;
+  const isAuditReady =
+    canSave &&
+    employer.trim().length > 0 &&
+    client.trim().length > 0 &&
     accessMethod.trim().length > 0 &&
     structureType.trim().length > 0 &&
     description.trim().length > 0 &&
-    Number.isFinite(parsedHours) &&
-    parsedHours > 0 &&
     Number.isFinite(parsedHeight) &&
     parsedHeight > 0;
 
@@ -52,6 +67,7 @@ export default function NewEntryScreen() {
         structure_type: structureType,
         max_height: parsedHeight,
         height_unit: heightUnit,
+        template_id: selectedTemplateId,
         sprat_level_snapshot: p?.sprat_level ?? null,
         irata_level_snapshot: p?.irata_level ?? null,
       },
@@ -59,18 +75,161 @@ export default function NewEntryScreen() {
     );
   }
 
+  function applyTemplate(template: NonNullable<typeof templates.data>[number]) {
+    setSelectedTemplateId(template.id);
+    if (template.employer) setEmployer(template.employer);
+    if (template.client) setClient(template.client);
+    setWorkTask(template.work_task);
+    setAccessMethod(template.access_method);
+    setStructureType(template.structure_type);
+    setDescription(template.description);
+    setHours(String(template.work_hours));
+    setMaxHeight(template.max_height === null ? '' : String(template.max_height));
+    setHeightUnit(template.height_unit);
+  }
+
+  function duplicateLastEntry() {
+    const latest = entries.data?.[0];
+    if (!latest) return;
+    setSelectedTemplateId(null);
+    setEmployer(latest.employer);
+    setSite(latest.site);
+    setClient(latest.client);
+    setWorkTask(latest.work_task);
+    setAccessMethod(latest.access_method);
+    setStructureType(latest.structure_type);
+    setMaxHeight(latest.max_height === null ? '' : String(latest.max_height));
+    setHeightUnit(latest.height_unit);
+    setDescription(latest.description);
+    setHours(String(latest.work_hours));
+  }
+
+  function saveTemplate() {
+    if (!templateName.trim() || !isAuditReady) return;
+    createTemplate.mutate({
+      name: templateName,
+      employer,
+      client,
+      work_task: workTask,
+      access_method: accessMethod,
+      structure_type: structureType,
+      description,
+      work_hours: parsedHours,
+      max_height: parsedHeight,
+      height_unit: heightUnit,
+    }, {
+      onSuccess: (template) => {
+        setSelectedTemplateId(template.id);
+        setTemplateName('');
+      },
+    });
+  }
+
   return (
-    <Screen>
+    <Screen
+      footer={
+        <Button
+          title={isAuditReady ? 'Save audit-ready draft' : 'Save quick draft'}
+          icon={Save}
+          onPress={save}
+          disabled={!canSave}
+          loading={createEntry.isPending}
+        />
+      }
+    >
       <Card>
-        <Text selectable style={{ ...typography.title2, color: colors.textPrimary }}>
-          Draft entry
-        </Text>
-        <Field label="Employer" value={employer} onChangeText={setEmployer} placeholder="Company" />
+        {templates.data?.length ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+              Templates
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {templates.data.map((template) => {
+                const selected = template.id === selectedTemplateId;
+                return (
+                  <Pressable
+                    key={template.id}
+                    accessibilityRole="button"
+                    onPress={() => applyTemplate(template)}
+                    style={{
+                      minHeight: 40,
+                      justifyContent: 'center',
+                      borderRadius: radii.sm,
+                      borderWidth: 1,
+                      borderColor: selected ? colors.accentPrimary : colors.border,
+                      backgroundColor: selected ? colors.accentTint : colors.bgSurface,
+                      paddingHorizontal: spacing.sm,
+                    }}
+                  >
+                    <Text
+                      selectable={false}
+                      style={{
+                        ...typography.caption,
+                        color: selected ? colors.accentPrimary : colors.textSecondary,
+                      }}
+                    >
+                      {template.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+        {entries.data?.length ? (
+          <Button title="Duplicate last" icon={Copy} variant="secondary" onPress={duplicateLastEntry} />
+        ) : null}
         <Field label="Site" value={site} onChangeText={setSite} placeholder="Tower / plant / bridge" />
-        <Field label="Client" value={client} onChangeText={setClient} placeholder="Client" />
-        <Field label="Work task" value={workTask} onChangeText={setWorkTask} placeholder="Inspection / maintenance / rescue cover" />
-        <Field label="Access method" value={accessMethod} onChangeText={setAccessMethod} placeholder="Two-rope access" />
-        <Field label="Structure type" value={structureType} onChangeText={setStructureType} placeholder="Bridge / tower / wind turbine" />
+        <View style={{ gap: spacing.sm }}>
+          <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+            Task
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {['Inspection', 'Maintenance', 'Rescue standby', 'Training'].map((preset) => (
+              <Pressable
+                key={preset}
+                accessibilityRole="button"
+                onPress={() => setWorkTask(preset)}
+                style={{
+                  minHeight: 40,
+                  justifyContent: 'center',
+                  borderRadius: radii.sm,
+                  borderWidth: 1,
+                  borderColor: workTask === preset ? colors.accentPrimary : colors.border,
+                  backgroundColor: workTask === preset ? colors.accentTint : colors.bgSurface,
+                  paddingHorizontal: spacing.sm,
+                }}
+              >
+                <Text selectable={false} style={{ ...typography.caption, color: workTask === preset ? colors.accentPrimary : colors.textSecondary }}>
+                  {preset}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Field label="Custom task" value={workTask} onChangeText={setWorkTask} placeholder="Inspection / maintenance / rescue cover" />
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'].map((preset) => (
+            <Pressable
+              key={preset}
+              accessibilityRole="button"
+              onPress={() => setAccessMethod(preset)}
+              style={{
+                minHeight: 40,
+                justifyContent: 'center',
+                borderRadius: radii.sm,
+                borderWidth: 1,
+                borderColor: accessMethod === preset ? colors.accentPrimary : colors.border,
+                backgroundColor: accessMethod === preset ? colors.accentTint : colors.bgSurface,
+                paddingHorizontal: spacing.sm,
+              }}
+            >
+              <Text selectable={false} style={{ ...typography.caption, color: accessMethod === preset ? colors.accentPrimary : colors.textSecondary }}>
+                {preset}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <Field
           label="Rope access hours"
           value={hours}
@@ -78,66 +237,99 @@ export default function NewEntryScreen() {
           keyboardType="decimal-pad"
           placeholder="8"
         />
-        <Field
-          label="Maximum height"
-          value={maxHeight}
-          onChangeText={setMaxHeight}
-          keyboardType="decimal-pad"
-          placeholder="120"
+        <Button
+          title={showDetails ? 'Hide details' : 'Add details'}
+          icon={showDetails ? ChevronUp : ChevronDown}
+          variant="ghost"
+          onPress={() => setShowDetails((value) => !value)}
         />
-        <View style={{ gap: spacing.sm }}>
-          <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-            Height unit
-          </Text>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            {(['ft', 'm'] as const).map((unit) => {
-              const selected = unit === heightUnit;
-              return (
-                <Pressable
-                  key={unit}
-                  accessibilityRole="button"
-                  onPress={() => setHeightUnit(unit)}
-                  style={{
-                    minHeight: 44,
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: radii.sm,
-                    borderWidth: 1,
-                    borderColor: selected ? colors.accentPrimary : colors.border,
-                    backgroundColor: selected ? colors.accentTint : colors.bgSurface,
-                  }}
-                >
-                  <Text
-                    selectable={false}
-                    style={{
-                      ...typography.label,
-                      color: selected ? colors.accentPrimary : colors.textSecondary,
-                    }}
-                  >
-                    {unit}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-        <Field
-          label="Work description"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          textAlignVertical="top"
-          style={{ minHeight: 112 }}
-          placeholder="What work was performed?"
-        />
+        {showDetails ? (
+          <>
+            <Field label="Employer" value={employer} onChangeText={setEmployer} placeholder="Company" />
+            <Field label="Client" value={client} onChangeText={setClient} placeholder="Client" />
+            <Field label="Access method" value={accessMethod} onChangeText={setAccessMethod} placeholder="Two-rope access" />
+            <Field label="Structure type" value={structureType} onChangeText={setStructureType} placeholder="Bridge / tower / wind turbine" />
+            <Field
+              label="Maximum height"
+              value={maxHeight}
+              onChangeText={setMaxHeight}
+              keyboardType="decimal-pad"
+              placeholder="120"
+            />
+            <View style={{ gap: spacing.sm }}>
+              <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+                Height unit
+              </Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {(['ft', 'm'] as const).map((unit) => {
+                  const selected = unit === heightUnit;
+                  return (
+                    <Pressable
+                      key={unit}
+                      accessibilityRole="button"
+                      onPress={() => setHeightUnit(unit)}
+                      style={{
+                        minHeight: 44,
+                        flex: 1,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: radii.sm,
+                        borderWidth: 1,
+                        borderColor: selected ? colors.accentPrimary : colors.border,
+                        backgroundColor: selected ? colors.accentTint : colors.bgSurface,
+                      }}
+                    >
+                      <Text
+                        selectable={false}
+                        style={{
+                          ...typography.label,
+                          color: selected ? colors.accentPrimary : colors.textSecondary,
+                        }}
+                      >
+                        {unit}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            <Field
+              label="Work notes"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              textAlignVertical="top"
+              style={{ minHeight: 96 }}
+              placeholder="What work was performed?"
+            />
+          </>
+        ) : null}
+        {showDetails && isAuditReady ? (
+          <Button
+            title={showTemplateSave ? 'Cancel template' : 'Save as template'}
+            icon={Star}
+            variant="ghost"
+            onPress={() => setShowTemplateSave((value) => !value)}
+          />
+        ) : null}
+        {showTemplateSave ? (
+          <>
+            <Field
+              label="Template name"
+              value={templateName}
+              onChangeText={setTemplateName}
+              placeholder="Template name"
+            />
+            <Button
+              title={createTemplate.isPending ? 'Saving template' : 'Save template'}
+              icon={Save}
+              onPress={saveTemplate}
+              variant="secondary"
+              disabled={!isAuditReady || !templateName.trim()}
+            />
+          </>
+        ) : null}
       </Card>
-      <Button
-        title="Save draft"
-        onPress={save}
-        disabled={!canSave}
-        loading={createEntry.isPending}
-      />
     </Screen>
   );
 }

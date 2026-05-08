@@ -1,9 +1,25 @@
 import { DbClient } from './client';
+import gearCatalogSeed from './seeds/gear-catalog.json';
 
 interface Migration {
   id: number;
   name: string;
   up(db: DbClient): Promise<void>;
+}
+
+interface GearCatalogSeedRow {
+  manufacturer: string;
+  model: string;
+  category: string;
+}
+
+function catalogIdFor(row: GearCatalogSeedRow, index: number): string {
+  const slug = `${row.manufacturer}-${row.model}-${row.category}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 72);
+  return `catalog_${slug || index}`;
 }
 
 const migrations: Migration[] = [
@@ -192,6 +208,201 @@ const migrations: Migration[] = [
       if (!names.has('height_unit')) {
         await db.exec(
           "ALTER TABLE entries ADD COLUMN height_unit TEXT NOT NULL DEFAULT 'ft' CHECK (height_unit IN ('ft', 'm'));",
+        );
+      }
+    },
+  },
+  {
+    id: 7,
+    name: 'gear-catalog',
+    async up(db) {
+      const gearColumns = await db.getAll<{ name: string }>('PRAGMA table_info(gear_items)');
+      const names = new Set(gearColumns.map((column) => column.name));
+
+      if (!names.has('manufacturer')) {
+        await db.exec('ALTER TABLE gear_items ADD COLUMN manufacturer TEXT;');
+      }
+
+      if (!names.has('model')) {
+        await db.exec('ALTER TABLE gear_items ADD COLUMN model TEXT;');
+      }
+
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS gear_catalog (
+          id TEXT PRIMARY KEY,
+          manufacturer TEXT NOT NULL,
+          model TEXT NOT NULL,
+          category TEXT NOT NULL CHECK (category IN (
+            'harness','helmet','rope','lanyard','sling',
+            'descender','ascender','carabiner','pulley','other'
+          )),
+          created_at TEXT NOT NULL,
+          UNIQUE (manufacturer, model)
+        );
+      `);
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_gear_catalog_category ON gear_catalog(category);');
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_gear_catalog_make_model ON gear_catalog(manufacturer, model);');
+
+      const now = new Date().toISOString();
+      for (const [index, row] of (gearCatalogSeed as GearCatalogSeedRow[]).entries()) {
+        await db.run(
+          `INSERT OR IGNORE INTO gear_catalog (
+            id, manufacturer, model, category, created_at
+          ) VALUES (?, ?, ?, ?, ?)`,
+          [catalogIdFor(row, index), row.manufacturer, row.model, row.category, now],
+        );
+      }
+    },
+  },
+  {
+    id: 8,
+    name: 'field-ops-foundation',
+    async up(db) {
+      const signatureColumns = await db.getAll<{ name: string }>('PRAGMA table_info(signatures)');
+      const signatureNames = new Set(signatureColumns.map((column) => column.name));
+
+      if (!signatureNames.has('previous_chain_hash')) {
+        await db.exec('ALTER TABLE signatures ADD COLUMN previous_chain_hash TEXT;');
+      }
+
+      if (!signatureNames.has('chain_hash')) {
+        await db.exec('ALTER TABLE signatures ADD COLUMN chain_hash TEXT;');
+      }
+
+      const remoteColumns = await db.getAll<{ name: string }>('PRAGMA table_info(remote_signature_requests)');
+      const remoteNames = new Set(remoteColumns.map((column) => column.name));
+
+      if (!remoteNames.has('signing_token_hash')) {
+        await db.exec('ALTER TABLE remote_signature_requests ADD COLUMN signing_token_hash TEXT;');
+      }
+
+      if (!remoteNames.has('token_hint')) {
+        await db.exec('ALTER TABLE remote_signature_requests ADD COLUMN token_hint TEXT;');
+      }
+
+      if (!remoteNames.has('viewed_at')) {
+        await db.exec('ALTER TABLE remote_signature_requests ADD COLUMN viewed_at TEXT;');
+      }
+
+      if (!remoteNames.has('completed_at')) {
+        await db.exec('ALTER TABLE remote_signature_requests ADD COLUMN completed_at TEXT;');
+      }
+
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS supervisors (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          cert_number TEXT,
+          contact TEXT,
+          role TEXT,
+          company TEXT,
+          last_signed_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          UNIQUE (cert_number)
+        );
+      `);
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_supervisors_name ON supervisors(name);');
+
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS entry_gear_usage (
+          entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+          gear_id TEXT NOT NULL REFERENCES gear_items(id) ON DELETE CASCADE,
+          role TEXT,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY (entry_id, gear_id)
+        );
+      `);
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_entry_gear_usage_gear_id ON entry_gear_usage(gear_id);');
+
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS entry_attachments (
+          id TEXT PRIMARY KEY,
+          entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+          label TEXT NOT NULL,
+          uri TEXT NOT NULL,
+          mime_type TEXT,
+          notes TEXT,
+          created_at TEXT NOT NULL
+        );
+      `);
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_entry_attachments_entry_id ON entry_attachments(entry_id);');
+
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS entry_templates (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          employer TEXT NOT NULL DEFAULT '',
+          client TEXT NOT NULL DEFAULT '',
+          work_task TEXT NOT NULL DEFAULT '',
+          access_method TEXT NOT NULL DEFAULT '',
+          structure_type TEXT NOT NULL DEFAULT '',
+          description TEXT NOT NULL DEFAULT '',
+          work_hours REAL NOT NULL DEFAULT 8,
+          max_height REAL,
+          height_unit TEXT NOT NULL DEFAULT 'ft' CHECK (height_unit IN ('ft', 'm')),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          last_used_at TEXT
+        );
+      `);
+
+      const now = new Date().toISOString();
+      const templates = [
+        {
+          id: 'template_tower_inspection',
+          name: 'Tower inspection',
+          work_task: 'Inspection',
+          access_method: 'Two-rope access',
+          structure_type: 'Tower',
+          description: 'Completed rope access inspection, documented findings, and maintained edge/rope protection.',
+          work_hours: 8,
+          max_height: 120,
+          height_unit: 'ft',
+        },
+        {
+          id: 'template_bridge_maintenance',
+          name: 'Bridge maintenance',
+          work_task: 'Maintenance',
+          access_method: 'Two-rope access',
+          structure_type: 'Bridge',
+          description: 'Performed rope access maintenance, tool handling, and site cleanup under supervisor review.',
+          work_hours: 8,
+          max_height: 80,
+          height_unit: 'ft',
+        },
+        {
+          id: 'template_rescue_standby',
+          name: 'Rescue standby',
+          work_task: 'Rescue standby',
+          access_method: 'Rescue cover',
+          structure_type: 'Industrial site',
+          description: 'Provided rope access rescue standby, equipment checks, and hazard monitoring for active work.',
+          work_hours: 10,
+          max_height: 60,
+          height_unit: 'ft',
+        },
+      ] as const;
+
+      for (const template of templates) {
+        await db.run(
+          `INSERT OR IGNORE INTO entry_templates (
+            id, name, employer, client, work_task, access_method, structure_type,
+            description, work_hours, max_height, height_unit, created_at, updated_at, last_used_at
+          ) VALUES (?, ?, '', '', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+          [
+            template.id,
+            template.name,
+            template.work_task,
+            template.access_method,
+            template.structure_type,
+            template.description,
+            template.work_hours,
+            template.max_height,
+            template.height_unit,
+            now,
+            now,
+          ],
         );
       }
     },

@@ -1,7 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getClient } from '@/src/db/initialize';
 import { createLogbookService } from './logbook-service';
-import { CreateAmendmentInput, CreateEntryInput, CreateRemoteSignatureRequestInput, SignEntryInput } from './types';
+import {
+  AddEntryAttachmentInput,
+  AttachGearToEntryInput,
+  CompleteRemoteSignatureRequestInput,
+  CreateAmendmentInput,
+  CreateEntryInput,
+  CreateEntryTemplateInput,
+  CreateRemoteSignatureRequestInput,
+  RemoveGearFromEntryInput,
+  SignEntryInput,
+} from './types';
 
 export function useEntries() {
   return useQuery({
@@ -17,6 +27,13 @@ export function useDashboardSummary() {
   });
 }
 
+export function useCareerStats() {
+  return useQuery({
+    queryKey: ['careerStats'],
+    queryFn: () => createLogbookService(getClient()).getCareerStats(),
+  });
+}
+
 export function useEntryDetail(entryId: string | null) {
   return useQuery({
     enabled: Boolean(entryId),
@@ -28,6 +45,17 @@ export function useEntryDetail(entryId: string | null) {
   });
 }
 
+export function useRemoteSignatureRequestDetail(requestCode: string | null) {
+  return useQuery({
+    enabled: Boolean(requestCode),
+    queryKey: ['remoteSignatureRequest', requestCode],
+    queryFn: () => {
+      if (!requestCode) throw new Error('remote_request_code_required');
+      return createLogbookService(getClient()).getRemoteSignatureRequestDetail(requestCode);
+    },
+  });
+}
+
 export function useCreateEntry() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -35,7 +63,34 @@ export function useCreateEntry() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['careerStats'] });
+      queryClient.invalidateQueries({ queryKey: ['entryTemplates'] });
     },
+  });
+}
+
+export function useEntryTemplates() {
+  return useQuery({
+    queryKey: ['entryTemplates'],
+    queryFn: () => createLogbookService(getClient()).listEntryTemplates(),
+  });
+}
+
+export function useCreateEntryTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateEntryTemplateInput) =>
+      createLogbookService(getClient()).createEntryTemplate(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entryTemplates'] });
+    },
+  });
+}
+
+export function useSupervisorContacts() {
+  return useQuery({
+    queryKey: ['supervisorContacts'],
+    queryFn: () => createLogbookService(getClient()).listSupervisorContacts(),
   });
 }
 
@@ -46,6 +101,7 @@ export function useCreateAmendment() {
     onSuccess: (entry, input) => {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['careerStats'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', input.entry_id] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', entry.id] });
     },
@@ -59,6 +115,8 @@ export function useSignEntryLocal() {
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['careerStats'] });
+      queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
@@ -75,7 +133,79 @@ export function useCreateRemoteSignatureRequest() {
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
     },
+  });
+}
+
+export function useCompleteRemoteSignatureRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CompleteRemoteSignatureRequestInput) =>
+      createLogbookService(getClient()).completeRemoteSignatureRequest(input),
+    onSuccess: (detail, input) => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['careerStats'] });
+      queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
+      queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['remoteSignatureRequest', input.request_code] });
+      if (detail.entry.amends_entry_id) {
+        queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
+      }
+    },
+  });
+}
+
+export function useAttachGearToEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AttachGearToEntryInput) =>
+      createLogbookService(getClient()).attachGearToEntry(input),
+    onSuccess: (detail) => {
+      queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+    },
+  });
+}
+
+export function useRemoveGearFromEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: RemoveGearFromEntryInput) =>
+      createLogbookService(getClient()).removeGearFromEntry(input),
+    onSuccess: (detail) => {
+      queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+    },
+  });
+}
+
+export function useAddEntryAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AddEntryAttachmentInput) =>
+      createLogbookService(getClient()).addEntryAttachment(input),
+    onSuccess: (detail) => {
+      queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+    },
+  });
+}
+
+export function useExportLogbook() {
+  return useMutation({
+    mutationFn: () => createLogbookService(getClient()).exportLogbook(),
+  });
+}
+
+export function useExportLogbookCsv() {
+  return useMutation({
+    mutationFn: () => createLogbookService(getClient()).exportLogbookCsv(),
+  });
+}
+
+export function useExportEntryPacket() {
+  return useMutation({
+    mutationFn: (entryId: string) => createLogbookService(getClient()).exportEntryPacket(entryId),
   });
 }

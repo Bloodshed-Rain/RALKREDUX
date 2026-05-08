@@ -1,10 +1,12 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, Text, ViewStyle } from 'react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import { useTheme } from '../theme/theme-provider';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
+  icon?: LucideIcon;
   variant?: 'primary' | 'secondary' | 'ghost';
   disabled?: boolean;
   loading?: boolean;
@@ -14,6 +16,7 @@ interface ButtonProps {
 export function Button({
   title,
   onPress,
+  icon: Icon,
   variant = 'primary',
   disabled = false,
   loading = false,
@@ -22,6 +25,11 @@ export function Button({
   const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const isPrimary = variant === 'primary';
   const isGhost = variant === 'ghost';
+  const contentColor = disabled
+    ? colors.textMuted
+    : isPrimary
+      ? colors.textInverse
+      : colors.accentPrimary;
 
   return (
     <Pressable
@@ -52,15 +60,12 @@ export function Button({
       })}
     >
       {loading ? <ActivityIndicator color={isPrimary ? colors.textInverse : colors.accentPrimary} /> : null}
+      {!loading && Icon ? <Icon size={18} color={contentColor} strokeWidth={2.2} /> : null}
       <Text
         selectable={false}
         style={{
           ...typography.label,
-          color: disabled
-            ? colors.textMuted
-            : isPrimary
-              ? colors.textInverse
-              : colors.accentPrimary,
+          color: contentColor,
         }}
       >
         {title}
@@ -68,4 +73,3 @@ export function Button({
     </Pressable>
   );
 }
-

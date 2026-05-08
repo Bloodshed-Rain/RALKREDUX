@@ -25,7 +25,7 @@ The rebuild folder is:
 
 `C:\Users\MC\Desktop\RALB-Codex-Edition`
 
-This folder was not initialized as a git repository during the initial rebuild work. Use filesystem awareness carefully, and do not assume `git status` is available.
+This folder is currently a git repository on `main`. Use normal status/diff checks, but keep unrelated local changes intact.
 
 Key docs:
 
@@ -69,11 +69,43 @@ The first local-first slice is live:
   - pending request code
   - requested entry hash and hash version
   - pending request display on entry detail
+  - verifier signing route at `app/verify/[code].tsx`
+  - remote completion transaction writes a `remote` signature, completes the request, and locks the entry
   - local signing cancels pending remote requests
+  - requests now store an expiry, token hash, token hint, and completion timestamp fields for the secure-link path
+- Audit export:
+  - JSON bundle from the Records tab
+  - CSV export from the Records tab
+  - single-entry JSON audit packet from signed/amended entry detail
+  - single-entry PDF export from signed/amended entry detail using the same packet data
+  - profile context
+  - signed and amended entries by default
+  - signatures, entry hashes, hash-chain fields, gear usage, evidence attachments, supervisor contacts, and summary totals
+- Backup/restore:
+  - `src/domain/backup/*` creates local recovery snapshots
+  - snapshots include profile, entries, signatures, remote requests, supervisors, gear, inspections, entry gear usage, attachments, and templates
+  - Profile tab can share a snapshot and restore from pasted snapshot JSON
 - Amendments:
   - signed entries remain locked
   - replacement amendment drafts can be created
   - signing an amendment marks the original as amended
+- Gear inventory:
+  - bundled 767-row rope-access gear catalog seeded from `src/db/seeds/gear-catalog.json`
+  - make/model autocomplete filtered by gear type in the Gear tab
+  - catalog matches are convenience only; free-form gear entry still works
+  - add local gear items with category, serial number, and next inspection due date
+  - due status calculation for current, due soon, overdue, unscheduled, and retired gear
+  - log pass, pass-with-concerns, and fail inspections
+  - failed gear is retired and blocked from later inspection updates
+  - draft entries can attach active gear so signed records preserve equipment history
+- Entry speed and evidence:
+  - seeded smart entry templates for tower inspection, bridge maintenance, and rescue standby
+  - user-created entry templates from the new-entry form
+  - duplicate-last-entry action for fast repeated field logging
+  - native photo picker evidence attachments on draft entries
+- Supervisor mode:
+  - local and remote signing save supervisor contacts
+  - local signing and remote request forms can reuse known supervisors
 - Dashboard totals:
   - total entries
   - draft entries
@@ -82,6 +114,13 @@ The first local-first slice is live:
   - pending signatures
   - draft hours
   - signed hours
+  - cert expiry readiness
+  - overdue/due-soon gear counts
+  - career stats and top work-task hour buckets
+- UX cleanup:
+  - Dashboard, Records, Gear, Profile, entry detail, new entry, remote verifier, setup, amendment, and remote-request screens have been reduced toward compact cards, chips, icons, and sticky primary actions.
+  - First-run setup now supports explicit SPRAT/IRATA Level I/II/III selection instead of defaulting every profile to Level II.
+  - Remote request creation now separates required verifier identity from optional role/company details.
 
 ## Important Product Decisions
 
@@ -91,32 +130,36 @@ The first local-first slice is live:
 - Remote signing should eventually send a secure request link to a verifier so they can sign from their own phone/tablet/computer without needing to install the app.
 - Remote signing should not merely be "someone clicked a link." It needs signer identity, request expiry, one-time token behavior, entry hash, timestamps, attestation, and eventually audit metadata.
 - SPRAT/IRATA acceptance is very important to the user, but the product must stay honest until written approval is obtained.
-- The best next product layer is audit/export packets before full remote-signature completion.
+- The next remote-signature layer should turn local request codes into real hosted, one-time verifier links with server-side token checks.
 
 ## Key Source Map
 
 Routes:
 
 - `app/index.tsx`: redirects to setup or dashboard.
-- `app/(onboarding)/setup.tsx`: local profile setup.
+- `app/(onboarding)/setup.tsx`: compact local profile setup with scheme/level chips.
 - `app/(tabs)/dashboard.tsx`: dashboard and summary.
-- `app/(tabs)/records.tsx`: entry list.
-- `app/(tabs)/gear.tsx`: placeholder gear tab.
-- `app/(tabs)/profile.tsx`: profile display.
-- `app/entry/new.tsx`: draft entry form.
-- `app/entry/[id].tsx`: entry detail, signature state, remote request state.
-- `app/entry/[id]/sign.tsx`: local touch-signature flow.
-- `app/entry/[id]/request-signature.tsx`: pending remote request form.
-- `app/entry/[id]/amend.tsx`: amendment draft form.
+- `app/(tabs)/records.tsx`: entry list and JSON audit export.
+- `app/(tabs)/gear.tsx`: gear inventory, inspection logging, and due-status list.
+- `app/(tabs)/profile.tsx`: profile display plus backup/restore snapshot actions.
+- `app/entry/new.tsx`: draft entry form, templates, duplicate-last-entry action.
+- `app/entry/[id].tsx`: entry detail, gear usage, evidence, signature state, remote request state.
+- `app/entry/[id]/sign.tsx`: local touch-signature flow with known-supervisor reuse.
+- `app/entry/[id]/request-signature.tsx`: compact remote request form with readiness summary, known-supervisor reuse, and optional verifier details.
+- `app/entry/[id]/amend.tsx`: amendment draft form with grouped work/method/time sections and missing-field summary.
+- `app/verify/[code].tsx`: verifier-facing remote signature completion route.
 
 Domain:
 
 - `src/domain/logbook/types.ts`: logbook entry, signature, request, dashboard types.
 - `src/domain/logbook/logbook-service.ts`: local SQLite-backed logbook operations.
 - `src/domain/logbook/use-logbook.ts`: React Query hooks.
+- `src/domain/logbook/export.ts`: JSON packet, CSV, PDF HTML, and export filename builders.
 - `src/domain/logbook/entry-hash.ts`: canonical entry hashing.
 - `src/domain/logbook/entry-readiness.ts`: required-field gate before verification.
+- `src/domain/backup/*`: local recovery snapshot create/restore.
 - `src/domain/profile/*`: profile model/service/hooks.
+- `src/domain/gear/*`: gear inventory model/service/hooks.
 
 Data:
 
@@ -132,7 +175,10 @@ UI:
 Tests:
 
 - `__tests__/db/migrations.test.ts`
+- `__tests__/domain/logbook-export.test.ts`
 - `__tests__/domain/logbook-service.test.ts`
+- `__tests__/domain/gear-service.test.ts`
+- `__tests__/domain/backup-service.test.ts`
 
 ## Current Schema Notes
 
@@ -144,6 +190,8 @@ Current migrations:
 4. `drawn-signatures-and-attestation`
 5. `remote-signature-requests`
 6. `scheme-work-log-fields`
+7. `gear-catalog`
+8. `field-ops-foundation`
 
 The entry hash version is currently `2` in `src/domain/logbook/entry-hash.ts`. Version 2 includes the scheme-oriented work-log fields, max height, and height unit. If export fixtures are added, lock expectations around this version.
 
@@ -152,15 +200,15 @@ The entry hash version is currently `2` in `src/domain/logbook/entry-hash.ts`. V
 Last known good checks:
 
 ```bash
-npm.cmd run typecheck
-npm.cmd test -- --runInBand
+.\node_modules\.bin\tsc.cmd --noEmit
+.\node_modules\.bin\jest.cmd --runInBand
 ```
 
-Result: TypeScript passed, Jest passed with 12 tests.
+Result: TypeScript passed, Jest passed with 27 tests.
 
-Last browser smoke target:
+Last phone preview target:
 
-`http://localhost:8091`
+`exp://192.168.86.143:8081`
 
 Last smoke flow passed:
 
@@ -172,37 +220,21 @@ Last smoke flow passed:
 6. Confirm pending request status, verifier, request code, requested hash.
 7. Confirm no unmatched route and no console/page errors.
 
-To restart web preview:
+To restart the phone preview:
 
 ```bash
-npm.cmd run web -- --clear --host localhost --port 8091
+npm.cmd run start -- --host lan
 ```
 
 ## Recommended Next Step
 
-Build the audit/export packet layer.
+Continue by turning the new foundations into deeper product flows:
 
-Suggested first deliverable:
-
-- Add a domain function that creates a deterministic JSON verification packet for a signed entry.
-- Include:
-  - full entry fields
-  - scheme-oriented work-log fields
-  - signature details
-  - attestation text
-  - entry hash and hash version
-  - amendment/original entry relationship
-  - export metadata
-- Add Jest fixtures so the packet format becomes stable.
-- Add an entry-detail action to preview/copy/export the JSON packet.
-
-After that, build:
-
-1. PDF export using the same packet.
-2. CSV export for employer/audit review.
-3. Remote signer completion flow with secure tokens and a public signing page.
-4. Gear inventory and inspection module.
-5. Cloud backup/restore with explicit conflict and signed-record verification.
+1. Hosted remote signing link with server-side one-time token validation.
+2. Cloud backup storage and conflict resolution on top of the local snapshot format.
+3. Local signing screen cleanup, especially signature-pad ergonomics and supervisor attestation density.
+4. Gear detail/history screens if inline entry and gear tabs become too dense.
+5. Visual export preview and full-logbook PDF if reviewer feedback calls for it.
 6. Native iOS/Android QA builds.
 
 ## User Testing Help Needed

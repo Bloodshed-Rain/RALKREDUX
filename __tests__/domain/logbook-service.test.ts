@@ -1,6 +1,8 @@
 import { createTestClient } from '../setup';
+import { createGearService } from '@/src/domain/gear/gear-service';
 import { createLogbookService } from '@/src/domain/logbook/logbook-service';
 import { CreateEntryInput } from '@/src/domain/logbook/types';
+import { createProfileService } from '@/src/domain/profile/profile-service';
 
 let mockUuidCounter = 0;
 
@@ -84,6 +86,8 @@ describe('logbook service', () => {
         signer_attestation: 'Verified in person.',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted_at: '2026-05-08T10:00:00.000Z',
+        previous_chain_hash: null,
+        chain_hash: expect.stringMatching(/^sha256:/),
       }),
     );
     expect(detail.signature?.entry_hash).toMatch(/^sha256:/);
@@ -210,6 +214,8 @@ describe('logbook service', () => {
         verifier_company: 'Northwind Rope',
         status: 'pending',
         hash_version: 2,
+        signing_token_hash: expect.stringMatching(/^sha256:/),
+        token_hint: expect.any(String),
       }),
     );
     expect(detail.remote_request?.request_code).toHaveLength(10);
@@ -255,6 +261,68 @@ describe('logbook service', () => {
     expect(summary.pendingSignatureRequests).toBe(0);
   });
 
+  it('completes a pending remote request and signs the entry remotely', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Inspected anchor array.', work_hours: 4 }));
+    const requested = await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'Jordan Lee',
+      recipient_contact: 'jordan@example.com',
+      verifier_role: 'SPRAT L3',
+      verifier_company: 'Northwind Rope',
+    });
+    const requestCode = requested.remote_request?.request_code;
+
+    expect(requestCode).toBeTruthy();
+    const requestDetail = await service.getRemoteSignatureRequestDetail(requestCode!);
+    expect(requestDetail?.request.status).toBe('pending');
+    expect(requestDetail?.entry.id).toBe(entry.id);
+
+    const signed = await service.completeRemoteSignatureRequest({
+      request_code: requestCode!,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+      signer_attestation: 'Verified remotely.',
+      signed_at: '2026-05-08T11:00:00.000Z',
+    });
+
+    const completedRequest = await service.getRemoteSignatureRequestDetail(requestCode!);
+    const summary = await service.getDashboardSummary();
+
+    expect(signed.entry.status).toBe('signed');
+    expect(signed.entry.pending_signature_id).toBeNull();
+    expect(signed.signature).toEqual(
+      expect.objectContaining({
+        entry_id: entry.id,
+        supervisor_name: 'Jordan Lee',
+        supervisor_cert_number: 'SPRAT-1234',
+        method: 'remote',
+        remote_request_id: requested.remote_request?.id,
+        signer_attestation: 'Verified remotely.',
+        signed_at: '2026-05-08T11:00:00.000Z',
+        chain_hash: expect.stringMatching(/^sha256:/),
+      }),
+    );
+    expect(completedRequest?.request.status).toBe('completed');
+    expect(completedRequest?.request.completed_at).toBe('2026-05-08T11:00:00.000Z');
+    expect(completedRequest?.request.completed_signature_id).toBe(signed.signature?.id);
+    expect(completedRequest?.signature?.id).toBe(signed.signature?.id);
+    expect(summary.pendingSignatureRequests).toBe(0);
+
+    await expect(
+      service.completeRemoteSignatureRequest({
+        request_code: requestCode!,
+        supervisor_name: 'Jordan Lee',
+        supervisor_cert_number: 'SPRAT-1234',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('remote_request_not_pending');
+  });
+
   it('blocks verification when scheme work-log fields are incomplete', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
@@ -277,5 +345,161 @@ describe('logbook service', () => {
         attestation_accepted: true,
       }),
     ).rejects.toThrow('entry_incomplete');
+  });
+
+  it('supports templates, entry gear links, evidence attachments, and career stats', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const gearService = createGearService(db);
+
+    const template = await service.createEntryTemplate({
+      name: 'Wind turbine inspection',
+      employer: 'Northwind Rope',
+      client: 'Wind Co',
+      work_task: 'Inspection',
+      access_method: 'Two-rope access',
+      structure_type: 'Wind turbine',
+      description: 'Inspected tower internals and nacelle access route.',
+      work_hours: 9,
+      max_height: 240,
+      height_unit: 'ft',
+    });
+
+    const entry = await service.createDraft(draftInput({
+      template_id: template.id,
+      site: 'Turbine 4',
+      work_task: template.work_task,
+      access_method: template.access_method,
+      structure_type: template.structure_type,
+      description: template.description,
+      work_hours: template.work_hours,
+      max_height: template.max_height ?? 0,
+    }));
+    const harness = await gearService.createGearItem({
+      name: 'Avao Bod',
+      category: 'harness',
+      serial_number: 'H-123',
+      next_inspection_due: '2026-06-01',
+    });
+
+    const withGear = await service.attachGearToEntry({
+      entry_id: entry.id,
+      gear_id: harness.id,
+      role: 'primary harness',
+    });
+    const withAttachment = await service.addEntryAttachment({
+      entry_id: entry.id,
+      label: 'Anchor photo',
+      uri: 'file:///anchor.jpg',
+      mime_type: 'image/jpeg',
+    });
+    const templates = await service.listEntryTemplates();
+    const stats = await service.getCareerStats();
+
+    expect(templates.find((row) => row.id === template.id)?.last_used_at).toEqual(expect.any(String));
+    expect(withGear.gear_usage).toHaveLength(1);
+    expect(withGear.gear_usage[0].gear.serial_number).toBe('H-123');
+    expect(withAttachment.attachments).toEqual([
+      expect.objectContaining({
+        label: 'Anchor photo',
+        uri: 'file:///anchor.jpg',
+      }),
+    ]);
+    expect(stats.totalHours).toBe(9);
+    expect(stats.byTask[0]).toEqual({ label: 'Inspection', hours: 9, entries: 1 });
+  });
+
+  it('exports signed audit records with profile context and signature hashes', async () => {
+    const db = await createTestClient();
+    const profileService = createProfileService(db);
+    const service = createLogbookService(db);
+
+    await profileService.createProfile({
+      full_name: 'Mina Carter',
+      primary_scheme: 'sprat',
+      sprat_id: 'S-12345',
+      sprat_level: 'III',
+      sprat_expires_on: '2027-05-08',
+    });
+
+    const signedEntry = await service.createDraft(
+      draftInput({ date_from: '2026-05-01', site: 'Tower A', work_hours: 8 }),
+    );
+    const draftEntry = await service.createDraft(
+      draftInput({ date_from: '2026-05-02', site: 'Tower B', work_hours: 6 }),
+    );
+
+    await service.signEntryLocal({
+      entry_id: signedEntry.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+      signed_at: '2026-05-08T10:00:00.000Z',
+    });
+
+    const bundle = await service.exportLogbook();
+
+    expect(bundle).toEqual(
+      expect.objectContaining({
+        export_schema_version: 2,
+        app_flavor: 'ralb-codex-edition',
+        exported_at: expect.any(String),
+        profile: expect.objectContaining({
+          full_name: 'Mina Carter',
+          sprat_level: 'III',
+        }),
+        summary: {
+          entry_count: 1,
+          signed_entry_count: 1,
+          amended_entry_count: 0,
+          draft_entry_count: 0,
+          signed_hours: 8,
+        },
+      }),
+    );
+    expect(bundle.entries).toHaveLength(1);
+    expect(bundle.entries[0].entry.id).toBe(signedEntry.id);
+    expect(bundle.entries[0].entry.id).not.toBe(draftEntry.id);
+    expect(bundle.entries[0].signature).toEqual(
+      expect.objectContaining({
+        entry_id: signedEntry.id,
+        entry_hash: expect.stringMatching(/^sha256:/),
+        hash_version: 2,
+      }),
+    );
+  });
+
+  it('exports a single signed entry packet and reviewer CSV', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(
+      draftInput({ site: 'Tower A, North Face', date_from: '2026-05-01', work_hours: 8 }),
+    );
+
+    await expect(service.exportEntryPacket(entry.id)).rejects.toThrow('entry_not_exportable');
+
+    await service.signEntryLocal({
+      entry_id: entry.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+      signed_at: '2026-05-08T10:00:00.000Z',
+    });
+
+    const packet = await service.exportEntryPacket(entry.id);
+    const csv = await service.exportLogbookCsv();
+
+    expect(packet.entry.id).toBe(entry.id);
+    expect(packet.verification).toEqual(
+      expect.objectContaining({
+        hash_version: 2,
+        signature_method: 'local',
+        signed_at: '2026-05-08T10:00:00.000Z',
+      }),
+    );
+    expect(csv).toContain('"Tower A, North Face"');
+    expect(csv).toContain('Jordan Lee,SPRAT-1234');
   });
 });

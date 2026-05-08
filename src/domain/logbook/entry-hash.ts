@@ -48,3 +48,39 @@ export function canonicalizeEntry(entry: LogbookEntry): string {
 export async function hashEntry(entry: LogbookEntry): Promise<string> {
   return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, canonicalizeEntry(entry));
 }
+
+export async function hashSignatureChain(input: {
+  entryHash: string;
+  signatureId: string;
+  signedAt: string;
+  method: string;
+  previousChainHash: string | null;
+  remoteRequestId?: string | null;
+}): Promise<string> {
+  return Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    stableStringify({
+      schema: 'ralb.logbook.signature-chain',
+      version: ENTRY_HASH_VERSION,
+      previous_chain_hash: input.previousChainHash,
+      signature: {
+        entry_hash: input.entryHash,
+        id: input.signatureId,
+        method: input.method,
+        remote_request_id: input.remoteRequestId ?? null,
+        signed_at: input.signedAt,
+      },
+    }),
+  );
+}
+
+export async function hashRemoteSigningToken(token: string): Promise<string> {
+  return Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    stableStringify({
+      schema: 'ralb.remote-signing-token',
+      token,
+      version: 1,
+    }),
+  );
+}

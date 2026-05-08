@@ -1,3 +1,4 @@
+export { ActionTile } from './action-tile';
 export { Button } from './button';
 export { Card } from './card';
 export { CheckboxRow } from './checkbox-row';

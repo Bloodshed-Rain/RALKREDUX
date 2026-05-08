@@ -1,14 +1,200 @@
+import React from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
+import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Text, View } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import {
+  BadgeCheck,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  Camera,
+  Clock3,
+  Eye,
+  FileJson,
+  FileText,
+  HardHat,
+  Hash,
+  Image,
+  MapPin,
+  PenLine,
+  Plus,
+  Ruler,
+  Send,
+  Share2,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+} from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
+import { Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
+import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
-import { useEntryDetail } from '@/src/domain/logbook/use-logbook';
+import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
+import {
+  useAddEntryAttachment,
+  useAttachGearToEntry,
+  useEntryDetail,
+  useExportEntryPacket,
+  useRemoveGearFromEntry,
+} from '@/src/domain/logbook/use-logbook';
 import { Button, Card, Screen, StatRow } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] : value;
+}
+
+function statusLabel(status: string): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function statusTone(status: string): 'ok' | 'warn' | 'info' {
+  if (status === 'signed') return 'ok';
+  if (status === 'amended') return 'info';
+  return 'warn';
+}
+
+function Pill({
+  label,
+  icon: Icon,
+  tone = 'info',
+}: {
+  label: string;
+  icon?: LucideIcon;
+  tone?: 'ok' | 'warn' | 'err' | 'info' | 'neutral';
+}) {
+  const { colors, radii, spacing, typography } = useTheme();
+  const toneColor = tone === 'ok'
+    ? colors.statusOk
+    : tone === 'warn'
+      ? colors.statusWarn
+      : tone === 'err'
+        ? colors.statusErr
+        : tone === 'neutral'
+          ? colors.textSecondary
+          : colors.statusInfo;
+  const toneBg = tone === 'ok'
+    ? colors.statusOkTint
+    : tone === 'warn'
+      ? colors.statusWarnTint
+      : tone === 'err'
+        ? colors.statusErrTint
+        : tone === 'neutral'
+          ? colors.bgMuted
+          : colors.statusInfoTint;
+
+  return (
+    <View
+      style={{
+        minHeight: 30,
+        alignSelf: 'flex-start',
+        borderRadius: radii.pill,
+        backgroundColor: toneBg,
+        paddingHorizontal: spacing.sm,
+        alignItems: 'center',
+        flexDirection: 'row',
+        gap: spacing.xs,
+      }}
+    >
+      {Icon ? <Icon size={14} color={toneColor} strokeWidth={2.2} /> : null}
+      <Text selectable={false} style={{ ...typography.caption, color: toneColor }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: LucideIcon;
+}) {
+  const { colors, radii, spacing, typography } = useTheme();
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        minWidth: 118,
+        borderRadius: radii.sm,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.bgSurface,
+        padding: spacing.md,
+        gap: spacing.sm,
+      }}
+    >
+      <Icon size={18} color={colors.textSecondary} strokeWidth={2.1} />
+      <View style={{ gap: spacing.xs }}>
+        <Text selectable style={{ ...typography.label, color: colors.textPrimary }} numberOfLines={2}>
+          {value}
+        </Text>
+        <Text selectable={false} style={{ ...typography.caption, color: colors.textSecondary }}>
+          {label}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function SectionHeader({
+  title,
+  count,
+  icon: Icon,
+}: {
+  title: string;
+  count?: number;
+  icon: LucideIcon;
+}) {
+  const { colors, spacing, typography } = useTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Icon size={18} color={colors.textSecondary} strokeWidth={2.1} />
+        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+          {title}
+        </Text>
+      </View>
+      {typeof count === 'number' ? <Pill label={String(count)} tone="neutral" /> : null}
+    </View>
+  );
+}
+
+function CompactRow({
+  title,
+  meta,
+  trailing,
+}: {
+  title: string;
+  meta?: string | null;
+  trailing?: React.ReactNode;
+}) {
+  const { colors, spacing, typography } = useTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+      <View style={{ flex: 1, gap: spacing.xs }}>
+        <Text selectable style={{ ...typography.bodyMed, color: colors.textPrimary }} numberOfLines={2}>
+          {title}
+        </Text>
+        {meta ? (
+          <Text selectable style={{ ...typography.caption, color: colors.textSecondary }} numberOfLines={2}>
+            {meta}
+          </Text>
+        ) : null}
+      </View>
+      {trailing}
+    </View>
+  );
 }
 
 function HashPreview({ value }: { value: string }) {
@@ -60,9 +246,22 @@ export default function EntryDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
+  const exportEntry = useExportEntryPacket();
+  const gearItems = useGearItems();
+  const attachGear = useAttachGearToEntry();
+  const removeGear = useRemoveGearFromEntry();
+  const addAttachment = useAddEntryAttachment();
+  const [isPdfPending, setIsPdfPending] = React.useState(false);
+  const [pdfFailed, setPdfFailed] = React.useState(false);
   const entry = detail.data?.entry;
   const signature = detail.data?.signature;
   const remoteRequest = detail.data?.remote_request;
+  const gearUsage = detail.data?.gear_usage ?? [];
+  const attachments = detail.data?.attachments ?? [];
+  const assignedGearIds = new Set(gearUsage.map(({ gear }) => gear.id));
+  const attachableGear = (gearItems.data ?? [])
+    .filter(({ item, status }) => !assignedGearIds.has(item.id) && status !== 'retired')
+    .slice(0, 6);
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
 
   if (detail.isLoading) {
@@ -90,61 +289,285 @@ export default function EntryDetailScreen() {
 
   const dateLabel = entry.date_from === entry.date_to ? entry.date_from : `${entry.date_from} to ${entry.date_to}`;
 
-  return (
-    <Screen>
-      <Card>
-        <View style={{ gap: spacing.xs }}>
-          <Text selectable style={{ ...typography.caption, color: colors.textSecondary, textTransform: 'uppercase' }}>
-            {entry.status}
-          </Text>
-          <Text selectable style={{ ...typography.title1, color: colors.textPrimary }}>
-            {entry.site}
-          </Text>
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            {entry.employer} - {entry.client}
-          </Text>
+  async function shareEntryPacket() {
+    if (!entryId) return;
+    const packet = await exportEntry.mutateAsync(entryId);
+    await Share.share({
+      title: 'RALB entry audit packet',
+      message: JSON.stringify(packet, null, 2),
+    });
+  }
+
+  async function shareEntryPdf() {
+    if (!entryId) return;
+    setIsPdfPending(true);
+    setPdfFailed(false);
+    try {
+      const packet = await exportEntry.mutateAsync(entryId);
+      const { uri } = await Print.printToFileAsync({ html: buildEntryPdfHtml(packet) });
+      const fileName = buildEntryExportFileName(packet, 'pdf');
+      const namedUri = FileSystem.cacheDirectory ? `${FileSystem.cacheDirectory}${fileName}` : uri;
+
+      if (namedUri !== uri) {
+        await FileSystem.deleteAsync(namedUri, { idempotent: true });
+        await FileSystem.copyAsync({ from: uri, to: namedUri });
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(namedUri, {
+          dialogTitle: 'Share RALB entry PDF',
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        await Share.share({
+          title: 'RALB entry PDF',
+          message: namedUri,
+        });
+      }
+    } catch {
+      setPdfFailed(true);
+    } finally {
+      setIsPdfPending(false);
+    }
+  }
+
+  async function shareVerifierRequest() {
+    if (!remoteRequest || !entry) return;
+    const deepLink = `ralb://verify/${remoteRequest.request_code}`;
+    await Share.share({
+      title: 'RALB remote signature request',
+      message: [
+        `Please review and sign this RALB work entry for ${entry.site}.`,
+        `Request code: ${remoteRequest.request_code}`,
+        `Expires: ${remoteRequest.expires_at ? remoteRequest.expires_at.slice(0, 10) : 'not set'}`,
+        `Open in RALB: ${deepLink}`,
+      ].join('\n'),
+    });
+  }
+
+  async function addPhotoEvidence() {
+    if (!entryId || entry?.status !== 'draft') return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.75,
+    });
+    if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
+    addAttachment.mutate({
+      entry_id: entryId,
+      label: asset.fileName || 'Evidence photo',
+      uri: asset.uri,
+      mime_type: asset.mimeType ?? 'image/jpeg',
+    });
+  }
+
+  const footer = (
+    <View style={{ gap: spacing.sm }}>
+      {entry.status === 'draft' && !remoteRequest ? (
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <Button
+            title="Sign"
+            icon={PenLine}
+            onPress={() => router.push(`/entry/${entry.id}/sign`)}
+            style={{ flex: 1 }}
+          />
+          <Button
+            title="Request"
+            icon={Send}
+            variant="secondary"
+            onPress={() => router.push(`/entry/${entry.id}/request-signature`)}
+            style={{ flex: 1 }}
+          />
         </View>
-        <StatRow label="Date" value={dateLabel} />
-        <StatRow label="Hours" value={entry.work_hours.toFixed(1)} />
-        <StatRow label="Max height" value={entry.max_height === null ? '-' : `${entry.max_height.toFixed(0)} ${entry.height_unit}`} />
-        <StatRow label="SPRAT level" value={entry.sprat_level_snapshot ?? '-'} />
-        <StatRow label="IRATA level" value={entry.irata_level_snapshot ?? '-'} />
+      ) : null}
+
+      {remoteRequest ? (
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <Button
+            title="Share"
+            icon={Share2}
+            onPress={shareVerifierRequest}
+            style={{ flex: 1 }}
+          />
+          <Button
+            title="Preview"
+            icon={Eye}
+            variant="secondary"
+            onPress={() => router.push(`/verify/${remoteRequest.request_code}`)}
+            style={{ flex: 1 }}
+          />
+        </View>
+      ) : null}
+
+      {entry.status === 'signed' || entry.status === 'amended' ? (
+        <View style={{ gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Button
+              title={isPdfPending ? 'PDF' : 'PDF'}
+              icon={FileText}
+              onPress={shareEntryPdf}
+              disabled={exportEntry.isPending || isPdfPending}
+              loading={isPdfPending}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title="Packet"
+              icon={FileJson}
+              onPress={shareEntryPacket}
+              variant="secondary"
+              disabled={exportEntry.isPending || isPdfPending}
+              style={{ flex: 1 }}
+            />
+          </View>
+          {entry.status === 'signed' ? (
+            <Button
+              title="Amend"
+              icon={PenLine}
+              variant="ghost"
+              onPress={() => router.push(`/entry/${entry.id}/amend`)}
+            />
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+  const maxHeightLabel = !entry.max_height || entry.max_height <= 0
+    ? '-'
+    : `${entry.max_height.toFixed(0)} ${entry.height_unit}`;
+  const employerClient = [entry.employer, entry.client].filter(Boolean).join(' - ') || 'No employer/client';
+
+  return (
+    <Screen footer={footer}>
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md }}>
+          <View style={{ flex: 1, gap: spacing.sm }}>
+            <Pill label={statusLabel(entry.status)} icon={ShieldCheck} tone={statusTone(entry.status)} />
+            <Text selectable style={{ ...typography.title1, color: colors.textPrimary }}>
+              {entry.site}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+              <BriefcaseBusiness size={15} color={colors.textSecondary} strokeWidth={2.1} />
+              <Text selectable style={{ ...typography.body, color: colors.textSecondary, flex: 1 }} numberOfLines={2}>
+                {employerClient}
+              </Text>
+            </View>
+          </View>
+          <MapPin size={28} color={colors.accentPrimary} strokeWidth={2.1} />
+        </View>
+
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          <MiniStat label="Date" value={dateLabel} icon={CalendarDays} />
+          <MiniStat label="Hours" value={entry.work_hours.toFixed(1)} icon={Clock3} />
+          <MiniStat label="Height" value={maxHeightLabel} icon={Ruler} />
+        </View>
+      </Card>
+
+      <Card>
+        <SectionHeader title="Work" icon={Building2} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {entry.work_task ? <Pill label={entry.work_task} icon={BriefcaseBusiness} tone="neutral" /> : null}
+          {entry.access_method ? <Pill label={entry.access_method} icon={ShieldCheck} tone="neutral" /> : null}
+          {entry.structure_type ? <Pill label={entry.structure_type} icon={Building2} tone="neutral" /> : null}
+          {entry.sprat_level_snapshot ? <Pill label={`SPRAT ${entry.sprat_level_snapshot}`} tone="info" /> : null}
+          {entry.irata_level_snapshot ? <Pill label={`IRATA ${entry.irata_level_snapshot}`} tone="info" /> : null}
+        </View>
+        {entry.description ? (
+          <Text selectable style={{ ...typography.body, color: colors.textPrimary }}>
+            {entry.description}
+          </Text>
+        ) : null}
+        {readiness && !readiness.ready ? (
+          <Pill label={`Needs ${readiness.missingFields.length} fields`} icon={BadgeCheck} tone="warn" />
+        ) : null}
         {entry.amends_entry_id ? <StatRow label="Amends" value={entry.amends_entry_id.slice(0, 18)} /> : null}
       </Card>
 
       <Card>
-        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-          Work classification
-        </Text>
-        <StatRow label="Task" value={entry.work_task || '-'} />
-        <StatRow label="Access method" value={entry.access_method || '-'} />
-        <StatRow label="Structure" value={entry.structure_type || '-'} />
-        {readiness && !readiness.ready ? (
-          <Text selectable style={{ ...typography.caption, color: colors.statusWarn }}>
-            Missing before verification: {readiness.missingFields.join(', ')}
+        <SectionHeader title="Gear" count={gearUsage.length} icon={HardHat} />
+        {gearUsage.length ? (
+          gearUsage.map(({ gear, usage }) => (
+            <CompactRow
+              key={gear.id}
+              title={gear.name}
+              meta={[gear.category, gear.serial_number, usage.role].filter(Boolean).join(' - ')}
+              trailing={entry.status === 'draft' ? (
+                <Button
+                  title="Remove"
+                  icon={Trash2}
+                  variant="ghost"
+                  onPress={() => removeGear.mutate({ entry_id: entry.id, gear_id: gear.id })}
+                  disabled={removeGear.isPending}
+                />
+              ) : null}
+            />
+          ))
+        ) : (
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            None
           </Text>
+        )}
+        {entry.status === 'draft' && attachableGear.length ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+              Attach active gear
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {attachableGear.map(({ item }) => (
+                <Button
+                  key={item.id}
+                  title={item.name}
+                  icon={Plus}
+                  variant="secondary"
+                  onPress={() => attachGear.mutate({ entry_id: entry.id, gear_id: item.id, role: item.category })}
+                  disabled={attachGear.isPending}
+                  style={{ minWidth: 132 }}
+                />
+              ))}
+            </View>
+          </View>
         ) : null}
       </Card>
 
       <Card>
-        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-          Work performed
-        </Text>
-        <Text selectable style={{ ...typography.body, color: colors.textPrimary }}>
-          {entry.description}
-        </Text>
+        <SectionHeader title="Evidence" count={attachments.length} icon={Image} />
+        {attachments.length ? (
+          attachments.map((attachment) => (
+            <CompactRow
+              key={attachment.id}
+              title={attachment.label}
+              meta={attachment.mime_type ?? attachment.uri}
+            />
+          ))
+        ) : (
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            None
+          </Text>
+        )}
+        {entry.status === 'draft' ? (
+          <Button
+            title={addAttachment.isPending ? 'Attaching' : 'Attach photo'}
+            icon={Camera}
+            variant="secondary"
+            onPress={addPhotoEvidence}
+            disabled={addAttachment.isPending}
+          />
+        ) : null}
       </Card>
 
       <Card>
-        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-          Signature
-        </Text>
+        <SectionHeader title="Verification" icon={Hash} />
         {signature ? (
           <>
-            <StatRow label="Method" value={signature.method} />
-            <StatRow label="Supervisor" value={signature.supervisor_name} />
-            <StatRow label="Cert" value={signature.supervisor_cert_number} />
-            <StatRow label="Signed" value={signature.signed_at.slice(0, 10)} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              <Pill label={signature.method} icon={BadgeCheck} tone="ok" />
+              <Pill label={signature.signed_at.slice(0, 10)} icon={CalendarDays} tone="neutral" />
+            </View>
+            <CompactRow
+              title={signature.supervisor_name}
+              meta={signature.supervisor_cert_number}
+              trailing={<UserRound size={20} color={colors.textSecondary} strokeWidth={2.1} />}
+            />
             {signature.signature_path ? <SignaturePreview value={signature.signature_path} /> : null}
             <View style={{ gap: spacing.xs }}>
               <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
@@ -152,14 +575,27 @@ export default function EntryDetailScreen() {
               </Text>
               <HashPreview value={signature.entry_hash} />
             </View>
+            {signature.chain_hash ? (
+              <View style={{ gap: spacing.xs }}>
+                <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+                  Chain hash
+                </Text>
+                <HashPreview value={signature.chain_hash} />
+              </View>
+            ) : null}
           </>
         ) : remoteRequest ? (
           <>
-            <StatRow label="Request status" value={remoteRequest.status} />
-            <StatRow label="Verifier" value={remoteRequest.recipient_name} />
-            <StatRow label="Contact" value={remoteRequest.recipient_contact ?? '-'} />
-            <StatRow label="Role" value={remoteRequest.verifier_role ?? '-'} />
-            <StatRow label="Code" value={remoteRequest.request_code} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              <Pill label={statusLabel(remoteRequest.status)} icon={Send} tone="warn" />
+              <Pill label={remoteRequest.request_code} tone="neutral" />
+            </View>
+            <CompactRow
+              title={remoteRequest.recipient_name}
+              meta={[remoteRequest.verifier_role, remoteRequest.verifier_company].filter(Boolean).join(' - ') || remoteRequest.recipient_contact}
+              trailing={<UserRound size={20} color={colors.textSecondary} strokeWidth={2.1} />}
+            />
+            <StatRow label="Expires" value={remoteRequest.expires_at ? remoteRequest.expires_at.slice(0, 10) : '-'} />
             <View style={{ gap: spacing.xs }}>
               <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
                 Requested entry hash
@@ -169,25 +605,15 @@ export default function EntryDetailScreen() {
           </>
         ) : (
           <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            This draft has not been signed yet.
+            Unsigned
           </Text>
         )}
       </Card>
 
-      {entry.status === 'draft' ? (
-        <Button title="Local sign" onPress={() => router.push(`/entry/${entry.id}/sign`)} />
-      ) : null}
-
-      {entry.status === 'draft' && !remoteRequest ? (
-        <Button
-          title="Request remote signature"
-          variant="secondary"
-          onPress={() => router.push(`/entry/${entry.id}/request-signature`)}
-        />
-      ) : null}
-
-      {entry.status === 'signed' ? (
-        <Button title="Create amendment" variant="secondary" onPress={() => router.push(`/entry/${entry.id}/amend`)} />
+      {exportEntry.isError || pdfFailed ? (
+        <Text selectable style={{ ...typography.caption, color: colors.statusErr }}>
+          Entry export failed.
+        </Text>
       ) : null}
     </Screen>
   );

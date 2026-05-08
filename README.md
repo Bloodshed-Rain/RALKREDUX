@@ -10,9 +10,9 @@ The original app is a serious offline-first Expo/React Native product: local SQL
 - `docs/rebuild-blueprint.md`: how I would build the new version.
 - `docs/sprat-irata-compliance-roadmap.md`: deferred but high-priority acceptance roadmap for scheme-specific logging.
 - `docs/CODEX_HANDOFF.md`: continuity note for future Codex sessions, including phone-based work.
-- `app/`: Expo Router routes for onboarding, tabs, entries, local signing, and amendments.
-- `src/`: app providers, SQLite migration ledger, local logbook/profile domain services, theme, and primitives.
-- `__tests__/`: first SQLite-backed migration and logbook service tests.
+- `app/`: Expo Router routes for onboarding, tabs, entries, local signing, amendments, export, and gear.
+- `src/`: app providers, SQLite migration ledger, local logbook/profile/gear domain services, theme, and primitives.
+- `__tests__/`: SQLite-backed migration, logbook, and gear service tests.
 
 ## Current State
 
@@ -25,9 +25,22 @@ The first local-first slice is live:
 - Open entry detail screens.
 - Locally sign draft entries with a drawn supervisor signature, attestation checkbox, and canonical entry hash.
 - Create pending remote supervisor signature requests with verifier contact, role/company metadata, request code, and requested entry hash.
+- Complete pending remote signature requests by code with verifier signature, attestation, and remote signature method.
+- Store expiring remote requests with token hashes, token hints, completion timestamps, and verifier identity metadata.
 - Block local signing and remote verification requests while required work-log fields are incomplete.
 - Lock signed records and create amendment drafts.
-- Track draft, signed, amended, and pending-signature dashboard totals.
+- Chain signed-entry hashes so audit packets can show tamper-evident chronology.
+- Share JSON and CSV audit exports for signed/amended records with profile context, signatures, hash chain, gear usage, evidence, and summary totals.
+- Generate and share a signed/amended entry PDF from the same audit packet data.
+- Share a single signed/amended entry audit packet from the entry detail screen.
+- Track draft, signed, amended, pending-signature, certification expiry, gear-due, and career-hours dashboard totals.
+- Add gear inventory items, track next inspection due dates, log inspections, and retire failed gear.
+- Attach active gear to draft work entries so signed records keep gear history.
+- Search a bundled 767-item rope-access gear catalog by make/model while filtering by gear type.
+- Attach photo evidence to draft entries from the native image picker.
+- Use and save smart entry templates, plus duplicate the most recent entry for fast field logging.
+- Reuse known supervisors in local signing and remote request flows.
+- Share and restore a local recovery snapshot containing entries, signatures, remote requests, gear, inspections, evidence, templates, supervisors, and profile data.
 - Carry a migration ledger from the first commit.
 
 The app is being built as a shared Expo codebase for iOS and Android. Web preview is kept working for fast development, but the product target remains native mobile.
@@ -36,6 +49,7 @@ Run it with:
 
 ```bash
 npm install
+npm run start -- --host lan
 npm run web -- --host localhost --port 8091
 npm run typecheck
 npm test
