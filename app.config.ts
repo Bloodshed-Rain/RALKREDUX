@@ -2,7 +2,7 @@ import type { ExpoConfig } from 'expo/config';
 
 export default (): ExpoConfig => ({
   name: 'RALB Codex Edition',
-  slug: 'ralb-codex-edition',
+  slug: 'ralb',
   version: '0.1.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -41,7 +41,7 @@ export default (): ExpoConfig => ({
   extra: {
     appFlavor: 'codex-edition',
     eas: {
-      projectId: '33d8a7e1-907a-4e57-b61e-3c9a818c6c1f',
+      projectId: '86367272-4f69-486f-9baf-27583a16ea70',
     },
   },
 });
