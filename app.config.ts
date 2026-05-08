@@ -40,5 +40,8 @@ export default (): ExpoConfig => ({
   plugins: ['expo-router', 'expo-sqlite'],
   extra: {
     appFlavor: 'codex-edition',
+    eas: {
+      projectId: '33d8a7e1-907a-4e57-b61e-3c9a818c6c1f',
+    },
   },
 });
