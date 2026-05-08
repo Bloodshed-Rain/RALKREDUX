@@ -12,7 +12,7 @@ export default (): ExpoConfig => ({
   runtimeVersion: { policy: 'fingerprint' },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.ropeaccess.logbook.codex',
+    bundleIdentifier: 'com.ropeaccess.logbook',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription: 'Attach work and certification photos to your logbook.',
