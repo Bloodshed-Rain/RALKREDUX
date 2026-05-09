@@ -5,6 +5,7 @@ import { createExpoClient } from './expo-client';
 import { runMigrations } from './migrations';
 
 let client: DbClient | null = null;
+let clientPromise: Promise<DbClient> | null = null;
 
 async function openAppDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (Platform.OS !== 'web') {
@@ -21,13 +22,23 @@ async function openAppDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 export async function initializeDatabase(): Promise<DbClient> {
   if (client) return client;
-  const sqlite = await openAppDatabase();
-  if (Platform.OS !== 'web') {
-    await sqlite.execAsync('PRAGMA journal_mode = WAL;');
-  }
-  client = createExpoClient(sqlite);
-  await runMigrations(client);
-  return client;
+  if (clientPromise) return clientPromise;
+
+  clientPromise = (async () => {
+    const sqlite = await openAppDatabase();
+    if (Platform.OS !== 'web') {
+      await sqlite.execAsync('PRAGMA journal_mode = WAL;');
+    }
+    const initializedClient = createExpoClient(sqlite);
+    await runMigrations(initializedClient);
+    client = initializedClient;
+    return initializedClient;
+  })().catch((error) => {
+    clientPromise = null;
+    throw error;
+  });
+
+  return clientPromise;
 }
 
 export function getClient(): DbClient {

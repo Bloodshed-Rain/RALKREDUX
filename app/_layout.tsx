@@ -23,7 +23,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false, title: 'RALB' }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false, title: 'Set up' }} />
+        <Stack.Screen name="(onboarding)/setup" options={{ headerShown: false, title: 'Set up' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'RALB' }} />
         <Stack.Screen name="entry/new" options={{ title: 'New entry', presentation: 'modal' }} />
         <Stack.Screen name="entry/[id]" options={{ title: 'Entry' }} />
