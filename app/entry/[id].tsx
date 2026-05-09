@@ -1,7 +1,7 @@
 import React from 'react';
-import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -50,15 +50,24 @@ function firstParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function localVerifierOrigin(): string | null {
+function webVerifierOrigin(): string | null {
   if (Platform.OS === 'web') {
     const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
     return origin && origin !== 'null' ? origin : null;
   }
 
-  const hostUri = Constants.expoConfig?.hostUri?.split('/')[0];
-  if (!hostUri) return null;
-  return /^https?:\/\//.test(hostUri) ? hostUri : `http://${hostUri}`;
+  return null;
+}
+
+function buildVerifierLink(request: Parameters<typeof buildRemoteSigningToken>[0]): string {
+  const token = buildRemoteSigningToken(request);
+  if (Platform.OS === 'web') {
+    return buildRemoteSigningUrl(request, { origin: webVerifierOrigin() });
+  }
+
+  return Linking.createURL(`/verify/${request.request_code}`, {
+    queryParams: { token },
+  });
 }
 
 function statusLabel(status: string): string {
@@ -352,7 +361,7 @@ export default function EntryDetailScreen() {
 
   async function shareVerifierRequest() {
     if (!remoteRequest || !entry) return;
-    const verifierLink = buildRemoteSigningUrl(remoteRequest, { origin: localVerifierOrigin() });
+    const verifierLink = buildVerifierLink(remoteRequest);
     await Share.share({
       title: 'RALB remote signature request',
       message: [
