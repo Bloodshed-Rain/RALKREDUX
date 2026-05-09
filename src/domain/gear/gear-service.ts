@@ -1,5 +1,6 @@
 import { DbClient } from '@/src/db/client';
 import { createId } from '../id';
+import { todayLocalIsoDate } from '../date-utils';
 import {
   CreateGearItemInput,
   GearCatalogEntry,
@@ -14,15 +15,11 @@ import {
 
 const DUE_SOON_DAYS = 30;
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function isoDateToUtcMs(value: string): number {
   return new Date(`${value}T00:00:00.000Z`).getTime();
 }
 
-export function getGearStatus(item: GearItem, asOf: string = todayIso()): GearStatus {
+export function getGearStatus(item: GearItem, asOf: string = todayLocalIsoDate()): GearStatus {
   if (item.retired_at) return 'retired';
   if (!item.next_inspection_due) return 'unscheduled';
 
@@ -51,7 +48,7 @@ export function createGearService(db: DbClient) {
     );
   }
 
-  async function listGearItems(asOf: string = todayIso()): Promise<GearItemDetail[]> {
+  async function listGearItems(asOf: string = todayLocalIsoDate()): Promise<GearItemDetail[]> {
     const items = await db.getAll<GearItem>(
       `SELECT * FROM gear_items
        ORDER BY
@@ -143,7 +140,7 @@ export function createGearService(db: DbClient) {
       if (item.retired_at) throw new Error('gear_retired');
 
       const now = new Date().toISOString();
-      const inspectedOn = input.inspected_on ?? todayIso();
+      const inspectedOn = input.inspected_on ?? todayLocalIsoDate();
       const inspectionId = createId('inspection');
       const nextDue = input.result === 'fail' ? null : input.next_inspection_due?.trim() || null;
       const retiredAt = input.result === 'fail' ? inspectedOn : null;
@@ -182,7 +179,7 @@ export function createGearService(db: DbClient) {
       };
     },
 
-    async getGearSummary(asOf: string = todayIso()): Promise<GearSummary> {
+    async getGearSummary(asOf: string = todayLocalIsoDate()): Promise<GearSummary> {
       const details = await listGearItems(asOf);
       return {
         totalItems: details.length,

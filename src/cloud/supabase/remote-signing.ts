@@ -85,6 +85,7 @@ type HostedRequestPayload = {
     local_request_id: string;
     local_entry_id: string;
     entry: LogbookEntry;
+    completed_signature?: EntrySignature | null;
   };
 };
 
@@ -113,7 +114,7 @@ function toRequestDetail(payload: HostedRequestPayload): RemoteSignatureRequestD
       created_at: request.created_at,
       updated_at: request.updated_at,
     },
-    signature: null,
+    signature: request.completed_signature ?? null,
   };
 }
 
@@ -142,8 +143,9 @@ export async function completeHostedRemoteSignatureRequest(
   if (!input.signing_token) throw new Error('remote_request_token_required');
 
   const signedAt = input.signed_at ?? new Date().toISOString();
+  const signatureId = `hosted_sig_${Date.now()}`;
   const signature: EntrySignature = {
-    id: `hosted_sig_${Date.now()}`,
+    id: signatureId,
     entry_id: detail.entry.id,
     supervisor_name: input.supervisor_name.trim(),
     supervisor_cert_number: input.supervisor_cert_number.trim(),
@@ -166,17 +168,19 @@ export async function completeHostedRemoteSignatureRequest(
     body: JSON.stringify({
       request_code: input.request_code,
       signing_token: input.signing_token,
+      attestation_accepted: input.attestation_accepted,
       signature_id: signature.id,
       signature,
     }),
   });
 
   if (!response.ok) throw new Error('hosted_remote_signature_failed');
+  const completed = toRequestDetail(await response.json() as HostedRequestPayload);
 
   return {
-    entry: { ...detail.entry, status: 'signed', pending_signature_id: null },
-    signature,
-    remote_request: { ...detail.request, status: 'completed', completed_signature_id: signature.id, completed_at: signedAt },
+    entry: { ...completed.entry, status: 'signed', pending_signature_id: null },
+    signature: completed.signature ?? signature,
+    remote_request: completed.request,
     gear_usage: [],
     attachments: [],
   };

@@ -12,6 +12,7 @@ import {
 import { Pressable, Text, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { formatDate } from '@/src/domain/date-format';
+import { todayLocalIsoDate } from '@/src/domain/date-utils';
 import type { GearCatalogEntry, GearCategory, GearInspectionResult, GearStatus } from '@/src/domain/gear/types';
 import {
   useCreateGearItem,
@@ -46,10 +47,6 @@ const STATUS_FILTERS: Array<{ value: GearFilter; label: string }> = [
   { value: 'unscheduled', label: 'No date' },
   { value: 'retired', label: 'Retired' },
 ];
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function statusLabel(status: GearStatus): string {
   switch (status) {
@@ -203,7 +200,7 @@ export default function GearScreen() {
   const [nextInspectionDue, setNextInspectionDue] = React.useState('');
   const [selectedGearId, setSelectedGearId] = React.useState<string | null>(null);
   const [inspectionResult, setInspectionResult] = React.useState<GearInspectionResult>('pass');
-  const [inspectedOn, setInspectedOn] = React.useState(todayIso());
+  const [inspectedOn, setInspectedOn] = React.useState(todayLocalIsoDate());
   const [inspectionNotes, setInspectionNotes] = React.useState('');
   const [inspectionNextDue, setInspectionNextDue] = React.useState('');
   const [showAddGear, setShowAddGear] = React.useState(false);
@@ -275,7 +272,7 @@ export default function GearScreen() {
           setInspectionResult('pass');
           setInspectionNotes('');
           setInspectionNextDue('');
-          setInspectedOn(todayIso());
+          setInspectedOn(todayLocalIsoDate());
           setShowInspection(false);
         },
       },

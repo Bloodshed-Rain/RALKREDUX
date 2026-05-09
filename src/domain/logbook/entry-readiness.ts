@@ -1,4 +1,5 @@
 import { LogbookEntry } from './types';
+import { isValidIsoDateRange } from '../date-utils';
 
 export interface EntryVerificationReadiness {
   ready: boolean;
@@ -12,7 +13,11 @@ function hasText(value: string | null | undefined): boolean {
 export function getEntryVerificationReadiness(entry: LogbookEntry): EntryVerificationReadiness {
   const missingFields: string[] = [];
 
-  if (!hasText(entry.date_from) || !hasText(entry.date_to)) missingFields.push('work dates');
+  if (!hasText(entry.date_from) || !hasText(entry.date_to)) {
+    missingFields.push('work dates');
+  } else if (!isValidIsoDateRange(entry.date_from, entry.date_to)) {
+    missingFields.push('valid work date range');
+  }
   if (!hasText(entry.employer)) missingFields.push('employer');
   if (!hasText(entry.site)) missingFields.push('site or location');
   if (!hasText(entry.client)) missingFields.push('client');

@@ -1,5 +1,6 @@
 import { DbClient } from '@/src/db/client';
 import { createId } from '../id';
+import { addDaysIso, isExpiredAt, isValidIsoDateRange, todayLocalIsoDate } from '../date-utils';
 import { getEntryVerificationReadiness } from './entry-readiness';
 import { ENTRY_HASH_VERSION, hashEntry, hashRemoteSigningToken, hashSignatureChain } from './entry-hash';
 import { buildEntryExportPacket, buildLogbookCsv, buildLogbookExportBundle } from './export';
@@ -31,16 +32,6 @@ import {
   UpdateDraftEntryInput,
 } from './types';
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addDaysIso(days: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString();
-}
-
 function isoDateToUtcMs(value: string): number {
   return new Date(`${value}T00:00:00.000Z`).getTime();
 }
@@ -50,7 +41,7 @@ function expirationAlert(label: string, value: string | null): DashboardSummary[
     return { label, value, severity: 'missing', daysRemaining: null };
   }
 
-  const today = todayIso();
+  const today = todayLocalIsoDate();
   const daysRemaining = Math.ceil((isoDateToUtcMs(value) - isoDateToUtcMs(today)) / 86_400_000);
   const severity = daysRemaining < 0 ? 'expired' : daysRemaining <= 60 ? 'warning' : 'ok';
   return { label, value, severity, daysRemaining };
@@ -65,7 +56,7 @@ function normalizeRequestCode(requestCode: string): string {
 }
 
 export function buildRemoteSigningToken(request: Pick<RemoteSignatureRequest, 'id' | 'request_code'>): string {
-  return `${normalizeRequestCode(request.request_code)}.${request.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12)}`;
+  return `${normalizeRequestCode(request.request_code)}.${request.id.replace(/[^a-zA-Z0-9]/g, '')}`;
 }
 
 export function buildRemoteSigningUrl(
@@ -146,7 +137,7 @@ export function createLogbookService(db: DbClient) {
   }
 
   async function maybeExpireRemoteRequest(request: RemoteSignatureRequest, now: string): Promise<RemoteSignatureRequest> {
-    if (request.status !== 'pending' || !request.expires_at || request.expires_at >= now) {
+    if (request.status !== 'pending' || !isExpiredAt(request.expires_at, now)) {
       return request;
     }
 
@@ -417,8 +408,9 @@ export function createLogbookService(db: DbClient) {
     async createDraft(input: CreateEntryInput): Promise<LogbookEntry> {
       const now = new Date().toISOString();
       const id = createId('entry');
-      const dateFrom = input.date_from ?? todayIso();
+      const dateFrom = input.date_from ?? todayLocalIsoDate();
       const dateTo = input.date_to ?? dateFrom;
+      if (!isValidIsoDateRange(dateFrom, dateTo)) throw new Error('entry_date_range_invalid');
       await db.run(
         `INSERT INTO entries (
           id, date_from, date_to, employer, site, client, description, work_hours,
@@ -466,6 +458,7 @@ export function createLogbookService(db: DbClient) {
       const now = new Date().toISOString();
       const dateFrom = input.date_from ?? existing.date_from;
       const dateTo = input.date_to ?? dateFrom;
+      if (!isValidIsoDateRange(dateFrom, dateTo)) throw new Error('entry_date_range_invalid');
       const result = await db.run(
         `UPDATE entries
          SET date_from = ?, date_to = ?, employer = ?, site = ?, client = ?,
@@ -508,6 +501,7 @@ export function createLogbookService(db: DbClient) {
       const id = createId('entry');
       const dateFrom = input.date_from ?? original.date_from;
       const dateTo = input.date_to ?? dateFrom;
+      if (!isValidIsoDateRange(dateFrom, dateTo)) throw new Error('entry_date_range_invalid');
 
       await db.run(
         `INSERT INTO entries (
@@ -548,6 +542,7 @@ export function createLogbookService(db: DbClient) {
       const entry = await getEntryById(input.entry_id);
       if (!entry) throw new Error('entry_not_found');
       if (entry.status !== 'draft') throw new Error('entry_not_requestable');
+      if (input.recipient_name.trim().length < 2) throw new Error('recipient_name_required');
       if (!getEntryVerificationReadiness(entry).ready) throw new Error('entry_incomplete');
 
       const existing = await getPendingRemoteRequestForEntry(entry.id);
@@ -615,6 +610,7 @@ export function createLogbookService(db: DbClient) {
       const signaturePath = input.signature_path.trim();
       if (!signaturePath) throw new Error('signature_required');
       if (!input.attestation_accepted) throw new Error('attestation_required');
+      if (input.supervisor_name.trim().length < 2) throw new Error('supervisor_name_required');
 
       await db.exec('BEGIN');
       try {
@@ -712,7 +708,7 @@ export function createLogbookService(db: DbClient) {
         const request = await maybeExpireRemoteRequest(existing, now);
         if (request.status === 'expired') throw new Error('remote_request_expired');
         if (request.status !== 'pending') throw new Error('remote_request_not_pending');
-        if (request.expires_at && request.expires_at < now) {
+        if (isExpiredAt(request.expires_at, now)) {
           throw new Error('remote_request_expired');
         }
 

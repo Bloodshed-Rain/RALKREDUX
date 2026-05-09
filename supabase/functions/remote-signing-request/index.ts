@@ -1,9 +1,11 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import {
   corsHeaders,
+  ENTRY_HASH_VERSION,
   expireIfNeeded,
   findRequestByToken,
   getAuthenticatedUser,
+  hashEntryPayload,
   hashRemoteSigningToken,
   jsonResponse,
   sanitizeRequest,
@@ -54,8 +56,12 @@ async function createHostedRequest(req: Request): Promise<Response> {
   if (Number.isNaN(new Date(expiresAt).getTime())) {
     return jsonResponse({ error: "expires_at_invalid" }, 400);
   }
-  if (!Number.isInteger(body.hash_version) || Number(body.hash_version) < 1) {
+  if (body.hash_version !== ENTRY_HASH_VERSION) {
     return jsonResponse({ error: "hash_version_invalid" }, 400);
+  }
+  const entryHash = requiredString(body.entry_hash, "entry_hash");
+  if (await hashEntryPayload(entry) !== entryHash) {
+    return jsonResponse({ error: "entry_hash_mismatch" }, 400);
   }
 
   const { data, error } = await serviceClient()
@@ -70,8 +76,8 @@ async function createHostedRequest(req: Request): Promise<Response> {
       verifier_role: body.verifier_role?.trim() || null,
       verifier_company: body.verifier_company?.trim() || null,
       entry_payload: entry,
-      entry_hash: requiredString(body.entry_hash, "entry_hash"),
-      hash_version: Number(body.hash_version),
+      entry_hash: entryHash,
+      hash_version: ENTRY_HASH_VERSION,
       signing_token_hash: await hashRemoteSigningToken(signingToken),
       token_hint: signingToken.slice(-6),
       status: "pending",

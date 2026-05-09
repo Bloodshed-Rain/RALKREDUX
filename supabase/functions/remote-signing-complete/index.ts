@@ -12,6 +12,7 @@ type CompleteHostedRemoteRequestBody = {
   request_code?: string;
   signing_token?: string;
   signature_id?: string;
+  attestation_accepted?: boolean;
   signature?: Record<string, unknown>;
 };
 
@@ -74,6 +75,9 @@ Deno.serve(async (req) => {
       !signature || typeof signature !== "object" || Array.isArray(signature)
     ) {
       return jsonResponse({ error: "signature_required" }, 400);
+    }
+    if (body.attestation_accepted !== true) {
+      return jsonResponse({ error: "attestation_required" }, 400);
     }
 
     const existing = await findRequestByToken(requestCode, signingToken);

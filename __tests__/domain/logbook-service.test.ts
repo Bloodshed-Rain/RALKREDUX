@@ -60,6 +60,33 @@ describe('logbook service', () => {
     expect(summary.signedHours).toBe(0);
   });
 
+  it('rejects inverted work date ranges before they can be signed', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+
+    await expect(
+      service.createDraft(draftInput({
+        date_from: '2026-05-10',
+        date_to: '2026-05-09',
+      })),
+    ).rejects.toThrow('entry_date_range_invalid');
+
+    const entry = await service.createDraft(draftInput({
+      date_from: '2026-05-09',
+      date_to: '2026-05-10',
+    }));
+
+    await expect(
+      service.updateDraft({
+        ...draftInput({
+          date_from: '2026-05-10',
+          date_to: '2026-05-09',
+        }),
+        entry_id: entry.id,
+      }),
+    ).rejects.toThrow('entry_date_range_invalid');
+  });
+
   it('updates an incomplete draft before signing', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
@@ -310,6 +337,9 @@ describe('logbook service', () => {
       }),
     );
     expect(detail.remote_request?.request_code).toHaveLength(10);
+    expect(buildRemoteSigningToken(detail.remote_request!).length).toBeGreaterThan(
+      detail.remote_request!.request_code.length + 20,
+    );
     expect(detail.remote_request?.entry_hash).toMatch(/^sha256:/);
     expect(detail.remote_request?.token_hint).toBe(buildRemoteSigningToken(detail.remote_request!).slice(-6));
     expect(buildRemoteSigningUrl(detail.remote_request!, { origin: 'http://localhost:8082/' })).toBe(
@@ -346,6 +376,29 @@ describe('logbook service', () => {
       }),
     );
     expect(detail.entry.pending_signature_id).toBe(detail.remote_request?.id);
+  });
+
+  it('requires named supervisors and remote recipients at the service layer', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Completed bolt inspection.', work_hours: 3 }));
+
+    await expect(
+      service.createRemoteSignatureRequest({
+        entry_id: entry.id,
+        recipient_name: ' ',
+      }),
+    ).rejects.toThrow('recipient_name_required');
+
+    await expect(
+      service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: '',
+        supervisor_cert_number: 'SPRAT-1234',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('supervisor_name_required');
   });
 
   it('cancels a pending remote request when the entry is locally signed', async () => {

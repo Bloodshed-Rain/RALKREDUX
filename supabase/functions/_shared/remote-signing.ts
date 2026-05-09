@@ -38,6 +38,8 @@ export type RemoteSigningRow = {
   updated_at: string;
 };
 
+export const ENTRY_HASH_VERSION = 2;
+
 type JsonValue = string | number | boolean | null | JsonValue[] | {
   [key: string]: JsonValue;
 };
@@ -63,6 +65,71 @@ function toHex(bytes: ArrayBuffer): string {
   return Array.from(new Uint8Array(bytes))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function numberField(entry: Record<string, unknown>, key: string): number {
+  const value = entry[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${key}_invalid`);
+  }
+  return value;
+}
+
+function nullableStringField(
+  entry: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = entry[key];
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") throw new Error(`${key}_invalid`);
+  return value;
+}
+
+function stringField(entry: Record<string, unknown>, key: string): string {
+  const value = entry[key];
+  if (typeof value !== "string") throw new Error(`${key}_invalid`);
+  return value;
+}
+
+export function canonicalizeEntryPayload(
+  entry: Record<string, unknown>,
+): string {
+  const maxHeight = entry.max_height === null
+    ? null
+    : Number(numberField(entry, "max_height").toFixed(2));
+
+  return stableStringify({
+    entry: {
+      amends_entry_id: nullableStringField(entry, "amends_entry_id"),
+      client: stringField(entry, "client"),
+      date_from: stringField(entry, "date_from"),
+      date_to: stringField(entry, "date_to"),
+      description: stringField(entry, "description"),
+      employer: stringField(entry, "employer"),
+      access_method: stringField(entry, "access_method"),
+      height_unit: stringField(entry, "height_unit"),
+      id: stringField(entry, "id"),
+      irata_level_snapshot: nullableStringField(entry, "irata_level_snapshot"),
+      max_height: maxHeight,
+      site: stringField(entry, "site"),
+      sprat_level_snapshot: nullableStringField(entry, "sprat_level_snapshot"),
+      structure_type: stringField(entry, "structure_type"),
+      work_task: stringField(entry, "work_task"),
+      work_hours: Number(numberField(entry, "work_hours").toFixed(2)),
+    },
+    schema: "ralb.logbook.entry",
+    version: ENTRY_HASH_VERSION,
+  });
+}
+
+export async function hashEntryPayload(
+  entry: Record<string, unknown>,
+): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(canonicalizeEntryPayload(entry)),
+  );
+  return toHex(digest);
 }
 
 export async function hashRemoteSigningToken(token: string): Promise<string> {
@@ -149,6 +216,7 @@ export function sanitizeRequest(row: RemoteSigningRow) {
     viewed_at: row.viewed_at,
     completed_at: row.completed_at,
     completed_signature_id: row.completed_signature_id,
+    completed_signature: row.completed_signature_payload,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

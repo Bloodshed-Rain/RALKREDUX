@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronDown, ChevronUp, Copy, PenLine, Save, Send, Star } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { todayLocalIsoDate } from '@/src/domain/date-utils';
 import type { HeightUnit } from '@/src/domain/logbook/types';
 import {
   useCreateEntry,
@@ -12,10 +13,6 @@ import {
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { Button, Card, DateField, Field, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function NewEntryScreen() {
   const { colors, radii, spacing, typography, touchTarget } = useTheme();
@@ -35,8 +32,8 @@ export default function NewEntryScreen() {
   const [heightUnit, setHeightUnit] = React.useState<HeightUnit>('ft');
   const [description, setDescription] = React.useState('');
   const [hours, setHours] = React.useState('8');
-  const [dateFrom, setDateFrom] = React.useState(todayIso());
-  const [dateTo, setDateTo] = React.useState(todayIso());
+  const [dateFrom, setDateFrom] = React.useState(todayLocalIsoDate());
+  const [dateTo, setDateTo] = React.useState(todayLocalIsoDate());
   const [templateName, setTemplateName] = React.useState('');
   const [showDetails, setShowDetails] = React.useState(false);
   const [showTemplateSave, setShowTemplateSave] = React.useState(false);
@@ -135,8 +132,8 @@ export default function NewEntryScreen() {
     setHeightUnit(latest.height_unit);
     setDescription(latest.description);
     setHours(String(latest.work_hours));
-    setDateFrom(todayIso());
-    setDateTo(todayIso());
+    setDateFrom(todayLocalIsoDate());
+    setDateTo(todayLocalIsoDate());
     setShowDetails(true);
   }
 
