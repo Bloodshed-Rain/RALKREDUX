@@ -210,19 +210,18 @@ export default function DashboardScreen() {
         <View
           style={{
             position: 'absolute',
-            top: 22,
-            left: -32,
-            right: -32,
-            height: 190,
+            top: 18,
+            left: -96,
+            right: -96,
+            height: 210,
             justifyContent: 'center',
-            opacity: 0.22,
           }}
         >
           <Image
             source={mastheadLogo}
             resizeMode="contain"
             accessibilityIgnoresInvertColors
-            style={{ width: '118%', height: 178, alignSelf: 'center' }}
+            style={{ width: '142%', height: 192, alignSelf: 'center' }}
           />
         </View>
       }
