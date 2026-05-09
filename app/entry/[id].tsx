@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import {
   BadgeCheck,
+  BookOpen,
   BriefcaseBusiness,
   Building2,
   CalendarDays,
@@ -462,13 +463,30 @@ export default function EntryDetailScreen() {
             />
           </View>
           {entry.status === 'signed' ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button
+                title="Records"
+                icon={BookOpen}
+                variant="secondary"
+                onPress={() => router.replace('/records')}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Amend"
+                icon={PenLine}
+                variant="ghost"
+                onPress={() => router.push(`/entry/${entry.id}/amend`)}
+                style={{ flex: 1 }}
+              />
+            </View>
+          ) : (
             <Button
-              title="Amend"
-              icon={PenLine}
-              variant="ghost"
-              onPress={() => router.push(`/entry/${entry.id}/amend`)}
+              title="Records"
+              icon={BookOpen}
+              variant="secondary"
+              onPress={() => router.replace('/records')}
             />
-          ) : null}
+          )}
         </View>
       ) : null}
     </View>
