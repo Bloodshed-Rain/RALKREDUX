@@ -7,11 +7,24 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accentPrimary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarActiveTintColor: colors.accentPressed,
+        tabBarInactiveTintColor: colors.textInverse,
+        tabBarLabelStyle: {
+          fontFamily: 'Inter_600SemiBold',
+          fontSize: 11,
+        },
+        tabBarItemStyle: {
+          borderRadius: 8,
+          marginVertical: 6,
+          marginHorizontal: 3,
+        },
+        tabBarActiveBackgroundColor: colors.bgApp,
         tabBarStyle: {
-          backgroundColor: colors.bgSurface,
-          borderTopColor: colors.divider,
+          backgroundColor: colors.accentPressed,
+          borderTopColor: colors.accentPressed,
+          minHeight: 64,
+          paddingTop: 4,
+          paddingBottom: 6,
         },
       }}
     >
