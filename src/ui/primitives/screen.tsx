@@ -33,7 +33,7 @@ export function Screen({
         automaticallyAdjustKeyboardInsets
         canCancelContentTouches={!preserveChildTouches}
         contentInsetAdjustmentBehavior="automatic"
-        disableScrollViewPanResponder={preserveChildTouches}
+        disableScrollViewPanResponder={preserveChildTouches && !scrollEnabled}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}
