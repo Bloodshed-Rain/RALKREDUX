@@ -1,8 +1,33 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-08
+Last updated: 2026-05-09
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
+
+## Latest Handoff For New Chat
+
+Current git state after the latest work should be `main...origin/main` with a clean tree. The latest pushed app commit before this handoff update is:
+
+`80f0747 Add records exit from signed entries`
+
+Recent user-tested remote-signature fixes:
+
+- iOS verifier sharing now works. The entry detail `Share` action passes the verifier link as the native iOS `url` payload instead of burying it inside message text.
+- Verifier links remain token-gated. Opening a request code alone should show the secure-link-required state; opening the full shared link should authorize the remote verifier view.
+- Native verifier links preserve the token; web verifier links remove the visible token from the URL only after request details load.
+- Verifier screens reset local state when moving from one request code to another, so signing one request should not poison the next request.
+- Signature drawing is much better on phone. The shared `Screen` wrapper now disables scrolling only while the signature pad is actively capturing a stroke, and otherwise lets the page scroll normally.
+- Verifier pages can scroll, including down to the submit button and footer area.
+- After a remote signature completes, the user returns to the entry detail for confirmation. Signed/amended entry detail footers now include a `Records` button so the user is not trapped with only `PDF`, `Packet`, and `Amend`.
+
+Immediate next-chat smoke test:
+
+1. Pull latest `main`.
+2. Run `npm.cmd run start -- --host lan`.
+3. On phone, create a fresh draft entry and remote request.
+4. Tap `Share`, send/open the full verifier link, and complete the remote signature.
+5. Confirm the signed entry page has a visible `Records` exit.
+6. Confirm signature drawing does not drag the page and the verifier page still scrolls when not drawing.
 
 ## Project Intent
 
@@ -207,6 +232,11 @@ Last known good checks:
 
 Result: TypeScript passed, Jest passed with 28 tests.
 
+Latest code-validation commits were checked with both commands:
+
+- `216543e Fix iOS verifier link sharing`
+- `80f0747 Add records exit from signed entries`
+
 Last phone preview target:
 
 `exp://192.168.86.143:8081`
@@ -219,7 +249,10 @@ Last smoke flow passed:
 4. Confirm entry detail renders work classification fields.
 5. Create remote signature request.
 6. Confirm pending request status, verifier, request code, requested hash.
-7. Confirm no unmatched route and no console/page errors.
+7. Open the full shared verifier link, not just the request code.
+8. Complete a remote signature from the verifier route.
+9. Confirm signing returns to entry detail and the footer includes a `Records` exit.
+10. Confirm no unmatched route and no console/page errors.
 
 To restart the phone preview:
 
@@ -229,7 +262,7 @@ npm.cmd run start -- --host lan
 
 ## Recommended Next Step
 
-Continue by turning the new foundations into deeper product flows:
+First, re-run the latest phone smoke above after pulling this handoff update. Then continue by turning the new foundations into deeper product flows:
 
 1. Supabase-hosted remote signing link with server-side one-time token validation.
 2. Cloud backup storage and conflict resolution on top of the local snapshot format.
