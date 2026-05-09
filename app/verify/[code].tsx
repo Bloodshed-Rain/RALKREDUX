@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import { Platform, Text, View } from 'react-native';
 import {
   completeHostedRemoteSignatureRequest,
@@ -113,6 +113,14 @@ export default function RemoteVerifyScreen() {
     (!requiresCertNumber || supervisorCertNumber.trim().length > 1) &&
     signaturePath.trim().length > 0 &&
     attestationAccepted;
+  const missingToSubmit = [
+    request?.status === 'pending' ? null : 'pending request',
+    entry?.status === 'draft' ? null : 'open draft record',
+    supervisorName.trim().length > 1 ? null : 'verifier name',
+    !requiresCertNumber || supervisorCertNumber.trim().length > 1 ? null : 'IRATA verifier number',
+    signaturePath.trim() ? null : 'drawn signature',
+    attestationAccepted ? null : 'authorization checkbox',
+  ].filter(Boolean) as string[];
 
   async function submit() {
     if (!canSign || !requestCode || !detail) return;
@@ -234,13 +242,16 @@ export default function RemoteVerifyScreen() {
       preserveChildTouches
       scrollEnabled={!signatureActive}
       footer={
-        <Button
-          title="Submit remote signature"
-          icon={CheckCircle2}
-          onPress={submit}
-          disabled={!canSign}
-          loading={completeRequest.isPending || hostedCompletePending}
-        />
+        <View style={{ gap: spacing.sm }}>
+          {!canSign ? <RequirementList title="Before submitting" items={missingToSubmit} /> : null}
+          <Button
+            title="Submit remote signature"
+            icon={CheckCircle2}
+            onPress={submit}
+            disabled={!canSign}
+            loading={completeRequest.isPending || hostedCompletePending}
+          />
+        </View>
       }
     >
       <Card>
@@ -255,7 +266,7 @@ export default function RemoteVerifyScreen() {
         <StatRow label="Requested verifier" value={request.recipient_name} />
         <StatRow label="Contact" value={request.recipient_contact ?? '-'} />
         <StatRow label="Expires" value={formatDateOrDash(request.expires_at)} />
-        <StatRow label="Security hint" value={request.token_hint ?? '-'} />
+        <StatRow label="Link check" value={request.token_hint ?? '-'} />
       </Card>
 
       <Card>
@@ -278,7 +289,10 @@ export default function RemoteVerifyScreen() {
 
       <Card>
         <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-          Anti-tamper code
+          Record change check
+        </Text>
+        <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+          This code proves the record has not changed since the request was sent.
         </Text>
         <HashPreview value={request.entry_hash} />
         <StatRow label="Code" value={request.request_code} />
@@ -331,5 +345,33 @@ export default function RemoteVerifyScreen() {
         </Text>
       ) : null}
     </Screen>
+  );
+}
+
+function RequirementList({ title, items }: { title: string; items: string[] }) {
+  const { colors, radii, spacing, typography } = useTheme();
+  if (!items.length) return null;
+
+  return (
+    <View
+      style={{
+        borderRadius: radii.sm,
+        backgroundColor: colors.statusWarnTint,
+        padding: spacing.md,
+        gap: spacing.xs,
+      }}
+    >
+      <Text selectable={false} style={{ ...typography.label, color: colors.statusWarn }}>
+        {title}
+      </Text>
+      {items.map((item) => (
+        <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <AlertTriangle size={14} color={colors.statusWarn} strokeWidth={2.2} />
+          <Text selectable={false} style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
+            Needs {item}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }

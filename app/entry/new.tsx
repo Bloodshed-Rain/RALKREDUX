@@ -1,8 +1,8 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, Copy, PenLine, Save, Send, Star } from 'lucide-react-native';
+import { CheckCircle2, Copy, PenLine, Save, Send, Star } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { todayLocalIsoDate } from '@/src/domain/date-utils';
+import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type { HeightUnit } from '@/src/domain/logbook/types';
 import {
   useCreateEntry,
@@ -35,17 +35,18 @@ export default function NewEntryScreen() {
   const [dateFrom, setDateFrom] = React.useState(todayLocalIsoDate());
   const [dateTo, setDateTo] = React.useState(todayLocalIsoDate());
   const [templateName, setTemplateName] = React.useState('');
-  const [showDetails, setShowDetails] = React.useState(false);
   const [showTemplateSave, setShowTemplateSave] = React.useState(false);
   const [saveDestination, setSaveDestination] = React.useState<'detail' | 'sign' | 'request' | null>(null);
 
   const parsedHours = Number(hours);
   const parsedHeight = Number(maxHeight);
+  const dateRangeValid = isValidIsoDateRange(dateFrom, dateTo || dateFrom);
   const canSave =
     site.trim().length > 0 &&
     workTask.trim().length > 0 &&
     Number.isFinite(parsedHours) &&
-    parsedHours > 0;
+    parsedHours > 0 &&
+    dateRangeValid;
   const isAuditReady =
     canSave &&
     employer.trim().length > 0 &&
@@ -55,6 +56,12 @@ export default function NewEntryScreen() {
     description.trim().length > 0 &&
     Number.isFinite(parsedHeight) &&
     parsedHeight > 0;
+  const missingForDraft = [
+    site.trim() ? null : 'site or location',
+    workTask.trim() ? null : 'work task',
+    Number.isFinite(parsedHours) && parsedHours > 0 ? null : 'rope access hours',
+    dateRangeValid ? null : 'valid work dates',
+  ].filter(Boolean) as string[];
   const missingForSigning = [
     employer.trim() ? null : 'employer',
     client.trim() ? null : 'client',
@@ -134,7 +141,6 @@ export default function NewEntryScreen() {
     setHours(String(latest.work_hours));
     setDateFrom(todayLocalIsoDate());
     setDateTo(todayLocalIsoDate());
-    setShowDetails(true);
   }
 
   function saveTemplate() {
@@ -162,6 +168,12 @@ export default function NewEntryScreen() {
     <Screen
       footer={
         <View style={{ gap: spacing.sm }}>
+          {!isAuditReady ? (
+            <RequirementList
+              title={canSave ? 'Before supervisor sign-off' : 'Before saving'}
+              items={canSave ? missingForSigning : missingForDraft}
+            />
+          ) : null}
           {isAuditReady ? (
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <Button
@@ -196,16 +208,25 @@ export default function NewEntryScreen() {
     >
       <Card>
         <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-          {isAuditReady ? 'Ready for supervisor review' : `${missingForSigning.length} items left before signing`}
+          {isAuditReady
+            ? 'Ready for supervisor review'
+            : canSave
+              ? `${missingForSigning.length} items left before signing`
+              : `${missingForDraft.length} items left before saving`}
         </Text>
         <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
           {isAuditReady
             ? 'This entry has the details needed for sign-off. Save it and go straight to local signing or a verifier request.'
-            : `You can save now and finish later. Add ${missingForSigning.join(', ')} before signing.`}
+            : canSave
+              ? `You can save now and finish later. Add ${missingForSigning.join(', ')} before signing.`
+              : `Add ${missingForDraft.join(', ')} to save this draft.`}
         </Text>
       </Card>
 
       <Card>
+        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+          Job basics
+        </Text>
         {templates.data?.length ? (
           <View style={{ gap: spacing.sm }}>
             <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
@@ -305,82 +326,78 @@ export default function NewEntryScreen() {
           keyboardType="decimal-pad"
           placeholder="8"
         />
-        <Button
-          title={showDetails ? 'Hide signing details' : 'Add signing details'}
-          icon={showDetails ? ChevronUp : ChevronDown}
-          variant="ghost"
-          onPress={() => setShowDetails((value) => !value)}
+      </Card>
+
+      <Card>
+        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+          Required for sign-off
+        </Text>
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <DateField label="From" value={dateFrom} onChange={setDateFrom} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <DateField label="To" value={dateTo} onChange={setDateTo} />
+          </View>
+        </View>
+        <Field label="Employer" value={employer} onChangeText={setEmployer} placeholder="Company" />
+        <Field label="Client" value={client} onChangeText={setClient} placeholder="Client" />
+        <Field label="Access method" value={accessMethod} onChangeText={setAccessMethod} placeholder="Two-rope access" />
+        <Field label="Structure type" value={structureType} onChangeText={setStructureType} placeholder="Bridge / tower / wind turbine" />
+        <Field
+          label="Maximum height"
+          value={maxHeight}
+          onChangeText={setMaxHeight}
+          keyboardType="decimal-pad"
+          placeholder="120"
         />
-        {showDetails ? (
-          <>
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <DateField label="From" value={dateFrom} onChange={setDateFrom} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <DateField label="To" value={dateTo} onChange={setDateTo} />
-              </View>
-            </View>
-            <Field label="Employer" value={employer} onChangeText={setEmployer} placeholder="Company" />
-            <Field label="Client" value={client} onChangeText={setClient} placeholder="Client" />
-            <Field label="Access method" value={accessMethod} onChangeText={setAccessMethod} placeholder="Two-rope access" />
-            <Field label="Structure type" value={structureType} onChangeText={setStructureType} placeholder="Bridge / tower / wind turbine" />
-            <Field
-              label="Maximum height"
-              value={maxHeight}
-              onChangeText={setMaxHeight}
-              keyboardType="decimal-pad"
-              placeholder="120"
-            />
-            <View style={{ gap: spacing.sm }}>
-              <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-                Height unit
-              </Text>
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                {(['ft', 'm'] as const).map((unit) => {
-                  const selected = unit === heightUnit;
-                  return (
-                    <Pressable
-                      key={unit}
-                      accessibilityRole="button"
-                      onPress={() => setHeightUnit(unit)}
-                      style={{
-                        minHeight: 44,
-                        flex: 1,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: radii.sm,
-                        borderWidth: 1,
-                        borderColor: selected ? colors.accentPrimary : colors.border,
-                        backgroundColor: selected ? colors.accentTint : colors.bgSurface,
-                      }}
-                    >
-                      <Text
-                        selectable={false}
-                        style={{
-                          ...typography.label,
-                          color: selected ? colors.accentPrimary : colors.textSecondary,
-                        }}
-                      >
-                        {unit}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <Field
-              label="Work notes"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              textAlignVertical="top"
-              style={{ minHeight: 96 }}
-              placeholder="What work was performed?"
-            />
-          </>
-        ) : null}
-        {showDetails && isAuditReady ? (
+        <View style={{ gap: spacing.sm }}>
+          <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+            Height unit
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {(['ft', 'm'] as const).map((unit) => {
+              const selected = unit === heightUnit;
+              return (
+                <Pressable
+                  key={unit}
+                  accessibilityRole="button"
+                  onPress={() => setHeightUnit(unit)}
+                  style={{
+                    minHeight: 44,
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: radii.sm,
+                    borderWidth: 1,
+                    borderColor: selected ? colors.accentPrimary : colors.border,
+                    backgroundColor: selected ? colors.accentTint : colors.bgSurface,
+                  }}
+                >
+                  <Text
+                    selectable={false}
+                    style={{
+                      ...typography.label,
+                      color: selected ? colors.accentPrimary : colors.textSecondary,
+                    }}
+                  >
+                    {unit}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <Field
+          label="Work notes"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          textAlignVertical="top"
+          style={{ minHeight: 96 }}
+          placeholder="What work was performed?"
+        />
+        {isAuditReady ? (
           <Button
             title={showTemplateSave ? 'Cancel template' : 'Save as template'}
             icon={Star}
@@ -407,5 +424,33 @@ export default function NewEntryScreen() {
         ) : null}
       </Card>
     </Screen>
+  );
+}
+
+function RequirementList({ title, items }: { title: string; items: string[] }) {
+  const { colors, radii, spacing, typography } = useTheme();
+  if (!items.length) return null;
+
+  return (
+    <View
+      style={{
+        borderRadius: radii.sm,
+        backgroundColor: colors.statusWarnTint,
+        padding: spacing.md,
+        gap: spacing.xs,
+      }}
+    >
+      <Text selectable={false} style={{ ...typography.label, color: colors.statusWarn }}>
+        {title}
+      </Text>
+      {items.map((item) => (
+        <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <CheckCircle2 size={14} color={colors.statusWarn} strokeWidth={2.2} />
+          <Text selectable={false} style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
+            Add {item}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }

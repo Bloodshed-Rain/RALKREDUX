@@ -53,6 +53,14 @@ export default function LocalSignScreen() {
     (!requiresCertNumber || supervisorCertNumber.trim().length > 1) &&
     signaturePath.trim().length > 0 &&
     attestationAccepted;
+  const missingToSign = [
+    ...(readiness?.missingFields ?? []),
+    supervisorName.trim().length > 1 ? null : 'supervisor name',
+    !requiresCertNumber || supervisorCertNumber.trim().length > 1 ? null : 'IRATA verifier number',
+    signaturePath.trim() ? null : 'drawn signature',
+    attestationAccepted ? null : 'authorization checkbox',
+    entry?.status && entry.status !== 'draft' ? 'draft entry' : null,
+  ].filter(Boolean) as string[];
 
   function submit() {
     if (!canSign || !entryId) return;
@@ -74,13 +82,16 @@ export default function LocalSignScreen() {
       preserveChildTouches
       scrollEnabled={!signatureActive}
       footer={
-        <Button
-          title={canSign ? 'Sign entry' : 'Finish sign-off'}
-          icon={PenLine}
-          onPress={submit}
-          disabled={!canSign}
-          loading={signEntry.isPending}
-        />
+        <View style={{ gap: spacing.sm }}>
+          {!canSign ? <RequirementList title="Before signing" items={missingToSign} /> : null}
+          <Button
+            title={canSign ? 'Sign entry' : 'Finish sign-off'}
+            icon={PenLine}
+            onPress={submit}
+            disabled={!canSign}
+            loading={signEntry.isPending}
+          />
+        </View>
       }
     >
       <Card>
@@ -105,9 +116,14 @@ export default function LocalSignScreen() {
             }}
           >
             <AlertTriangle size={18} color={colors.statusWarn} strokeWidth={2.2} />
-            <Text selectable style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
-              {readiness.missingFields.join(', ')}
-            </Text>
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text selectable style={{ ...typography.label, color: colors.statusWarn }}>
+                Finish the entry first
+              </Text>
+              <Text selectable style={{ ...typography.caption, color: colors.statusWarn }}>
+                Add {readiness.missingFields.join(', ')}
+              </Text>
+            </View>
           </View>
         ) : null}
       </Card>
@@ -206,6 +222,34 @@ export default function LocalSignScreen() {
         </Text>
       ) : null}
     </Screen>
+  );
+}
+
+function RequirementList({ title, items }: { title: string; items: string[] }) {
+  const { colors, radii, spacing, typography } = useTheme();
+  if (!items.length) return null;
+
+  return (
+    <View
+      style={{
+        borderRadius: radii.sm,
+        backgroundColor: colors.statusWarnTint,
+        padding: spacing.md,
+        gap: spacing.xs,
+      }}
+    >
+      <Text selectable={false} style={{ ...typography.label, color: colors.statusWarn }}>
+        {title}
+      </Text>
+      {items.map((item) => (
+        <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <AlertTriangle size={14} color={colors.statusWarn} strokeWidth={2.2} />
+          <Text selectable={false} style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
+            Needs {item}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 

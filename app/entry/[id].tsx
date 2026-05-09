@@ -412,6 +412,9 @@ export default function EntryDetailScreen() {
     <View style={{ gap: spacing.sm }}>
       {entry.status === 'draft' && !remoteRequest ? (
         <View style={{ gap: spacing.sm }}>
+          {readiness && !readiness.ready ? (
+            <RequirementList title="Before signing or requesting" items={readiness.missingFields} />
+          ) : null}
           <Button
             title={readiness?.ready ? 'Edit draft' : 'Finish draft'}
             icon={PenLine}
@@ -690,5 +693,33 @@ export default function EntryDetailScreen() {
         </Text>
       ) : null}
     </Screen>
+  );
+}
+
+function RequirementList({ title, items }: { title: string; items: string[] }) {
+  const { colors, radii, spacing, typography } = useTheme();
+  if (!items.length) return null;
+
+  return (
+    <View
+      style={{
+        borderRadius: radii.sm,
+        backgroundColor: colors.statusWarnTint,
+        padding: spacing.md,
+        gap: spacing.xs,
+      }}
+    >
+      <Text selectable={false} style={{ ...typography.label, color: colors.statusWarn }}>
+        {title}
+      </Text>
+      {items.map((item) => (
+        <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <BadgeCheck size={14} color={colors.statusWarn} strokeWidth={2.2} />
+          <Text selectable={false} style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
+            Add {item}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
