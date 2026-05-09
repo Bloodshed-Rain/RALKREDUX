@@ -42,6 +42,7 @@ export default function RemoteVerifyScreen() {
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
   const [signaturePath, setSignaturePath] = React.useState('');
+  const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
   const [completedDetail, setCompletedDetail] = React.useState<EntryDetail | null>(null);
   const detail = requestDetail.data;
@@ -140,6 +141,8 @@ export default function RemoteVerifyScreen() {
 
   return (
     <Screen
+      preserveChildTouches
+      scrollEnabled={!signatureActive}
       footer={
         <Button
           title="Submit remote signature"
@@ -205,7 +208,13 @@ export default function RemoteVerifyScreen() {
             onChangeText={setSupervisorCertNumber}
             placeholder="SPRAT / IRATA number"
           />
-          <SignaturePad label="Verifier signature" value={signaturePath} onChange={setSignaturePath} />
+          <SignaturePad
+            label="Verifier signature"
+            value={signaturePath}
+            onChange={setSignaturePath}
+            onStrokeStart={() => setSignatureActive(true)}
+            onStrokeEnd={() => setSignatureActive(false)}
+          />
           <CheckboxRow
             checked={attestationAccepted}
             label={ATTESTATION_TEXT}

@@ -34,6 +34,7 @@ export default function LocalSignScreen() {
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
   const [signaturePath, setSignaturePath] = React.useState('');
+  const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
 
   const entry = detail.data?.entry;
@@ -69,6 +70,8 @@ export default function LocalSignScreen() {
 
   return (
     <Screen
+      preserveChildTouches
+      scrollEnabled={!signatureActive}
       footer={
         <Button
           title={canSign ? 'Sign entry' : 'Finish sign-off'}
@@ -169,7 +172,14 @@ export default function LocalSignScreen() {
           pill={signaturePath ? 'Captured' : undefined}
           tone={signaturePath ? 'ok' : 'default'}
         />
-        <SignaturePad label="Draw signature" value={signaturePath} onChange={setSignaturePath} height={220} />
+        <SignaturePad
+          label="Draw signature"
+          value={signaturePath}
+          onChange={setSignaturePath}
+          height={220}
+          onStrokeStart={() => setSignatureActive(true)}
+          onStrokeEnd={() => setSignatureActive(false)}
+        />
       </Card>
 
       <Card>

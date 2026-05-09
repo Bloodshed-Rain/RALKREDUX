@@ -28,7 +28,7 @@ import {
   UserRound,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { Share, Text, View } from 'react-native';
+import { Image as NativeImage, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
@@ -216,6 +216,7 @@ function HashPreview({ value }: { value: string }) {
 
 function SignaturePreview({ value }: { value: string }) {
   const { colors, radii, spacing, typography } = useTheme();
+  const isImageSignature = value.startsWith('data:image/');
 
   return (
     <View style={{ gap: spacing.xs }}>
@@ -232,10 +233,14 @@ function SignaturePreview({ value }: { value: string }) {
           overflow: 'hidden',
         }}
       >
-        <Svg width="100%" height="100%" viewBox="0 0 1000 400">
-          <Line x1={48} x2={952} y1={324} y2={324} stroke={colors.divider} strokeWidth={3} />
-          <Path d={value} fill="none" stroke={colors.textPrimary} strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} />
-        </Svg>
+        {isImageSignature ? (
+          <NativeImage source={{ uri: value }} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+        ) : (
+          <Svg width="100%" height="100%" viewBox="0 0 1000 400">
+            <Line x1={48} x2={952} y1={324} y2={324} stroke={colors.divider} strokeWidth={3} />
+            <Path d={value} fill="none" stroke={colors.textPrimary} strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} />
+          </Svg>
+        )}
       </View>
     </View>
   );

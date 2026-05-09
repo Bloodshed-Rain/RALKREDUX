@@ -82,6 +82,16 @@ function filenamePart(value: string | null | undefined): string {
     .slice(0, 48) || 'entry';
 }
 
+function signatureMarkup(signaturePath: string | null): string {
+  if (!signaturePath) return '<div class="muted">No drawn signature path stored.</div>';
+
+  if (signaturePath.startsWith('data:image/')) {
+    return `<img src="${html(signaturePath)}" alt="Drawn signature" />`;
+  }
+
+  return `<svg viewBox="0 0 1000 400" role="img" aria-label="Drawn signature"><line x1="48" x2="952" y1="324" y2="324" stroke="#d8d2c8" stroke-width="3"/><path d="${html(signaturePath)}" fill="none" stroke="#161616" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/></svg>`;
+}
+
 export function buildLogbookExportBundle({
   profile,
   entries,
@@ -179,9 +189,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   const dateLabel = entry.date_from === entry.date_to
     ? entry.date_from
     : `${entry.date_from} to ${entry.date_to}`;
-  const signatureSvg = signature.signature_path
-    ? `<svg viewBox="0 0 1000 400" role="img" aria-label="Drawn signature"><line x1="48" x2="952" y1="324" y2="324" stroke="#d8d2c8" stroke-width="3"/><path d="${html(signature.signature_path)}" fill="none" stroke="#161616" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/></svg>`
-    : '<div class="muted">No drawn signature path stored.</div>';
+  const signatureSvg = signatureMarkup(signature.signature_path);
 
   return `<!doctype html>
 <html>
@@ -201,7 +209,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
     .status { color: #a92323; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
     .hash { background: #f8f6f1; border: 1px solid #d9d3c8; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; padding: 10px; }
     .signature { border: 1px solid #d9d3c8; height: 150px; margin-top: 6px; width: 100%; }
-    .signature svg { height: 100%; width: 100%; }
+    .signature img, .signature svg { height: 100%; object-fit: contain; width: 100%; }
     .muted { color: #5c5a55; }
     ul { margin: 6px 0 0; padding-left: 18px; }
     li { margin-bottom: 4px; }
