@@ -18,6 +18,7 @@ export function Card({ children, style }: CardProps) {
         borderRadius: radii.sm,
         borderWidth: 1,
         gap: spacing.md,
+        overflow: 'hidden',
         padding: spacing.base,
         ...style,
       }}
@@ -26,4 +27,3 @@ export function Card({ children, style }: CardProps) {
     </View>
   );
 }
-

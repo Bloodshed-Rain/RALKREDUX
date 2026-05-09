@@ -2,6 +2,7 @@ export { ActionTile } from './action-tile';
 export { Button } from './button';
 export { Card } from './card';
 export { CheckboxRow } from './checkbox-row';
+export { DateField } from './date-field';
 export { Field } from './field';
 export { Screen } from './screen';
 export { SignaturePad } from './signature-pad';

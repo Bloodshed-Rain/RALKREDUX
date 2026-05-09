@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useTheme } from '../theme/theme-provider';
 
 interface ScreenProps {
@@ -12,14 +12,20 @@ export function Screen({ children, footer, padded = true }: ScreenProps) {
   const { colors, spacing } = useTheme();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgApp }}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={footer ? 72 : 0}
+      style={{ flex: 1, backgroundColor: colors.bgApp }}
+    >
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         contentInsetAdjustmentBehavior="automatic"
+        keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingHorizontal: padded ? spacing.base : 0,
           paddingVertical: spacing.base,
-          paddingBottom: footer ? spacing.xxl : spacing.base,
+          paddingBottom: footer ? spacing.xxl + spacing.xl : spacing.base,
           gap: spacing.base,
         }}
       >
@@ -39,6 +45,6 @@ export function Screen({ children, footer, padded = true }: ScreenProps) {
           {footer}
         </View>
       ) : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

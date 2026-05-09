@@ -12,7 +12,7 @@ import {
 } from 'lucide-react-native';
 import { useCreateProfile } from '@/src/domain/profile/use-profile';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
-import { Button, Card, Field, Screen } from '@/src/ui/primitives';
+import { Button, Card, DateField, Field, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 const schemes: CertScheme[] = ['sprat', 'irata'];
@@ -154,12 +154,12 @@ export default function SetupScreen() {
               placeholder="Optional"
               autoCapitalize="characters"
             />
-            <Field
+            <DateField
               label="Expires on"
               value={expiresOn}
-              onChangeText={setExpiresOn}
-              placeholder="YYYY-MM-DD"
-              keyboardType="numbers-and-punctuation"
+              onChange={setExpiresOn}
+              placeholder="Expiry later"
+              optional
             />
           </View>
         ) : null}

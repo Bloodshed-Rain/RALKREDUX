@@ -10,8 +10,12 @@ import {
   useEntryTemplates,
 } from '@/src/domain/logbook/use-logbook';
 import { useProfile } from '@/src/domain/profile/use-profile';
-import { Button, Card, Field, Screen } from '@/src/ui/primitives';
+import { Button, Card, DateField, Field, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function NewEntryScreen() {
   const { colors, radii, spacing, typography } = useTheme();
@@ -31,6 +35,8 @@ export default function NewEntryScreen() {
   const [heightUnit, setHeightUnit] = React.useState<HeightUnit>('ft');
   const [description, setDescription] = React.useState('');
   const [hours, setHours] = React.useState('8');
+  const [dateFrom, setDateFrom] = React.useState(todayIso());
+  const [dateTo, setDateTo] = React.useState(todayIso());
   const [templateName, setTemplateName] = React.useState('');
   const [showDetails, setShowDetails] = React.useState(false);
   const [showTemplateSave, setShowTemplateSave] = React.useState(false);
@@ -67,6 +73,8 @@ export default function NewEntryScreen() {
         structure_type: structureType,
         max_height: parsedHeight,
         height_unit: heightUnit,
+        date_from: dateFrom,
+        date_to: dateTo || dateFrom,
         template_id: selectedTemplateId,
         sprat_level_snapshot: p?.sprat_level ?? null,
         irata_level_snapshot: p?.irata_level ?? null,
@@ -102,6 +110,8 @@ export default function NewEntryScreen() {
     setHeightUnit(latest.height_unit);
     setDescription(latest.description);
     setHours(String(latest.work_hours));
+    setDateFrom(latest.date_from);
+    setDateTo(latest.date_to);
   }
 
   function saveTemplate() {
@@ -245,6 +255,14 @@ export default function NewEntryScreen() {
         />
         {showDetails ? (
           <>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <DateField label="From" value={dateFrom} onChange={setDateFrom} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <DateField label="To" value={dateTo} onChange={setDateTo} />
+              </View>
+            </View>
             <Field label="Employer" value={employer} onChangeText={setEmployer} placeholder="Company" />
             <Field label="Client" value={client} onChangeText={setClient} placeholder="Client" />
             <Field label="Access method" value={accessMethod} onChangeText={setAccessMethod} placeholder="Two-rope access" />

@@ -19,7 +19,7 @@ import {
   useGearSummary,
   useRecordGearInspection,
 } from '@/src/domain/gear/use-gear';
-import { ActionTile, Button, Card, Field, Screen } from '@/src/ui/primitives';
+import { ActionTile, Button, Card, DateField, Field, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 type GearFilter = 'all' | GearStatus;
@@ -386,7 +386,13 @@ export default function GearScreen() {
           </View>
           <Field label="Name" value={customName} onChangeText={setCustomName} placeholder="Optional display name" />
           <Field label="Serial" value={serialNumber} onChangeText={setSerialNumber} placeholder="Optional" />
-          <Field label="Next due" value={nextInspectionDue} onChangeText={setNextInspectionDue} placeholder="YYYY-MM-DD" />
+          <DateField
+            label="Next due"
+            value={nextInspectionDue}
+            onChange={setNextInspectionDue}
+            placeholder="No date"
+            optional
+          />
           <Button
             title="Add gear"
             icon={Plus}
@@ -397,7 +403,7 @@ export default function GearScreen() {
         </Card>
       ) : null}
 
-      {activeItems.length && showInspection ? (
+      {activeItems.length > 0 && showInspection ? (
         <Card>
           <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
             Inspection
@@ -422,12 +428,13 @@ export default function GearScreen() {
               />
             ))}
           </View>
-          <Field label="Inspected" value={inspectedOn} onChangeText={setInspectedOn} placeholder="YYYY-MM-DD" />
-          <Field
+          <DateField label="Inspected" value={inspectedOn} onChange={setInspectedOn} />
+          <DateField
             label="Next due"
             value={inspectionNextDue}
-            onChangeText={setInspectionNextDue}
+            onChange={setInspectionNextDue}
             placeholder={inspectionResult === 'fail' ? 'Ignored for failed gear' : 'YYYY-MM-DD'}
+            optional
           />
           <Field
             label="Notes"

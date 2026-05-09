@@ -1,7 +1,6 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
-  AlertTriangle,
   ChevronDown,
   ChevronUp,
   Save,
@@ -9,7 +8,7 @@ import {
 import { Pressable, Text, View } from 'react-native';
 import type { HeightUnit } from '@/src/domain/logbook/types';
 import { useEntryDetail, useUpdateDraftEntry } from '@/src/domain/logbook/use-logbook';
-import { Button, Card, Field, Screen } from '@/src/ui/primitives';
+import { Button, Card, DateField, Field, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -45,7 +44,7 @@ function missingFields(input: {
 }
 
 export default function EditDraftScreen() {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
@@ -100,6 +99,7 @@ export default function EditDraftScreen() {
     parsedHeight,
   });
   const isAuditReady = missing.length === 0;
+  const isMissing = React.useCallback((field: string) => missing.includes(field), [missing]);
   const canSave =
     Boolean(entryId) &&
     entry?.status === 'draft' &&
@@ -183,31 +183,20 @@ export default function EditDraftScreen() {
             label={isAuditReady ? 'Ready to sign' : `${missing.length} missing`}
             tone={isAuditReady ? 'ok' : 'warn'}
           />
-          {missing.length ? <Pill label={missing.slice(0, 3).join(', ')} tone="neutral" /> : null}
+          {missing.length ? <Pill label="Complete highlighted fields" tone="neutral" /> : null}
         </View>
 
-        {missing.length ? (
-          <View
-            style={{
-              borderRadius: radii.sm,
-              backgroundColor: colors.statusWarnTint,
-              padding: spacing.md,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.sm,
-            }}
-          >
-            <AlertTriangle size={18} color={colors.statusWarn} strokeWidth={2.2} />
-            <Text selectable style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
-              {missing.join(', ')}
-            </Text>
-          </View>
-        ) : null}
-
-        <Field label="Site" value={site} onChangeText={setSite} placeholder="Tower / plant / bridge" />
+        <Field
+          label="Site"
+          value={site}
+          onChangeText={setSite}
+          placeholder="Tower / plant / bridge"
+          invalid={isMissing('site')}
+          hint={isMissing('site') ? 'Required before signing' : undefined}
+        />
 
         <View style={{ gap: spacing.sm }}>
-          <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+          <Text selectable style={{ ...typography.label, color: isMissing('task') ? colors.statusWarn : colors.textPrimary }}>
             Task
           </Text>
           <ChipRow
@@ -220,6 +209,8 @@ export default function EditDraftScreen() {
             value={workTask}
             onChangeText={setWorkTask}
             placeholder="Inspection / maintenance / rescue cover"
+            invalid={isMissing('task')}
+            hint={isMissing('task') ? 'Pick a preset or type the task' : undefined}
           />
         </View>
 
@@ -235,6 +226,8 @@ export default function EditDraftScreen() {
           onChangeText={setHours}
           keyboardType="decimal-pad"
           placeholder="8"
+          invalid={isMissing('hours')}
+          hint={isMissing('hours') ? 'Enter hours greater than 0' : undefined}
         />
 
         <Button
@@ -248,28 +241,40 @@ export default function EditDraftScreen() {
           <>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <View style={{ flex: 1 }}>
-                <Field
+                <DateField
                   label="From"
                   value={dateFrom}
-                  onChangeText={setDateFrom}
-                  placeholder="YYYY-MM-DD"
-                  style={{ minWidth: 0 }}
+                  onChange={setDateFrom}
+                  invalid={isMissing('dates')}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Field
+                <DateField
                   label="To"
                   value={dateTo}
-                  onChangeText={setDateTo}
-                  placeholder="YYYY-MM-DD"
-                  style={{ minWidth: 0 }}
+                  onChange={setDateTo}
+                  invalid={isMissing('dates')}
                 />
               </View>
             </View>
-            <Field label="Employer" value={employer} onChangeText={setEmployer} placeholder="Company" />
-            <Field label="Client" value={client} onChangeText={setClient} placeholder="Client" />
+            <Field
+              label="Employer"
+              value={employer}
+              onChangeText={setEmployer}
+              placeholder="Company"
+              invalid={isMissing('employer')}
+              hint={isMissing('employer') ? 'Required before signing' : undefined}
+            />
+            <Field
+              label="Client"
+              value={client}
+              onChangeText={setClient}
+              placeholder="Client"
+              invalid={isMissing('client')}
+              hint={isMissing('client') ? 'Required before signing' : undefined}
+            />
             <View style={{ gap: spacing.sm }}>
-              <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
+              <Text selectable style={{ ...typography.label, color: isMissing('structure') ? colors.statusWarn : colors.textPrimary }}>
                 Structure
               </Text>
               <ChipRow
@@ -282,6 +287,8 @@ export default function EditDraftScreen() {
                 value={structureType}
                 onChangeText={setStructureType}
                 placeholder="Bridge / tower / wind turbine"
+                invalid={isMissing('structure')}
+                hint={isMissing('structure') ? 'Pick a preset or type the structure' : undefined}
               />
             </View>
             <Field
@@ -289,6 +296,8 @@ export default function EditDraftScreen() {
               value={accessMethod}
               onChangeText={setAccessMethod}
               placeholder="Two-rope access"
+              invalid={isMissing('access')}
+              hint={isMissing('access') ? 'Required before signing' : undefined}
             />
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <View style={{ flex: 1 }}>
@@ -298,6 +307,8 @@ export default function EditDraftScreen() {
                   onChangeText={setMaxHeight}
                   keyboardType="decimal-pad"
                   placeholder="120"
+                  invalid={isMissing('height')}
+                  hint={isMissing('height') ? 'Required before signing' : undefined}
                   style={{ minWidth: 0 }}
                 />
               </View>
@@ -325,6 +336,8 @@ export default function EditDraftScreen() {
               textAlignVertical="top"
               style={{ minHeight: 96 }}
               placeholder="What work was performed?"
+              invalid={isMissing('notes')}
+              hint={isMissing('notes') ? 'Required before signing' : undefined}
             />
           </>
         ) : null}
