@@ -47,15 +47,29 @@ export default function RemoteVerifyScreen() {
   const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
   const [completedDetail, setCompletedDetail] = React.useState<EntryDetail | null>(null);
+  const previousRequestCodeRef = React.useRef<string | null>(requestCode);
   const detail = requestDetail.data;
   const entry = detail?.entry;
   const request = detail?.request;
 
   React.useEffect(() => {
+    const requestChanged = previousRequestCodeRef.current !== requestCode;
+    if (requestChanged) {
+      previousRequestCodeRef.current = requestCode;
+      setSigningToken(queryToken);
+      setSupervisorName('');
+      setSupervisorCertNumber('');
+      setSignaturePath('');
+      setSignatureActive(false);
+      setAttestationAccepted(false);
+      setCompletedDetail(null);
+      return;
+    }
+
     if (queryToken) {
       setSigningToken(queryToken);
     }
-  }, [queryToken]);
+  }, [queryToken, requestCode]);
 
   React.useEffect(() => {
     if (Platform.OS === 'web' && requestDetail.data && requestCode && queryToken) {
