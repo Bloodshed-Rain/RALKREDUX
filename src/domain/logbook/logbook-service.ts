@@ -68,9 +68,20 @@ export function buildRemoteSigningToken(request: Pick<RemoteSignatureRequest, 'i
   return `${normalizeRequestCode(request.request_code)}.${request.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12)}`;
 }
 
-export function buildRemoteSigningUrl(request: Pick<RemoteSignatureRequest, 'id' | 'request_code'>): string {
+export function buildRemoteSigningUrl(
+  request: Pick<RemoteSignatureRequest, 'id' | 'request_code'>,
+  options: { origin?: string | null } = {},
+): string {
+  const requestCode = normalizeRequestCode(request.request_code);
   const token = buildRemoteSigningToken(request);
-  return `ralb://verify/${normalizeRequestCode(request.request_code)}?token=${encodeURIComponent(token)}`;
+  const query = `token=${encodeURIComponent(token)}`;
+  const origin = options.origin?.trim().replace(/\/+$/, '');
+
+  if (origin) {
+    return `${origin}/verify/${requestCode}?${query}`;
+  }
+
+  return `ralb://verify/${requestCode}?${query}`;
 }
 
 export function createLogbookService(db: DbClient) {

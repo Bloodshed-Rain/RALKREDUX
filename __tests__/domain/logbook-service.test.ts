@@ -1,6 +1,6 @@
 import { createTestClient } from '../setup';
 import { createGearService } from '@/src/domain/gear/gear-service';
-import { buildRemoteSigningToken, createLogbookService } from '@/src/domain/logbook/logbook-service';
+import { buildRemoteSigningToken, buildRemoteSigningUrl, createLogbookService } from '@/src/domain/logbook/logbook-service';
 import { CreateEntryInput } from '@/src/domain/logbook/types';
 import { createProfileService } from '@/src/domain/profile/profile-service';
 
@@ -271,6 +271,9 @@ describe('logbook service', () => {
     expect(detail.remote_request?.request_code).toHaveLength(10);
     expect(detail.remote_request?.entry_hash).toMatch(/^sha256:/);
     expect(detail.remote_request?.token_hint).toBe(buildRemoteSigningToken(detail.remote_request!).slice(-6));
+    expect(buildRemoteSigningUrl(detail.remote_request!, { origin: 'http://localhost:8082/' })).toBe(
+      `http://localhost:8082/verify/${detail.remote_request!.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(detail.remote_request!))}`,
+    );
 
     const repeated = await service.createRemoteSignatureRequest({
       entry_id: entry.id,

@@ -1,4 +1,5 @@
 import React from 'react';
+import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
@@ -28,7 +29,7 @@ import {
   UserRound,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { Image as NativeImage, Share, Text, View } from 'react-native';
+import { Image as NativeImage, Platform, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
@@ -47,6 +48,17 @@ import { useTheme } from '@/src/ui/theme/theme-provider';
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] : value;
+}
+
+function localVerifierOrigin(): string | null {
+  if (Platform.OS === 'web') {
+    const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
+    return origin && origin !== 'null' ? origin : null;
+  }
+
+  const hostUri = Constants.expoConfig?.hostUri?.split('/')[0];
+  if (!hostUri) return null;
+  return /^https?:\/\//.test(hostUri) ? hostUri : `http://${hostUri}`;
 }
 
 function statusLabel(status: string): string {
@@ -340,14 +352,14 @@ export default function EntryDetailScreen() {
 
   async function shareVerifierRequest() {
     if (!remoteRequest || !entry) return;
-    const deepLink = buildRemoteSigningUrl(remoteRequest);
+    const verifierLink = buildRemoteSigningUrl(remoteRequest, { origin: localVerifierOrigin() });
     await Share.share({
       title: 'RALB remote signature request',
       message: [
         `Please review and sign this RALB work entry for ${entry.site}.`,
         `Request code: ${remoteRequest.request_code}`,
         `Expires: ${remoteRequest.expires_at ? remoteRequest.expires_at.slice(0, 10) : 'not set'}`,
-        `Open in RALB: ${deepLink}`,
+        `Verifier link: ${verifierLink}`,
       ].join('\n'),
     });
   }
