@@ -109,6 +109,7 @@ export default function RecordsScreen() {
 
   return (
     <Screen
+      safeTop
       footer={
         <Button
           title="New entry"

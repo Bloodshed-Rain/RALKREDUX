@@ -31,7 +31,9 @@ export function ActionTile({
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => ({
-        flex: 1,
+        flexBasis: 132,
+        flexGrow: 1,
+        flexShrink: 1,
         minHeight: 96,
         minWidth: 132,
         borderRadius: radii.sm,

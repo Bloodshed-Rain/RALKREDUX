@@ -47,7 +47,7 @@ export default function DashboardScreen() {
   const stats = career.data;
 
   return (
-    <Screen>
+    <Screen safeTop>
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
           <View style={{ flex: 1, gap: spacing.xs }}>

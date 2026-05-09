@@ -282,14 +282,15 @@ export default function GearScreen() {
   }
 
   return (
-    <Screen>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+    <Screen safeTop>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <ActionTile
           title="Active"
           value={String(summary.data?.activeItems ?? 0)}
           icon={HardHat}
           onPress={() => setFilter('all')}
           tone={filter === 'all' ? 'accent' : 'default'}
+          style={{ flexBasis: 0, minHeight: 112, minWidth: 0 }}
         />
         <ActionTile
           title="Due"
@@ -297,6 +298,7 @@ export default function GearScreen() {
           icon={AlertTriangle}
           onPress={() => setFilter((summary.data?.overdueItems ?? 0) > 0 ? 'overdue' : 'due_soon')}
           tone={(summary.data?.overdueItems ?? 0) > 0 || (summary.data?.dueSoonItems ?? 0) > 0 ? 'warn' : 'default'}
+          style={{ flexBasis: 0, minHeight: 112, minWidth: 0 }}
         />
         <ActionTile
           title="Retired"
@@ -304,6 +306,7 @@ export default function GearScreen() {
           icon={Archive}
           onPress={() => setFilter('retired')}
           tone={filter === 'retired' ? 'accent' : 'default'}
+          style={{ flexBasis: 0, minHeight: 112, minWidth: 0 }}
         />
       </View>
 

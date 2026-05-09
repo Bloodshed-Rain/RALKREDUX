@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import {
   BadgeCheck,
   CalendarDays,
@@ -49,122 +49,126 @@ export default function SetupScreen() {
   }
 
   return (
-    <Screen
-      footer={
-        <Button
-          title={canContinue ? 'Create logbook' : 'Add name'}
-          icon={ShieldCheck}
-          onPress={submit}
-          disabled={!canContinue}
-          loading={createProfile.isPending}
-        />
-      }
-    >
-      <View style={{ gap: spacing.md }}>
-        <View style={{ gap: spacing.xs }}>
-          <Text selectable style={{ ...typography.title1, color: colors.textPrimary }}>
-            Set up
-          </Text>
-          <Text selectable style={{ ...typography.bodyMed, color: colors.textSecondary }}>
-            {fullName.trim() || 'Your logbook'}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
-          <Pill icon={BadgeCheck} label={`${scheme.toUpperCase()} ${level}`} tone="accent" />
-          <Pill icon={CalendarDays} label={expiresOn.trim() || 'Expiry later'} />
-        </View>
-      </View>
-
-      <Card>
-        <SectionHeader icon={UserRound} title="Identity" />
-        <Field label="Full name" value={fullName} onChangeText={setFullName} placeholder="Alex Morgan" />
-      </Card>
-
-      <Card>
-        <View style={{ gap: spacing.sm }}>
-          <SectionHeader icon={BadgeCheck} title="Certification" />
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            {schemes.map((item) => {
-              const selected = item === scheme;
-              return (
-                <ChoiceChip
-                  key={item}
-                  label={item.toUpperCase()}
-                  selected={selected}
-                  onPress={() => setScheme(item)}
-                  flex
-                />
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          {levels.map((item) => (
-            <ChoiceChip
-              key={item}
-              label={`Level ${item}`}
-              selected={item === level}
-              onPress={() => setLevel(item)}
-              flex
-            />
-          ))}
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setDetailsOpen((current) => !current)}
-          style={({ pressed }) => ({
-            minHeight: 48,
-            borderRadius: radii.sm,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: hasCertDetails ? colors.statusOkTint : colors.bgSurface,
-            opacity: pressed ? 0.82 : 1,
-            paddingHorizontal: spacing.md,
-            alignItems: 'center',
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            gap: spacing.sm,
-          })}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
-            {hasCertDetails ? (
-              <CheckCircle2 size={18} color={colors.statusOk} strokeWidth={2.2} />
-            ) : (
-              <CalendarDays size={18} color={colors.textSecondary} strokeWidth={2.2} />
-            )}
-            <Text selectable={false} style={{ ...typography.label, color: colors.textPrimary }}>
-              {hasCertDetails ? 'Cert details added' : 'Cert details'}
+    <>
+      <Stack.Screen options={{ headerShown: false, title: 'Set up' }} />
+      <Screen
+        safeTop
+        footer={
+          <Button
+            title={canContinue ? 'Create logbook' : 'Add name'}
+            icon={ShieldCheck}
+            onPress={submit}
+            disabled={!canContinue}
+            loading={createProfile.isPending}
+          />
+        }
+      >
+        <View style={{ gap: spacing.md }}>
+          <View style={{ gap: spacing.xs }}>
+            <Text selectable style={{ ...typography.title1, color: colors.textPrimary }}>
+              Set up
+            </Text>
+            <Text selectable style={{ ...typography.bodyMed, color: colors.textSecondary }}>
+              {fullName.trim() || 'Your logbook'}
             </Text>
           </View>
-          {detailsOpen ? (
-            <ChevronUp size={18} color={colors.textSecondary} strokeWidth={2.2} />
-          ) : (
-            <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.2} />
-          )}
-        </Pressable>
-
-        {detailsOpen ? (
-          <View style={{ gap: spacing.md }}>
-            <Field
-              label="Certification number"
-              value={certId}
-              onChangeText={setCertId}
-              placeholder="Optional"
-              autoCapitalize="characters"
-            />
-            <DateField
-              label="Expires on"
-              value={expiresOn}
-              onChange={setExpiresOn}
-              placeholder="Expiry later"
-              optional
-            />
+          <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
+            <Pill icon={BadgeCheck} label={`${scheme.toUpperCase()} ${level}`} tone="accent" />
+            <Pill icon={CalendarDays} label={expiresOn.trim() || 'Expiry later'} />
           </View>
-        ) : null}
-      </Card>
-    </Screen>
+        </View>
+
+        <Card>
+          <SectionHeader icon={UserRound} title="Identity" />
+          <Field label="Full name" value={fullName} onChangeText={setFullName} placeholder="Alex Morgan" />
+        </Card>
+
+        <Card>
+          <View style={{ gap: spacing.sm }}>
+            <SectionHeader icon={BadgeCheck} title="Certification" />
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {schemes.map((item) => {
+                const selected = item === scheme;
+                return (
+                  <ChoiceChip
+                    key={item}
+                    label={item.toUpperCase()}
+                    selected={selected}
+                    onPress={() => setScheme(item)}
+                    flex
+                  />
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {levels.map((item) => (
+              <ChoiceChip
+                key={item}
+                label={`Level ${item}`}
+                selected={item === level}
+                onPress={() => setLevel(item)}
+                flex
+              />
+            ))}
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setDetailsOpen((current) => !current)}
+            style={({ pressed }) => ({
+              minHeight: 48,
+              borderRadius: radii.sm,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: hasCertDetails ? colors.statusOkTint : colors.bgSurface,
+              opacity: pressed ? 0.82 : 1,
+              paddingHorizontal: spacing.md,
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+            })}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+              {hasCertDetails ? (
+                <CheckCircle2 size={18} color={colors.statusOk} strokeWidth={2.2} />
+              ) : (
+                <CalendarDays size={18} color={colors.textSecondary} strokeWidth={2.2} />
+              )}
+              <Text selectable={false} style={{ ...typography.label, color: colors.textPrimary }}>
+                {hasCertDetails ? 'Cert details added' : 'Cert details'}
+              </Text>
+            </View>
+            {detailsOpen ? (
+              <ChevronUp size={18} color={colors.textSecondary} strokeWidth={2.2} />
+            ) : (
+              <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.2} />
+            )}
+          </Pressable>
+
+          {detailsOpen ? (
+            <View style={{ gap: spacing.md }}>
+              <Field
+                label="Certification number"
+                value={certId}
+                onChangeText={setCertId}
+                placeholder="Optional"
+                autoCapitalize="characters"
+              />
+              <DateField
+                label="Expires on"
+                value={expiresOn}
+                onChange={setExpiresOn}
+                placeholder="Expiry later"
+                optional
+              />
+            </View>
+          ) : null}
+        </Card>
+      </Screen>
+    </>
   );
 }
 

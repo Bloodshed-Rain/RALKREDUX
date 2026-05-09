@@ -1,6 +1,7 @@
 import React from 'react';
 import { PanResponder, Pressable, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
+import { useScreenScrollLock } from './screen';
 import { useTheme } from '../theme/theme-provider';
 
 interface Point {
@@ -17,6 +18,8 @@ interface SignaturePadProps {
 
 const SIGNATURE_VIEWBOX_WIDTH = 1000;
 const SIGNATURE_VIEWBOX_HEIGHT = 400;
+const MIN_POINT_DISTANCE = 3;
+const MIN_STROKE_POINTS = 2;
 
 function pointToSegment(point: Point, index: number): string {
   const x = point.x.toFixed(1);
@@ -28,16 +31,30 @@ function strokeToPath(points: Point[]): string {
   return points.map(pointToSegment).join(' ');
 }
 
+function distanceBetween(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 export function SignaturePad({ label, value, onChange, height = 180 }: SignaturePadProps) {
   const { colors, radii, spacing, typography } = useTheme();
+  const setScreenScrollLocked = useScreenScrollLock();
   const [activeStroke, setActiveStroke] = React.useState<Point[]>([]);
   const [size, setSize] = React.useState({ width: 1, height });
   const pathRef = React.useRef(value);
   const activeStrokeRef = React.useRef<Point[]>([]);
+  const strokeStartRef = React.useRef<Point | null>(null);
+  const scrollLockedRef = React.useRef(false);
 
   React.useEffect(() => {
     pathRef.current = value;
   }, [value]);
+
+  React.useEffect(() => () => {
+    if (scrollLockedRef.current) {
+      scrollLockedRef.current = false;
+      setScreenScrollLocked(false);
+    }
+  }, [setScreenScrollLocked]);
 
   function clampPoint(x: number, y: number): Point {
     return {
@@ -46,7 +63,20 @@ export function SignaturePad({ label, value, onChange, height = 180 }: Signature
     };
   }
 
+  function lockScreenScroll() {
+    if (scrollLockedRef.current) return;
+    scrollLockedRef.current = true;
+    setScreenScrollLocked(true);
+  }
+
+  function unlockScreenScroll() {
+    if (!scrollLockedRef.current) return;
+    scrollLockedRef.current = false;
+    setScreenScrollLocked(false);
+  }
+
   function commitStroke(points: Point[]) {
+    if (points.length < MIN_STROKE_POINTS) return;
     const strokePath = strokeToPath(points);
     if (!strokePath) return;
     const next = pathRef.current ? `${pathRef.current} ${strokePath}` : strokePath;
@@ -54,32 +84,69 @@ export function SignaturePad({ label, value, onChange, height = 180 }: Signature
     onChange(next);
   }
 
+  function appendPoint(point: Point) {
+    const current = activeStrokeRef.current;
+    const previous = current[current.length - 1];
+    if (previous && distanceBetween(previous, point) < MIN_POINT_DISTANCE) return;
+
+    const next = [...current, point];
+    activeStrokeRef.current = next;
+    setActiveStroke(next);
+  }
+
+  function finishStroke() {
+    commitStroke(activeStrokeRef.current);
+    activeStrokeRef.current = [];
+    strokeStartRef.current = null;
+    setActiveStroke([]);
+    unlockScreenScroll();
+  }
+
   const responder = React.useMemo(
     () =>
       PanResponder.create({
+        onMoveShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onStartShouldSetPanResponder: () => true,
         onPanResponderGrant: (event) => {
-          const point = clampPoint(event.nativeEvent.locationX, event.nativeEvent.locationY);
-          activeStrokeRef.current = [point];
-          setActiveStroke([point]);
+          lockScreenScroll();
+          const start = {
+            x: event.nativeEvent.locationX,
+            y: event.nativeEvent.locationY,
+          };
+          strokeStartRef.current = start;
+          const startPoint = clampPoint(start.x, start.y);
+          activeStrokeRef.current = [startPoint];
+          setActiveStroke([startPoint]);
         },
-        onPanResponderMove: (event) => {
-          const point = clampPoint(event.nativeEvent.locationX, event.nativeEvent.locationY);
-          const next = [...activeStrokeRef.current, point];
-          activeStrokeRef.current = next;
-          setActiveStroke(next);
+        onPanResponderMove: (_event, gestureState) => {
+          const start = strokeStartRef.current;
+          if (!start) return;
+          appendPoint(
+            clampPoint(start.x + gestureState.dx, start.y + gestureState.dy),
+          );
         },
-        onPanResponderRelease: () => {
-          commitStroke(activeStrokeRef.current);
-          activeStrokeRef.current = [];
-          setActiveStroke([]);
+        onPanResponderRelease: (_event, gestureState) => {
+          const start = strokeStartRef.current;
+          if (start) {
+            appendPoint(
+              clampPoint(start.x + gestureState.dx, start.y + gestureState.dy),
+            );
+          }
+          finishStroke();
         },
-        onPanResponderTerminate: () => {
-          commitStroke(activeStrokeRef.current);
-          activeStrokeRef.current = [];
-          setActiveStroke([]);
+        onPanResponderTerminate: (_event, gestureState) => {
+          const start = strokeStartRef.current;
+          if (start) {
+            appendPoint(
+              clampPoint(start.x + gestureState.dx, start.y + gestureState.dy),
+            );
+          }
+          finishStroke();
         },
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
       }),
     [size.height, size.width],
   );
@@ -87,6 +154,9 @@ export function SignaturePad({ label, value, onChange, height = 180 }: Signature
   function clear() {
     pathRef.current = '';
     setActiveStroke([]);
+    activeStrokeRef.current = [];
+    strokeStartRef.current = null;
+    unlockScreenScroll();
     onChange('');
   }
 
@@ -103,6 +173,7 @@ export function SignaturePad({ label, value, onChange, height = 180 }: Signature
         </Pressable>
       </View>
       <View
+        collapsable={false}
         {...responder.panHandlers}
         onLayout={(event) => {
           setSize({
@@ -119,7 +190,12 @@ export function SignaturePad({ label, value, onChange, height = 180 }: Signature
           overflow: 'hidden',
         }}
       >
-        <Svg width="100%" height="100%" viewBox={`0 0 ${SIGNATURE_VIEWBOX_WIDTH} ${SIGNATURE_VIEWBOX_HEIGHT}`}>
+        <Svg
+          pointerEvents="none"
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${SIGNATURE_VIEWBOX_WIDTH} ${SIGNATURE_VIEWBOX_HEIGHT}`}
+        >
           <Line
             x1={48}
             x2={SIGNATURE_VIEWBOX_WIDTH - 48}

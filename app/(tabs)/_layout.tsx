@@ -1,19 +1,12 @@
 import { Tabs } from 'expo-router';
 import { BookOpen, HardHat, Home, User } from 'lucide-react-native';
-import { colors, typography } from '@/src/ui/theme/tokens';
+import { colors } from '@/src/ui/theme/tokens';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bgSurface },
-        headerShadowVisible: false,
-        headerTintColor: colors.textPrimary,
-        headerTitleStyle: {
-          fontFamily: typography.title2.fontFamily,
-          fontSize: typography.title2.fontSize,
-          fontWeight: typography.title2.fontWeight,
-        },
+        headerShown: false,
         tabBarActiveTintColor: colors.accentPrimary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
@@ -53,4 +46,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-

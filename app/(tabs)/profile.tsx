@@ -65,7 +65,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <Screen>
+    <Screen safeTop>
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md }}>
           <View style={{ flex: 1, gap: spacing.sm }}>

@@ -9,6 +9,8 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
+          headerBackTitle: 'Back',
+          headerBackButtonDisplayMode: 'minimal',
           headerStyle: { backgroundColor: colors.bgSurface },
           headerShadowVisible: false,
           headerTintColor: colors.textPrimary,
@@ -20,9 +22,9 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.bgApp },
         }}
       >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false, title: 'RALB' }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false, title: 'Set up' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'RALB' }} />
         <Stack.Screen name="entry/new" options={{ title: 'New entry', presentation: 'modal' }} />
         <Stack.Screen name="entry/[id]" options={{ title: 'Entry' }} />
         <Stack.Screen name="entry/[id]/edit" options={{ title: 'Edit draft', presentation: 'modal' }} />
