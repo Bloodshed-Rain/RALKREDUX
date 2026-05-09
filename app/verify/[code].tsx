@@ -35,9 +35,10 @@ function HashPreview({ value }: { value: string }) {
 
 export default function RemoteVerifyScreen() {
   const { colors, spacing, typography } = useTheme();
-  const { code } = useLocalSearchParams<{ code?: string | string[] }>();
+  const { code, token } = useLocalSearchParams<{ code?: string | string[]; token?: string | string[] }>();
   const requestCode = firstParam(code);
-  const requestDetail = useRemoteSignatureRequestDetail(requestCode);
+  const signingToken = firstParam(token);
+  const requestDetail = useRemoteSignatureRequestDetail(requestCode, signingToken);
   const completeRequest = useCompleteRemoteSignatureRequest();
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
@@ -57,6 +58,7 @@ export default function RemoteVerifyScreen() {
 
   const canSign =
     Boolean(requestCode) &&
+    Boolean(signingToken) &&
     request?.status === 'pending' &&
     entry?.status === 'draft' &&
     supervisorName.trim().length > 1 &&
@@ -69,6 +71,7 @@ export default function RemoteVerifyScreen() {
     completeRequest.mutate(
       {
         request_code: requestCode,
+        signing_token: signingToken,
         supervisor_name: supervisorName,
         supervisor_cert_number: supervisorCertNumber,
         signature_path: signaturePath,
@@ -118,6 +121,21 @@ export default function RemoteVerifyScreen() {
         <Text selectable style={{ ...typography.body, color: colors.textPrimary }}>
           Loading request
         </Text>
+      </Screen>
+    );
+  }
+
+  if (requestDetail.isError) {
+    return (
+      <Screen>
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Secure link required
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Open the full verifier link from the request message. The request code alone cannot authorize a remote signature.
+          </Text>
+        </Card>
       </Screen>
     );
   }

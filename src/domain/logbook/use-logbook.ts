@@ -46,13 +46,17 @@ export function useEntryDetail(entryId: string | null) {
   });
 }
 
-export function useRemoteSignatureRequestDetail(requestCode: string | null) {
+export function useRemoteSignatureRequestDetail(requestCode: string | null, signingToken?: string | null) {
   return useQuery({
     enabled: Boolean(requestCode),
-    queryKey: ['remoteSignatureRequest', requestCode],
+    queryKey: ['remoteSignatureRequest', requestCode, signingToken ?? null],
     queryFn: () => {
       if (!requestCode) throw new Error('remote_request_code_required');
-      return createLogbookService(getClient()).getRemoteSignatureRequestDetail(requestCode);
+      return createLogbookService(getClient()).getRemoteSignatureRequestDetail({
+        request_code: requestCode,
+        signing_token: signingToken,
+        mark_viewed: true,
+      });
     },
   });
 }

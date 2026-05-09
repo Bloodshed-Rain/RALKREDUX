@@ -125,12 +125,19 @@ export interface CreateRemoteSignatureRequestInput {
 
 export interface CompleteRemoteSignatureRequestInput {
   request_code: string;
+  signing_token?: string | null;
   supervisor_name: string;
   supervisor_cert_number: string;
   signature_path: string;
   attestation_accepted: boolean;
   signer_attestation?: string | null;
   signed_at?: string;
+}
+
+export interface RemoteSignatureAccessInput {
+  request_code: string;
+  signing_token?: string | null;
+  mark_viewed?: boolean;
 }
 
 export interface CreateAmendmentInput extends CreateEntryInput {

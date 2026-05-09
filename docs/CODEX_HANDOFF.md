@@ -73,6 +73,7 @@ The first local-first slice is live:
   - remote completion transaction writes a `remote` signature, completes the request, and locks the entry
   - local signing cancels pending remote requests
   - requests now store an expiry, token hash, token hint, and completion timestamp fields for the secure-link path
+  - shared verifier links now include a signing token, verifier detail loading requires the token, request views stamp `viewed_at`, and remote completion validates the token before signing
 - Audit export:
   - JSON bundle from the Records tab
   - CSV export from the Records tab
@@ -204,7 +205,7 @@ Last known good checks:
 .\node_modules\.bin\jest.cmd --runInBand
 ```
 
-Result: TypeScript passed, Jest passed with 27 tests.
+Result: TypeScript passed, Jest passed with 28 tests.
 
 Last phone preview target:
 
@@ -230,7 +231,7 @@ npm.cmd run start -- --host lan
 
 Continue by turning the new foundations into deeper product flows:
 
-1. Hosted remote signing link with server-side one-time token validation.
+1. Supabase-hosted remote signing link with server-side one-time token validation.
 2. Cloud backup storage and conflict resolution on top of the local snapshot format.
 3. Local signing screen cleanup, especially signature-pad ergonomics and supervisor attestation density.
 4. Gear detail/history screens if inline entry and gear tabs become too dense.

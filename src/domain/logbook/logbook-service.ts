@@ -23,6 +23,7 @@ import {
   LogbookExportBundle,
   LogbookExportPacket,
   RemoteSignatureRequest,
+  RemoteSignatureAccessInput,
   RemoteSignatureRequestDetail,
   RemoveGearFromEntryInput,
   SignEntryInput,
@@ -57,6 +58,19 @@ function expirationAlert(label: string, value: string | null): DashboardSummary[
 
 function rowLimit(limit: number | undefined, fallback = 6): number {
   return Math.max(1, Math.min(limit ?? fallback, 25));
+}
+
+function normalizeRequestCode(requestCode: string): string {
+  return requestCode.trim().toUpperCase();
+}
+
+export function buildRemoteSigningToken(request: Pick<RemoteSignatureRequest, 'id' | 'request_code'>): string {
+  return `${normalizeRequestCode(request.request_code)}.${request.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12)}`;
+}
+
+export function buildRemoteSigningUrl(request: Pick<RemoteSignatureRequest, 'id' | 'request_code'>): string {
+  const token = buildRemoteSigningToken(request);
+  return `ralb://verify/${normalizeRequestCode(request.request_code)}?token=${encodeURIComponent(token)}`;
 }
 
 export function createLogbookService(db: DbClient) {
@@ -101,13 +115,60 @@ export function createLogbookService(db: DbClient) {
       FROM remote_signature_requests
       WHERE request_code = ?
       LIMIT 1`,
-      [requestCode.trim().toUpperCase()],
+      [normalizeRequestCode(requestCode)],
     );
   }
 
-  async function getRemoteSignatureRequestDetail(requestCode: string): Promise<RemoteSignatureRequestDetail | null> {
-    const request = await getRemoteRequestByCode(requestCode);
-    if (!request) return null;
+  async function validateRemoteSigningToken(
+    request: RemoteSignatureRequest,
+    signingToken: string | null | undefined,
+  ): Promise<void> {
+    if (!request.signing_token_hash) return;
+
+    const token = signingToken?.trim();
+    if (!token) throw new Error('remote_request_token_required');
+
+    const tokenHash = await hashRemoteSigningToken(token);
+    if (tokenHash !== request.signing_token_hash) {
+      throw new Error('remote_request_token_invalid');
+    }
+  }
+
+  async function maybeExpireRemoteRequest(request: RemoteSignatureRequest, now: string): Promise<RemoteSignatureRequest> {
+    if (request.status !== 'pending' || !request.expires_at || request.expires_at >= now) {
+      return request;
+    }
+
+    await db.run(
+      "UPDATE remote_signature_requests SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'",
+      [now, request.id],
+    );
+
+    return { ...request, status: 'expired', updated_at: now };
+  }
+
+  function remoteAccessInput(input: string | RemoteSignatureAccessInput): RemoteSignatureAccessInput {
+    return typeof input === 'string' ? { request_code: input } : input;
+  }
+
+  async function getRemoteSignatureRequestDetail(
+    input: string | RemoteSignatureAccessInput,
+  ): Promise<RemoteSignatureRequestDetail | null> {
+    const access = remoteAccessInput(input);
+    const now = new Date().toISOString();
+    const existing = await getRemoteRequestByCode(access.request_code);
+    if (!existing) return null;
+
+    await validateRemoteSigningToken(existing, access.signing_token);
+    let request = await maybeExpireRemoteRequest(existing, now);
+    if (access.mark_viewed && request.status === 'pending' && !request.viewed_at) {
+      await db.run(
+        'UPDATE remote_signature_requests SET viewed_at = ?, updated_at = ? WHERE id = ? AND viewed_at IS NULL',
+        [now, now, request.id],
+      );
+      request = { ...request, viewed_at: now, updated_at: now };
+    }
+
     const entry = await getEntryById(request.entry_id);
     if (!entry) return null;
     return {
@@ -261,10 +322,6 @@ export function createLogbookService(db: DbClient) {
 
   function createRequestCode(id: string): string {
     return id.replace(/[^a-zA-Z0-9]/g, '').slice(-10).toUpperCase();
-  }
-
-  function createSigningToken(requestId: string, requestCode: string): string {
-    return `${requestCode}.${requestId.replace(/[^a-zA-Z0-9]/g, '').slice(-12)}`;
   }
 
   return {
@@ -487,7 +544,7 @@ export function createLogbookService(db: DbClient) {
 
       const requestId = createId('remote_sig');
       const requestCode = createRequestCode(requestId);
-      const signingToken = createSigningToken(requestId, requestCode);
+      const signingToken = buildRemoteSigningToken({ id: requestId, request_code: requestCode });
       const signingTokenHash = await hashRemoteSigningToken(signingToken);
       const entryHash = await hashEntry(entry);
       const expiresAt = input.expires_at ?? addDaysIso(14);
@@ -620,7 +677,7 @@ export function createLogbookService(db: DbClient) {
 
     async completeRemoteSignatureRequest(input: CompleteRemoteSignatureRequestInput): Promise<EntryDetail> {
       const now = new Date().toISOString();
-      const requestCode = input.request_code.trim().toUpperCase();
+      const requestCode = normalizeRequestCode(input.request_code);
       const signaturePath = input.signature_path.trim();
       if (!requestCode) throw new Error('remote_request_code_required');
       if (input.supervisor_name.trim().length < 2) throw new Error('supervisor_name_required');
@@ -632,8 +689,11 @@ export function createLogbookService(db: DbClient) {
 
       await db.exec('BEGIN');
       try {
-        const request = await getRemoteRequestByCode(requestCode);
-        if (!request) throw new Error('remote_request_not_found');
+        const existing = await getRemoteRequestByCode(requestCode);
+        if (!existing) throw new Error('remote_request_not_found');
+        await validateRemoteSigningToken(existing, input.signing_token);
+        const request = await maybeExpireRemoteRequest(existing, now);
+        if (request.status === 'expired') throw new Error('remote_request_expired');
         if (request.status !== 'pending') throw new Error('remote_request_not_pending');
         if (request.expires_at && request.expires_at < now) {
           throw new Error('remote_request_expired');

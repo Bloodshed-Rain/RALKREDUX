@@ -1,6 +1,6 @@
 import { createTestClient } from '../setup';
 import { createGearService } from '@/src/domain/gear/gear-service';
-import { createLogbookService } from '@/src/domain/logbook/logbook-service';
+import { buildRemoteSigningToken, createLogbookService } from '@/src/domain/logbook/logbook-service';
 import { CreateEntryInput } from '@/src/domain/logbook/types';
 import { createProfileService } from '@/src/domain/profile/profile-service';
 
@@ -270,6 +270,7 @@ describe('logbook service', () => {
     );
     expect(detail.remote_request?.request_code).toHaveLength(10);
     expect(detail.remote_request?.entry_hash).toMatch(/^sha256:/);
+    expect(detail.remote_request?.token_hint).toBe(buildRemoteSigningToken(detail.remote_request!).slice(-6));
 
     const repeated = await service.createRemoteSignatureRequest({
       entry_id: entry.id,
@@ -323,14 +324,40 @@ describe('logbook service', () => {
       verifier_company: 'Northwind Rope',
     });
     const requestCode = requested.remote_request?.request_code;
+    const signingToken = buildRemoteSigningToken(requested.remote_request!);
 
     expect(requestCode).toBeTruthy();
-    const requestDetail = await service.getRemoteSignatureRequestDetail(requestCode!);
+
+    await expect(service.getRemoteSignatureRequestDetail(requestCode!)).rejects.toThrow('remote_request_token_required');
+    await expect(
+      service.getRemoteSignatureRequestDetail({
+        request_code: requestCode!,
+        signing_token: 'bad-token',
+      }),
+    ).rejects.toThrow('remote_request_token_invalid');
+
+    const requestDetail = await service.getRemoteSignatureRequestDetail({
+      request_code: requestCode!,
+      signing_token: signingToken,
+      mark_viewed: true,
+    });
     expect(requestDetail?.request.status).toBe('pending');
+    expect(requestDetail?.request.viewed_at).toBeTruthy();
     expect(requestDetail?.entry.id).toBe(entry.id);
+
+    await expect(
+      service.completeRemoteSignatureRequest({
+        request_code: requestCode!,
+        supervisor_name: 'Jordan Lee',
+        supervisor_cert_number: 'SPRAT-1234',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('remote_request_token_required');
 
     const signed = await service.completeRemoteSignatureRequest({
       request_code: requestCode!,
+      signing_token: signingToken,
       supervisor_name: 'Jordan Lee',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
@@ -339,7 +366,10 @@ describe('logbook service', () => {
       signed_at: '2026-05-08T11:00:00.000Z',
     });
 
-    const completedRequest = await service.getRemoteSignatureRequestDetail(requestCode!);
+    const completedRequest = await service.getRemoteSignatureRequestDetail({
+      request_code: requestCode!,
+      signing_token: signingToken,
+    });
     const summary = await service.getDashboardSummary();
 
     expect(signed.entry.status).toBe('signed');
@@ -365,6 +395,7 @@ describe('logbook service', () => {
     await expect(
       service.completeRemoteSignatureRequest({
         request_code: requestCode!,
+        signing_token: signingToken,
         supervisor_name: 'Jordan Lee',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: 'M 100 200 L 300 160',

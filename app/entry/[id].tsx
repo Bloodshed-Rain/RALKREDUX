@@ -33,6 +33,7 @@ import Svg, { Line, Path } from 'react-native-svg';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
+import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/logbook/logbook-service';
 import {
   useAddEntryAttachment,
   useAttachGearToEntry,
@@ -339,7 +340,7 @@ export default function EntryDetailScreen() {
 
   async function shareVerifierRequest() {
     if (!remoteRequest || !entry) return;
-    const deepLink = `ralb://verify/${remoteRequest.request_code}`;
+    const deepLink = buildRemoteSigningUrl(remoteRequest);
     await Share.share({
       title: 'RALB remote signature request',
       message: [
@@ -409,7 +410,7 @@ export default function EntryDetailScreen() {
             title="Preview"
             icon={Eye}
             variant="secondary"
-            onPress={() => router.push(`/verify/${remoteRequest.request_code}`)}
+            onPress={() => router.push(`/verify/${remoteRequest.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(remoteRequest))}`)}
             style={{ flex: 1 }}
           />
         </View>
