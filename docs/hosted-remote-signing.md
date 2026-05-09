@@ -9,6 +9,7 @@ This note describes the first Supabase layer for remote verifier links. The curr
 - The Edge Function stores only the token hash and a short token hint.
 - Verifiers read a request by opening a link with both `code` and `token`.
 - Completing a request is one-time: the function updates only rows that are still `pending`.
+- The completion function builds the stored signature payload from the hosted request row plus validated verifier fields. The client cannot override entry ids, entry hashes, hash versions, method, or request ids.
 - Expired links are marked `expired` before read or completion responses are returned.
 - Direct database access is protected with RLS; anonymous verifier access goes through Edge Functions.
 
@@ -27,7 +28,7 @@ This note describes the first Supabase layer for remote verifier links. The curr
 
 - `supabase/functions/remote-signing-complete`
   - `POST` validates `request_code` and `signing_token`.
-  - Writes the completed signature payload only if the request is still pending.
+  - Writes a server-shaped completed signature payload only if the request is still pending.
   - Stores completion timestamp plus hashed IP and user-agent metadata for audit context.
   - JWT verification is disabled at the gateway because the verifier is authorized by the one-time code and token.
 
@@ -55,11 +56,17 @@ This runs Deno type checking for both functions, Deno lint, and Deno format chec
 
 ## App Integration To Do
 
-1. Add a cloud remote-signing client under `src/cloud/supabase/`.
-2. When a local pending request is created, upload a hosted request using the same request code and token.
-3. Change the Share action to prefer the hosted verifier URL when cloud sync succeeds.
-4. Add a sync poll or realtime listener that imports completed hosted signatures into local SQLite.
-5. Keep local verifier preview available for development and offline/manual fallback.
+Done:
+
+- Add a cloud remote-signing client under `src/cloud/supabase/`.
+- Let the Share action upload a hosted request using the same request code and token when Supabase auth/env are available.
+- Prefer the hosted verifier URL when hosted sync succeeds, with local verifier links kept as development and offline/manual fallback.
+
+Still pending:
+
+1. Add a real technician auth/session flow so hosted request upload can run outside local experiments.
+2. Add a sync poll or realtime listener that imports completed hosted signatures into local SQLite.
+3. Validate Edge Functions against local/linked Supabase once project secrets are available.
 
 The app now has the first piece of client wiring in `src/cloud/supabase/remote-signing.ts`. The entry detail Share action attempts a hosted sync when Supabase env vars, a user session, and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` are available, then falls back to the existing local verifier link when cloud is not ready.
 

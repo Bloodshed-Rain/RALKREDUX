@@ -27,7 +27,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 }
 
 export default function RemoteSignatureRequestScreen() {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
@@ -45,14 +45,20 @@ export default function RemoteSignatureRequestScreen() {
       supervisor.name === recipientName &&
       (supervisor.contact ?? '') === recipientContact,
   );
+  const hasVerifierName = recipientName.trim().length > 1;
 
   const canCreate =
     Boolean(entryId) &&
     entry?.status === 'draft' &&
     readiness?.ready === true &&
     !detail.data?.remote_request &&
-    recipientName.trim().length > 1 &&
-    recipientContact.trim().length > 3;
+    hasVerifierName;
+
+  const footerTitle = canCreate
+    ? 'Create remote request'
+    : hasVerifierName
+      ? 'Finish entry first'
+      : 'Add verifier name';
 
   function submit() {
     if (!canCreate || !entryId) return;
@@ -60,7 +66,7 @@ export default function RemoteSignatureRequestScreen() {
       {
         entry_id: entryId,
         recipient_name: recipientName,
-        recipient_contact: recipientContact,
+        recipient_contact: recipientContact.trim() || null,
         verifier_role: verifierRole || null,
         verifier_company: verifierCompany || null,
       },
@@ -72,7 +78,7 @@ export default function RemoteSignatureRequestScreen() {
     <Screen
       footer={
         <Button
-          title={canCreate ? 'Create remote request' : 'Pick verifier'}
+          title={footerTitle}
           icon={Send}
           onPress={submit}
           disabled={!canCreate}
@@ -113,8 +119,11 @@ export default function RemoteSignatureRequestScreen() {
         <SectionHeader
           icon={UserRound}
           title="Verifier"
-          pill={selectedKnownSupervisor ? 'Known' : undefined}
+          pill={selectedKnownSupervisor ? 'Known' : hasVerifierName ? 'New' : undefined}
         />
+        <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+          Choose a saved supervisor or type a new verifier. Contact is optional; the request link can still be shared manually.
+        </Text>
         {supervisors.data?.length ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
             {supervisors.data.map((supervisor) => {
@@ -133,7 +142,7 @@ export default function RemoteSignatureRequestScreen() {
                     setDetailsOpen(Boolean(supervisor.role || supervisor.company));
                   }}
                   style={({ pressed }) => ({
-                    minHeight: 40,
+                    minHeight: touchTarget.min,
                     justifyContent: 'center',
                     borderRadius: radii.sm,
                     borderWidth: 1,
@@ -162,7 +171,8 @@ export default function RemoteSignatureRequestScreen() {
           label="Verifier contact"
           value={recipientContact}
           onChangeText={setRecipientContact}
-          placeholder="Email or phone"
+          placeholder="Optional email or phone"
+          hint="Optional. Add it if you want it saved for next time."
           keyboardType="email-address"
           autoCapitalize="none"
         />

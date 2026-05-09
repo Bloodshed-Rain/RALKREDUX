@@ -3,8 +3,9 @@ import { BadgeCheck, ChevronDown, ChevronUp, RotateCcw, Share2, UserRound } from
 import { Share, Text, View } from 'react-native';
 import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/backup/use-backup';
 import { BackupSnapshot } from '@/src/domain/backup/types';
+import { formatDateOrDash } from '@/src/domain/date-format';
 import { useProfile } from '@/src/domain/profile/use-profile';
-import { ActionTile, Button, Card, Field, Screen, StatRow } from '@/src/ui/primitives';
+import { ActionTile, Button, Card, CheckboxRow, Field, Screen, StatRow } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function CertPill({ value }: { value: string }) {
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
   const [restoreText, setRestoreText] = React.useState('');
   const [restoreError, setRestoreError] = React.useState<string | null>(null);
   const [showRestore, setShowRestore] = React.useState(false);
+  const [restoreConfirmed, setRestoreConfirmed] = React.useState(false);
   const p = profile.data;
   const primaryCertNumber = p?.primary_scheme === 'sprat' ? p.sprat_id : p?.irata_id;
   const primaryExpires = p?.primary_scheme === 'sprat' ? p.sprat_expires_on : p?.irata_expires_on;
@@ -58,6 +60,7 @@ export default function ProfileScreen() {
       const snapshot = JSON.parse(restoreText) as BackupSnapshot;
       await restoreBackup.mutateAsync(snapshot);
       setRestoreText('');
+      setRestoreConfirmed(false);
       setShowRestore(false);
     } catch {
       setRestoreError('Restore snapshot could not be read.');
@@ -77,22 +80,25 @@ export default function ProfileScreen() {
           <UserRound size={30} color={colors.accentPrimary} strokeWidth={2.1} />
         </View>
         <StatRow label="Cert number" value={primaryCertNumber ?? '-'} />
-        <StatRow label="Expires" value={primaryExpires ?? '-'} />
+        <StatRow label="Expires" value={formatDateOrDash(primaryExpires)} />
       </Card>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         <ActionTile
           title="Backup"
           icon={Share2}
-          value={createBackup.isPending ? '...' : 'Share'}
+          value={createBackup.isPending ? '...' : 'Share file'}
           onPress={shareBackupSnapshot}
           tone="accent"
         />
         <ActionTile
           title="Restore"
           icon={RotateCcw}
-          value={showRestore ? 'Open' : 'JSON'}
-          onPress={() => setShowRestore((value) => !value)}
+          value={showRestore ? 'Open' : 'Recovery'}
+          onPress={() => {
+            setRestoreConfirmed(false);
+            setShowRestore((value) => !value);
+          }}
           tone={showRestore ? 'warn' : 'default'}
         />
       </View>
@@ -101,7 +107,7 @@ export default function ProfileScreen() {
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
             <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-              Restore
+              Restore recovery file
             </Text>
             <Button
               title="Close"
@@ -111,21 +117,29 @@ export default function ProfileScreen() {
               style={{ minWidth: 92 }}
             />
           </View>
+          <Text selectable style={{ ...typography.body, color: colors.statusWarn }}>
+            Restoring replaces the local logbook on this device. Share a backup first if you need to keep the current data.
+          </Text>
           <Field
-            label="Snapshot JSON"
+            label="Recovery file text"
             value={restoreText}
             onChangeText={setRestoreText}
             multiline
             textAlignVertical="top"
             style={{ minHeight: 120 }}
-            placeholder="Paste recovery snapshot"
+            placeholder="Paste recovery file text"
+          />
+          <CheckboxRow
+            checked={restoreConfirmed}
+            label="I understand this will replace the local logbook on this device."
+            onChange={setRestoreConfirmed}
           />
           <Button
             title={restoreBackup.isPending ? 'Restoring' : 'Restore'}
             icon={RotateCcw}
             onPress={restoreSnapshot}
             variant="secondary"
-            disabled={!restoreText.trim() || restoreBackup.isPending}
+            disabled={!restoreText.trim() || !restoreConfirmed || restoreBackup.isPending}
           />
           {restoreError ? (
             <Text selectable style={{ ...typography.caption, color: colors.statusErr }}>
@@ -137,7 +151,7 @@ export default function ProfileScreen() {
 
       {restoreBackup.isSuccess ? (
         <Text selectable style={{ ...typography.caption, color: colors.statusOk }}>
-          Snapshot restored.
+          Recovery file restored.
         </Text>
       ) : null}
     </Screen>

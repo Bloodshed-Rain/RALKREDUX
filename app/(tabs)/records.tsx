@@ -2,6 +2,7 @@ import React from 'react';
 import { router } from 'expo-router';
 import { Clock3, FileJson, FileText, Plus, ShieldCheck } from 'lucide-react-native';
 import { Pressable, Share, Text, View } from 'react-native';
+import { formatDateRange } from '@/src/domain/date-format';
 import type { EntryStatus } from '@/src/domain/logbook/types';
 import { useEntries, useExportLogbook, useExportLogbookCsv } from '@/src/domain/logbook/use-logbook';
 import { ActionTile, Button, Card, Screen } from '@/src/ui/primitives';
@@ -22,6 +23,12 @@ function statusTone(status: EntryStatus) {
   return 'warn';
 }
 
+function statusLabel(status: EntryStatus): string {
+  if (status === 'signed') return 'Signed';
+  if (status === 'amended') return 'Amended';
+  return 'Draft';
+}
+
 function StatusPill({ status }: { status: EntryStatus }) {
   const { colors, radii, spacing, typography } = useTheme();
   const tone = statusTone(status);
@@ -31,7 +38,7 @@ function StatusPill({ status }: { status: EntryStatus }) {
   return (
     <View
       style={{
-        minHeight: 28,
+        minHeight: 32,
         borderRadius: radii.pill,
         backgroundColor,
         paddingHorizontal: spacing.sm,
@@ -39,7 +46,7 @@ function StatusPill({ status }: { status: EntryStatus }) {
       }}
     >
       <Text selectable={false} style={{ ...typography.caption, color }}>
-        {status}
+        {statusLabel(status)}
       </Text>
     </View>
   );
@@ -54,14 +61,14 @@ function FilterChip({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={{
-        minHeight: 38,
+        minHeight: touchTarget.min,
         borderRadius: radii.pill,
         borderWidth: 1,
         borderColor: selected ? colors.accentPrimary : colors.border,
@@ -94,7 +101,7 @@ export default function RecordsScreen() {
   async function shareJsonExport() {
     const bundle = await exportLogbook.mutateAsync();
     await Share.share({
-      title: 'RALB logbook export',
+      title: 'RALB backup file',
       message: JSON.stringify(bundle, null, 2),
     });
   }
@@ -102,7 +109,7 @@ export default function RecordsScreen() {
   async function shareCsvExport() {
     const csv = await exportLogbookCsv.mutateAsync();
     await Share.share({
-      title: 'RALB logbook CSV export',
+      title: 'RALB spreadsheet export',
       message: csv,
     });
   }
@@ -137,7 +144,7 @@ export default function RecordsScreen() {
 
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <Button
-          title={exportLogbook.isPending ? 'JSON' : 'JSON'}
+          title="Backup file"
           icon={FileJson}
           onPress={shareJsonExport}
           variant="secondary"
@@ -146,7 +153,7 @@ export default function RecordsScreen() {
           style={{ flex: 1 }}
         />
         <Button
-          title={exportLogbookCsv.isPending ? 'CSV' : 'CSV'}
+          title="Spreadsheet"
           icon={FileText}
           onPress={shareCsvExport}
           variant="secondary"
@@ -169,15 +176,32 @@ export default function RecordsScreen() {
 
       {exportLogbook.isError || exportLogbookCsv.isError ? (
         <Text selectable style={{ ...typography.caption, color: colors.statusErr }}>
-          Export failed.
+          Export could not be shared. Try again when the app is responsive.
         </Text>
       ) : null}
 
-      {filteredEntries.length ? (
+      {entries.isLoading ? (
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Loading records
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Your logbook is opening.
+          </Text>
+        </Card>
+      ) : entries.isError ? (
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Records could not load
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Nothing was changed. Try loading the records again.
+          </Text>
+          <Button title="Try again" variant="secondary" onPress={() => entries.refetch()} />
+        </Card>
+      ) : filteredEntries.length ? (
         filteredEntries.map((entry) => {
-          const dateLabel = entry.date_from === entry.date_to
-            ? entry.date_from
-            : `${entry.date_from} to ${entry.date_to}`;
+          const dateLabel = formatDateRange(entry.date_from, entry.date_to);
           const meta = [dateLabel, `${entry.work_hours.toFixed(1)} hr`, entry.work_task].filter(Boolean).join(' - ');
           const org = [entry.employer, entry.client].filter(Boolean).join(' - ');
 
@@ -216,7 +240,10 @@ export default function RecordsScreen() {
       ) : (
         <Card>
           <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-            No records
+            No records yet
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Start a new work entry when you are ready.
           </Text>
           {filter !== 'all' ? (
             <Button title="Show all" variant="secondary" onPress={() => setFilter('all')} />

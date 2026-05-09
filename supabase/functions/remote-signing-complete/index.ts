@@ -22,6 +22,28 @@ function requiredString(value: unknown, label: string): string {
   return value.trim();
 }
 
+function optionalString(value: unknown, label: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") {
+    throw new Error(`${label}_invalid`);
+  }
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function validIsoDate(value: string, label: string): string {
+  if (Number.isNaN(new Date(value).getTime())) {
+    throw new Error(`${label}_invalid`);
+  }
+  return value;
+}
+
+function hostedEntryRequiresCertNumber(
+  entry: Record<string, unknown>,
+): boolean {
+  return Boolean(entry.irata_level_snapshot);
+}
+
 async function hashIp(value: string | null): Promise<string | null> {
   if (!value) return null;
   const digest = await crypto.subtle.digest(
@@ -68,13 +90,62 @@ Deno.serve(async (req) => {
     }
 
     const completedAt = new Date().toISOString();
+    const signedAt = validIsoDate(
+      optionalString(signature.signed_at, "signed_at") ?? completedAt,
+      "signed_at",
+    );
+    const attestationAcceptedAt = validIsoDate(
+      optionalString(
+        signature.attestation_accepted_at,
+        "attestation_accepted_at",
+      ) ??
+        signedAt,
+      "attestation_accepted_at",
+    );
+    const supervisorCertNumber = optionalString(
+      signature.supervisor_cert_number,
+      "supervisor_cert_number",
+    ) ?? "";
+    if (
+      hostedEntryRequiresCertNumber(request.entry_payload) &&
+      supervisorCertNumber.length < 2
+    ) {
+      return jsonResponse({ error: "supervisor_cert_required" }, 400);
+    }
+    const completedSignature = {
+      id: signatureId,
+      entry_id: request.local_entry_id,
+      supervisor_name: requiredString(
+        signature.supervisor_name,
+        "supervisor_name",
+      ),
+      supervisor_cert_number: supervisorCertNumber,
+      signed_at: signedAt,
+      entry_hash: request.entry_hash,
+      hash_version: request.hash_version,
+      method: "remote",
+      remote_request_id: request.local_request_id,
+      signer_attestation: optionalString(
+        signature.signer_attestation,
+        "signer_attestation",
+      ),
+      signature_path: requiredString(
+        signature.signature_path,
+        "signature_path",
+      ),
+      attestation_accepted_at: attestationAcceptedAt,
+      previous_chain_hash: null,
+      chain_hash: null,
+      created_at: completedAt,
+    };
+
     const { data, error } = await serviceClient()
       .from("remote_signing_requests")
       .update({
         status: "completed",
         completed_at: completedAt,
         completed_signature_id: signatureId,
-        completed_signature_payload: signature,
+        completed_signature_payload: completedSignature,
         completed_ip_hash: await hashIp(req.headers.get("x-forwarded-for")),
         completed_user_agent: req.headers.get("user-agent"),
       })

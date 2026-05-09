@@ -33,6 +33,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Image as NativeImage, Platform, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { syncHostedRemoteSigningRequest } from '@/src/cloud/supabase/remote-signing';
+import { formatDate, formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
@@ -317,7 +318,7 @@ export default function EntryDetailScreen() {
     );
   }
 
-  const dateLabel = entry.date_from === entry.date_to ? entry.date_from : `${entry.date_from} to ${entry.date_to}`;
+  const dateLabel = formatDateRange(entry.date_from, entry.date_to);
 
   async function shareEntryPacket() {
     if (!entryId) return;
@@ -365,14 +366,22 @@ export default function EntryDetailScreen() {
   async function shareVerifierRequest() {
     if (!remoteRequest || !entry || !detail.data) return;
     setIsHostedSharePending(true);
-    const hosted = await syncHostedRemoteSigningRequest(detail.data);
-    setIsHostedSharePending(false);
-    const verifierLink = hosted.ok ? hosted.verifierUrl : buildVerifierLink(remoteRequest);
+    let verifierLink = buildVerifierLink(remoteRequest);
+    try {
+      const hosted = await syncHostedRemoteSigningRequest(detail.data);
+      if (hosted.ok) {
+        verifierLink = hosted.verifierUrl;
+      }
+    } catch {
+      verifierLink = buildVerifierLink(remoteRequest);
+    } finally {
+      setIsHostedSharePending(false);
+    }
     const title = 'RALB remote signature request';
     const message = [
       `Please review and sign this RALB work entry for ${entry.site}.`,
       `Request code: ${remoteRequest.request_code}`,
-      `Expires: ${remoteRequest.expires_at ? remoteRequest.expires_at.slice(0, 10) : 'not set'}`,
+      `Expires: ${remoteRequest.expires_at ? formatDate(remoteRequest.expires_at) : 'not set'}`,
     ].join('\n');
 
     await Share.share(
@@ -460,7 +469,7 @@ export default function EntryDetailScreen() {
               style={{ flex: 1 }}
             />
             <Button
-              title="Packet"
+              title="Audit packet"
               icon={FileJson}
               onPress={shareEntryPacket}
               variant="secondary"
@@ -611,7 +620,7 @@ export default function EntryDetailScreen() {
         )}
         {entry.status === 'draft' ? (
           <Button
-            title={addAttachment.isPending ? 'Attaching' : 'Attach photo'}
+            title={addAttachment.isPending ? 'Attaching' : 'Attach from photos'}
             icon={Camera}
             variant="secondary"
             onPress={addPhotoEvidence}
@@ -626,7 +635,7 @@ export default function EntryDetailScreen() {
           <>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               <Pill label={signature.method} icon={BadgeCheck} tone="ok" />
-              <Pill label={signature.signed_at.slice(0, 10)} icon={CalendarDays} tone="neutral" />
+              <Pill label={formatDate(signature.signed_at)} icon={CalendarDays} tone="neutral" />
             </View>
             <CompactRow
               title={signature.supervisor_name}
@@ -660,7 +669,7 @@ export default function EntryDetailScreen() {
               meta={[remoteRequest.verifier_role, remoteRequest.verifier_company].filter(Boolean).join(' - ') || remoteRequest.recipient_contact}
               trailing={<UserRound size={20} color={colors.textSecondary} strokeWidth={2.1} />}
             />
-            <StatRow label="Expires" value={remoteRequest.expires_at ? remoteRequest.expires_at.slice(0, 10) : '-'} />
+            <StatRow label="Expires" value={formatDateOrDash(remoteRequest.expires_at)} />
             <View style={{ gap: spacing.xs }}>
               <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
                 Requested entry hash

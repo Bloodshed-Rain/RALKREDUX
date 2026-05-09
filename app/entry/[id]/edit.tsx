@@ -172,7 +172,7 @@ export default function EditDraftScreen() {
             Remote request pending
           </Text>
           <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            Cancel or complete the pending verifier request before changing this draft.
+            Complete the pending verifier request before changing this draft.
           </Text>
         </Card>
       ) : null}
@@ -347,7 +347,7 @@ export default function EditDraftScreen() {
 }
 
 function Pill({ label, tone }: { label: string; tone: 'ok' | 'warn' | 'neutral' }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const color = tone === 'ok' ? colors.statusOk : tone === 'warn' ? colors.statusWarn : colors.textSecondary;
   const backgroundColor = tone === 'ok' ? colors.statusOkTint : tone === 'warn' ? colors.statusWarnTint : colors.bgMuted;
 
@@ -401,7 +401,7 @@ function ChoiceButton({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
 
   return (
     <Pressable
@@ -409,7 +409,7 @@ function ChoiceButton({
       accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => ({
-        minHeight: 40,
+        minHeight: touchTarget.min,
         borderRadius: radii.sm,
         borderWidth: 1,
         borderColor: selected ? colors.accentPrimary : colors.border,

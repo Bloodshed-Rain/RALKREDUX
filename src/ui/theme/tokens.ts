@@ -6,13 +6,13 @@ export const colors = {
   divider: '#E8E2D8',
   textPrimary: '#161616',
   textSecondary: '#5C5A55',
-  textMuted: '#8B867C',
+  textMuted: '#6F6A60',
   textInverse: '#FFFFFF',
   accentPrimary: '#A92323',
   accentPressed: '#861818',
   accentTint: '#F8E6E6',
-  statusOk: '#1F8A4C',
-  statusWarn: '#B26A00',
+  statusOk: '#166A39',
+  statusWarn: '#8A4D00',
   statusErr: '#C62828',
   statusInfo: '#1F5C99',
   statusOkTint: '#E3F4EA',
@@ -62,4 +62,3 @@ export const theme = {
 } as const;
 
 export type Theme = typeof theme;
-

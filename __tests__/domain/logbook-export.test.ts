@@ -113,7 +113,7 @@ describe('logbook export builders', () => {
 
     expect(buildLogbookCsv(bundle).split('\n')).toEqual([
       'status,date_from,date_to,employer,site,client,work_task,access_method,structure_type,work_hours,max_height,height_unit,supervisor_name,supervisor_cert_number,signed_at,entry_hash,hash_version,chain_hash,gear,attachment_count,amends_entry_id',
-      'signed,2026-05-01,2026-05-01,Northwind Rope,"Tower A, North Face",City Works,Inspection,Two-rope access,Tower,8,120,ft,Jordan Lee,SPRAT-1234,2026-05-08T10:00:00.000Z,sha256:entry,2,sha256:chain,,0,',
+      'signed,05/01/2026,05/01/2026,Northwind Rope,"Tower A, North Face",City Works,Inspection,Two-rope access,Tower,8,120,ft,Jordan Lee,SPRAT-1234,05/08/2026,sha256:entry,2,sha256:chain,,0,',
     ]);
   });
 

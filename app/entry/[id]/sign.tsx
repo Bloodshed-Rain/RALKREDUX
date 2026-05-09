@@ -25,7 +25,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 const ATTESTATION_TEXT = 'I verify this entry matches the work performed and I am authorized to sign it.';
 
 export default function LocalSignScreen() {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
@@ -39,6 +39,7 @@ export default function LocalSignScreen() {
 
   const entry = detail.data?.entry;
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
+  const requiresCertNumber = Boolean(entry?.irata_level_snapshot);
   const selectedKnownSupervisor = supervisors.data?.find(
     (supervisor) =>
       supervisor.name === supervisorName &&
@@ -49,7 +50,7 @@ export default function LocalSignScreen() {
     entry?.status === 'draft' &&
     readiness?.ready === true &&
     supervisorName.trim().length > 1 &&
-    supervisorCertNumber.trim().length > 1 &&
+    (!requiresCertNumber || supervisorCertNumber.trim().length > 1) &&
     signaturePath.trim().length > 0 &&
     attestationAccepted;
 
@@ -132,7 +133,7 @@ export default function LocalSignScreen() {
                     setSupervisorCertNumber(supervisor.cert_number ?? '');
                   }}
                   style={({ pressed }) => ({
-                    minHeight: 40,
+                    minHeight: touchTarget.min,
                     justifyContent: 'center',
                     borderRadius: radii.sm,
                     borderWidth: 1,
@@ -158,10 +159,13 @@ export default function LocalSignScreen() {
         ) : null}
         <Field label="Supervisor name" value={supervisorName} onChangeText={setSupervisorName} placeholder="Jordan Lee" />
         <Field
-          label="Certification number"
+          label="SPRAT / IRATA number"
           value={supervisorCertNumber}
           onChangeText={setSupervisorCertNumber}
-          placeholder="SPRAT / IRATA number"
+          placeholder={requiresCertNumber ? 'Required for IRATA' : 'Optional'}
+          hint={requiresCertNumber
+            ? 'Required for IRATA entries. Use the supervisor or verifier IRATA number.'
+            : 'Optional for SPRAT entries. Add it when the supervisor has a SPRAT or IRATA card/member number.'}
         />
       </Card>
 

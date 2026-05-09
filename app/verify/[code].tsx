@@ -7,6 +7,7 @@ import {
   completeHostedRemoteSignatureRequest,
   fetchHostedRemoteSigningRequest,
 } from '@/src/cloud/supabase/remote-signing';
+import { formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import { EntryDetail } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
@@ -68,6 +69,7 @@ export default function RemoteVerifyScreen() {
   const isHostedRequest = !requestDetail.data && Boolean(hostedRequestDetail.data);
   const entry = detail?.entry;
   const request = detail?.request;
+  const requiresCertNumber = Boolean(entry?.irata_level_snapshot);
 
   React.useEffect(() => {
     const requestChanged = previousRequestCodeRef.current !== requestCode;
@@ -108,7 +110,7 @@ export default function RemoteVerifyScreen() {
     request?.status === 'pending' &&
     entry?.status === 'draft' &&
     supervisorName.trim().length > 1 &&
-    supervisorCertNumber.trim().length > 1 &&
+    (!requiresCertNumber || supervisorCertNumber.trim().length > 1) &&
     signaturePath.trim().length > 0 &&
     attestationAccepted;
 
@@ -163,7 +165,7 @@ export default function RemoteVerifyScreen() {
           </Text>
           <StatRow label="Site" value={completedDetail.entry.site} />
           <StatRow label="Method" value={signed?.method ?? 'remote'} />
-          <StatRow label="Signed" value={signed?.signed_at.slice(0, 10) ?? '-'} />
+          <StatRow label="Signed" value={formatDateOrDash(signed?.signed_at)} />
           {signed?.chain_hash ? (
             <View style={{ gap: spacing.xs }}>
               <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
@@ -225,7 +227,7 @@ export default function RemoteVerifyScreen() {
     );
   }
 
-  const dateLabel = entry.date_from === entry.date_to ? entry.date_from : `${entry.date_from} to ${entry.date_to}`;
+  const dateLabel = formatDateRange(entry.date_from, entry.date_to);
 
   return (
     <Screen
@@ -252,8 +254,8 @@ export default function RemoteVerifyScreen() {
         </View>
         <StatRow label="Requested verifier" value={request.recipient_name} />
         <StatRow label="Contact" value={request.recipient_contact ?? '-'} />
-        <StatRow label="Expires" value={request.expires_at ? request.expires_at.slice(0, 10) : '-'} />
-        <StatRow label="Token hint" value={request.token_hint ?? '-'} />
+        <StatRow label="Expires" value={formatDateOrDash(request.expires_at)} />
+        <StatRow label="Security hint" value={request.token_hint ?? '-'} />
       </Card>
 
       <Card>
@@ -276,7 +278,7 @@ export default function RemoteVerifyScreen() {
 
       <Card>
         <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-          Request fingerprint
+          Anti-tamper code
         </Text>
         <HashPreview value={request.entry_hash} />
         <StatRow label="Code" value={request.request_code} />
@@ -291,10 +293,13 @@ export default function RemoteVerifyScreen() {
           </Text>
           <Field label="Verifier name" value={supervisorName} onChangeText={setSupervisorName} placeholder="Jordan Lee" />
           <Field
-            label="Certification number"
+            label="SPRAT / IRATA number"
             value={supervisorCertNumber}
             onChangeText={setSupervisorCertNumber}
-            placeholder="SPRAT / IRATA number"
+            placeholder={requiresCertNumber ? 'Required for IRATA' : 'Optional'}
+            hint={requiresCertNumber
+              ? 'Required for IRATA entries. Use the verifier IRATA number.'
+              : 'Optional for SPRAT entries. Add it when the verifier has a SPRAT or IRATA card/member number.'}
           />
           <SignaturePad
             label="Verifier signature"

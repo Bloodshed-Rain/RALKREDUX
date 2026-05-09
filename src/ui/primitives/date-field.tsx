@@ -2,6 +2,7 @@ import React from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarDays, X } from 'lucide-react-native';
 import { Platform, Pressable, Text, View } from 'react-native';
+import { formatDate } from '@/src/domain/date-format';
 import { useTheme } from '../theme/theme-provider';
 
 interface DateFieldProps {
@@ -85,7 +86,7 @@ export function DateField({
               flex: 1,
             }}
           >
-            {value || placeholder}
+            {value ? formatDate(value) : placeholder}
           </Text>
         </Pressable>
         {optional && value ? (

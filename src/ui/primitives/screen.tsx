@@ -55,7 +55,7 @@ export function Screen({
             backgroundColor: colors.bgSurface,
             paddingHorizontal: spacing.base,
             paddingTop: spacing.sm,
-            paddingBottom: spacing.base,
+            paddingBottom: spacing.base + insets.bottom,
           }}
         >
           {footer}

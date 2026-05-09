@@ -6,6 +6,7 @@ import {
   SupervisorContact,
 } from './types';
 import { Profile } from '../profile/types';
+import { formatDate, formatDateOrDash, formatDateRange } from '../date-format';
 
 interface BuildLogbookExportInput {
   profile: Profile | null;
@@ -68,6 +69,10 @@ function html(value: string | number | null | undefined): string {
 function display(value: string | number | null | undefined): string {
   const escaped = html(value);
   return escaped || '-';
+}
+
+function displayDate(value: string | null | undefined): string {
+  return formatDateOrDash(value);
 }
 
 function row(label: string, value: string | number | null | undefined): string {
@@ -153,8 +158,8 @@ export function buildLogbookCsv(bundle: LogbookExportBundle): string {
   const rows = bundle.entries.map(({ entry, signature, gear_usage, attachments }) =>
     [
       entry.status,
-      entry.date_from,
-      entry.date_to,
+      formatDate(entry.date_from),
+      formatDate(entry.date_to),
       entry.employer,
       entry.site,
       entry.client,
@@ -166,7 +171,7 @@ export function buildLogbookCsv(bundle: LogbookExportBundle): string {
       entry.height_unit,
       signature?.supervisor_name,
       signature?.supervisor_cert_number,
-      signature?.signed_at,
+      formatDate(signature?.signed_at),
       signature?.entry_hash,
       signature?.hash_version,
       signature?.chain_hash,
@@ -186,9 +191,7 @@ export function buildEntryExportFileName(packet: LogbookExportPacket, extension:
 
 export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   const { entry, profile, signature, verification } = packet;
-  const dateLabel = entry.date_from === entry.date_to
-    ? entry.date_from
-    : `${entry.date_from} to ${entry.date_to}`;
+  const dateLabel = formatDateRange(entry.date_from, entry.date_to);
   const signatureSvg = signatureMarkup(signature.signature_path);
 
   return `<!doctype html>
@@ -219,7 +222,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   <header>
     <p class="status">${html(entry.status)}</p>
     <h1>${display(entry.site)}</h1>
-    <p class="meta">RALB Codex Edition audit packet - exported ${html(packet.exported_at)}</p>
+    <p class="meta">RALB Codex Edition audit packet - exported ${html(formatDate(packet.exported_at))}</p>
   </header>
 
   <h2>Technician</h2>
@@ -251,7 +254,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
     ${row('Supervisor', signature.supervisor_name)}
     ${row('Certification number', signature.supervisor_cert_number)}
     ${row('Method', signature.method)}
-    ${row('Signed at', signature.signed_at)}
+    ${row('Signed at', displayDate(signature.signed_at))}
     ${row('Attestation', signature.signer_attestation)}
   </table>
   <div class="signature">${signatureSvg}</div>
@@ -260,7 +263,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   <table>
     ${row('Hash version', verification.hash_version)}
     ${row('Signature method', verification.signature_method)}
-    ${row('Attestation accepted at', verification.attestation_accepted_at)}
+    ${row('Attestation accepted at', displayDate(verification.attestation_accepted_at))}
     ${row('Previous chain hash', verification.previous_chain_hash)}
     ${row('Chain hash', verification.chain_hash)}
   </table>

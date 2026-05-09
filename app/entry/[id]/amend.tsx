@@ -23,7 +23,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 }
 
 export default function AmendEntryScreen() {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
@@ -247,7 +247,7 @@ function SectionHeader({
   pill?: string;
   tone?: 'default' | 'ok' | 'warn';
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const pillColor = tone === 'ok' ? colors.statusOk : tone === 'warn' ? colors.statusWarn : colors.textSecondary;
   const pillBg = tone === 'ok' ? colors.statusOkTint : tone === 'warn' ? colors.statusWarnTint : colors.bgMuted;
 
@@ -287,7 +287,7 @@ function SectionHeader({
 }
 
 function MiniStat({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
 
   return (
     <View
@@ -318,7 +318,7 @@ function ChipRow({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
 
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -332,7 +332,7 @@ function ChipRow({
             accessibilityState={{ selected }}
             onPress={() => onChange(option)}
             style={({ pressed }) => ({
-              minHeight: 40,
+              minHeight: touchTarget.min,
               borderRadius: radii.sm,
               borderWidth: 1,
               borderColor: selected ? colors.accentPrimary : colors.border,

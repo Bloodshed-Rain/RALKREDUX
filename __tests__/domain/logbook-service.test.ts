@@ -160,6 +160,47 @@ describe('logbook service', () => {
     expect(summary.signedHours).toBe(7.5);
   });
 
+  it('allows local signing when the supervisor has no certification number', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Supervisor reviewed work.', work_hours: 2 }));
+
+    const detail = await service.signEntryLocal({
+      entry_id: entry.id,
+      supervisor_name: 'Site Supervisor',
+      supervisor_cert_number: '',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+    });
+
+    expect(detail.entry.status).toBe('signed');
+    expect(detail.signature).toEqual(
+      expect.objectContaining({
+        supervisor_name: 'Site Supervisor',
+        supervisor_cert_number: '',
+      }),
+    );
+  });
+
+  it('requires a verifier number for IRATA local signing', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({
+      sprat_level_snapshot: null,
+      irata_level_snapshot: 'II',
+    }));
+
+    await expect(
+      service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: 'IRATA Supervisor',
+        supervisor_cert_number: '',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('supervisor_cert_required');
+  });
+
   it('signs an amendment draft and marks the original as amended', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
@@ -286,6 +327,27 @@ describe('logbook service', () => {
     expect(summary.pendingSignatureRequests).toBe(1);
   });
 
+  it('creates a remote signature request for a new verifier without contact info', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Completed bolt inspection.', work_hours: 3 }));
+
+    const detail = await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'New Verifier',
+    });
+
+    expect(detail.remote_request).toEqual(
+      expect.objectContaining({
+        entry_id: entry.id,
+        recipient_name: 'New Verifier',
+        recipient_contact: null,
+        status: 'pending',
+      }),
+    );
+    expect(detail.entry.pending_signature_id).toBe(detail.remote_request?.id);
+  });
+
   it('cancels a pending remote request when the entry is locally signed', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
@@ -405,6 +467,64 @@ describe('logbook service', () => {
         attestation_accepted: true,
       }),
     ).rejects.toThrow('remote_request_not_pending');
+  });
+
+  it('completes a remote signature when the verifier has no certification number', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Reviewed work area.', work_hours: 2 }));
+    const requested = await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'Site Supervisor',
+    });
+    const requestCode = requested.remote_request?.request_code;
+    const signingToken = buildRemoteSigningToken(requested.remote_request!);
+
+    const signed = await service.completeRemoteSignatureRequest({
+      request_code: requestCode!,
+      signing_token: signingToken,
+      supervisor_name: 'Site Supervisor',
+      supervisor_cert_number: '',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+      signer_attestation: 'Verified remotely.',
+      signed_at: '2026-05-08T12:00:00.000Z',
+    });
+
+    expect(signed.entry.status).toBe('signed');
+    expect(signed.signature).toEqual(
+      expect.objectContaining({
+        supervisor_name: 'Site Supervisor',
+        supervisor_cert_number: '',
+        method: 'remote',
+      }),
+    );
+  });
+
+  it('requires a verifier number for IRATA remote signing', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({
+      description: 'Reviewed IRATA work area.',
+      work_hours: 2,
+      sprat_level_snapshot: null,
+      irata_level_snapshot: 'II',
+    }));
+    const requested = await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'IRATA Supervisor',
+    });
+
+    await expect(
+      service.completeRemoteSignatureRequest({
+        request_code: requested.remote_request!.request_code,
+        signing_token: buildRemoteSigningToken(requested.remote_request!),
+        supervisor_name: 'IRATA Supervisor',
+        supervisor_cert_number: '',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('supervisor_cert_required');
   });
 
   it('blocks verification when scheme work-log fields are incomplete', async () => {

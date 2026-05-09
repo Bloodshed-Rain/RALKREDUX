@@ -202,6 +202,10 @@ export function createLogbookService(db: DbClient) {
     return row?.chain_hash ?? null;
   }
 
+  function requiresVerifierCertNumber(entry: LogbookEntry): boolean {
+    return Boolean(entry.irata_level_snapshot);
+  }
+
   async function upsertSupervisorContact(input: {
     name: string;
     certNumber?: string | null;
@@ -618,6 +622,9 @@ export function createLogbookService(db: DbClient) {
         if (!entry) throw new Error('entry_not_found');
         if (entry.status !== 'draft') throw new Error('entry_not_signable');
         if (!getEntryVerificationReadiness(entry).ready) throw new Error('entry_incomplete');
+        if (requiresVerifierCertNumber(entry) && input.supervisor_cert_number.trim().length < 2) {
+          throw new Error('supervisor_cert_required');
+        }
 
         const signatureId = createId('sig');
         const signedAt = input.signed_at ?? now;
@@ -692,7 +699,6 @@ export function createLogbookService(db: DbClient) {
       const signaturePath = input.signature_path.trim();
       if (!requestCode) throw new Error('remote_request_code_required');
       if (input.supervisor_name.trim().length < 2) throw new Error('supervisor_name_required');
-      if (input.supervisor_cert_number.trim().length < 2) throw new Error('supervisor_cert_required');
       if (!signaturePath) throw new Error('signature_required');
       if (!input.attestation_accepted) throw new Error('attestation_required');
 
@@ -713,6 +719,9 @@ export function createLogbookService(db: DbClient) {
         const entry = await getEntryById(request.entry_id);
         if (!entry) throw new Error('entry_not_found');
         if (entry.status !== 'draft') throw new Error('entry_not_signable');
+        if (requiresVerifierCertNumber(entry) && input.supervisor_cert_number.trim().length < 2) {
+          throw new Error('supervisor_cert_required');
+        }
         if (entry.pending_signature_id && entry.pending_signature_id !== request.id) {
           throw new Error('remote_request_mismatch');
         }

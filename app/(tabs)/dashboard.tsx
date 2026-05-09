@@ -45,6 +45,8 @@ export default function DashboardScreen() {
   const career = useCareerStats();
   const data = summary.data;
   const stats = career.data;
+  const isLoading = profile.isLoading || summary.isLoading || career.isLoading;
+  const hasError = profile.isError || summary.isError || career.isError;
 
   return (
     <Screen safeTop>
@@ -61,6 +63,28 @@ export default function DashboardScreen() {
           <ShieldCheck size={30} color={colors.accentPrimary} strokeWidth={2.1} />
         </View>
       </Card>
+
+      {isLoading ? (
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Loading logbook
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Your records, gear, and profile are opening.
+          </Text>
+        </Card>
+      ) : null}
+
+      {hasError ? (
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Dashboard could not load
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Your data is still on this device. Try refreshing from another tab.
+          </Text>
+        </Card>
+      ) : null}
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         <ActionTile

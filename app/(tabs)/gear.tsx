@@ -11,6 +11,7 @@ import {
 } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
+import { formatDate } from '@/src/domain/date-format';
 import type { GearCatalogEntry, GearCategory, GearInspectionResult, GearStatus } from '@/src/domain/gear/types';
 import {
   useCreateGearItem,
@@ -105,7 +106,7 @@ function StatusPill({ status }: { status: GearStatus }) {
   return (
     <View
       style={{
-        minHeight: 28,
+        minHeight: 32,
         borderRadius: radii.pill,
         backgroundColor,
         paddingHorizontal: spacing.sm,
@@ -132,14 +133,14 @@ function FilterChip({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={{
-        minHeight: 38,
+        minHeight: touchTarget.min,
         borderRadius: radii.pill,
         borderWidth: 1,
         borderColor: selected ? colors.accentPrimary : colors.border,
@@ -165,14 +166,14 @@ function SegmentedChip({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={{
-        minHeight: 40,
+        minHeight: touchTarget.min,
         borderRadius: radii.sm,
         borderWidth: 1,
         borderColor: selected ? colors.accentPrimary : colors.border,
@@ -411,6 +412,11 @@ export default function GearScreen() {
           <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
             Inspection
           </Text>
+          {inspectionResult === 'fail' ? (
+            <Text selectable style={{ ...typography.body, color: colors.statusErr }}>
+              Saving a failed inspection retires this gear from active use.
+            </Text>
+          ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
             {activeItems.map(({ item }) => (
               <SegmentedChip
@@ -436,7 +442,7 @@ export default function GearScreen() {
             label="Next due"
             value={inspectionNextDue}
             onChange={setInspectionNextDue}
-            placeholder={inspectionResult === 'fail' ? 'Ignored for failed gear' : 'YYYY-MM-DD'}
+            placeholder={inspectionResult === 'fail' ? 'Ignored for failed gear' : 'MM/DD/YYYY'}
             optional
           />
           <Field
@@ -469,12 +475,31 @@ export default function GearScreen() {
         ))}
       </View>
 
-      {filteredItems.length ? (
+      {gearItems.isLoading ? (
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Loading gear
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Your equipment list is opening.
+          </Text>
+        </Card>
+      ) : gearItems.isError ? (
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Gear could not load
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Nothing was changed. Try loading the gear list again.
+          </Text>
+          <Button title="Try again" variant="secondary" onPress={() => gearItems.refetch()} />
+        </Card>
+      ) : filteredItems.length ? (
         filteredItems.map(({ item, latest_inspection, status }) => {
           const meta = [
             item.category,
             item.serial_number ? `SN ${item.serial_number}` : null,
-            item.next_inspection_due ? `Due ${item.next_inspection_due}` : null,
+            item.next_inspection_due ? `Due ${formatDate(item.next_inspection_due)}` : null,
           ].filter(Boolean).join(' - ');
           return (
             <Card key={item.id}>
@@ -488,7 +513,7 @@ export default function GearScreen() {
                   </Text>
                   {latest_inspection ? (
                     <Text selectable style={{ ...typography.body, color: colors.textSecondary }} numberOfLines={1}>
-                      {resultLabel(latest_inspection.result)} on {latest_inspection.inspected_on}
+                      {resultLabel(latest_inspection.result)} on {formatDate(latest_inspection.inspected_on)}
                     </Text>
                   ) : null}
                 </View>
@@ -505,7 +530,10 @@ export default function GearScreen() {
       ) : (
         <Card>
           <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-            No gear
+            No gear logged yet
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Add your harness, ropes, helmet, and other kit before tracking inspections.
           </Text>
           {filter !== 'all' ? (
             <Button title="Show all" variant="secondary" onPress={() => setFilter('all')} />

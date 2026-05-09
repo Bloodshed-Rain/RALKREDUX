@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, Copy, Save, Star } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Copy, PenLine, Save, Send, Star } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import type { HeightUnit } from '@/src/domain/logbook/types';
@@ -18,7 +18,7 @@ function todayIso(): string {
 }
 
 export default function NewEntryScreen() {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const profile = useProfile();
   const createEntry = useCreateEntry();
   const entries = useEntries();
@@ -40,6 +40,7 @@ export default function NewEntryScreen() {
   const [templateName, setTemplateName] = React.useState('');
   const [showDetails, setShowDetails] = React.useState(false);
   const [showTemplateSave, setShowTemplateSave] = React.useState(false);
+  const [saveDestination, setSaveDestination] = React.useState<'detail' | 'sign' | 'request' | null>(null);
 
   const parsedHours = Number(hours);
   const parsedHeight = Number(maxHeight);
@@ -57,10 +58,19 @@ export default function NewEntryScreen() {
     description.trim().length > 0 &&
     Number.isFinite(parsedHeight) &&
     parsedHeight > 0;
+  const missingForSigning = [
+    employer.trim() ? null : 'employer',
+    client.trim() ? null : 'client',
+    accessMethod.trim() ? null : 'access method',
+    structureType.trim() ? null : 'structure',
+    description.trim() ? null : 'work notes',
+    Number.isFinite(parsedHeight) && parsedHeight > 0 ? null : 'height',
+  ].filter(Boolean) as string[];
 
-  function save() {
+  function save(destination: 'detail' | 'sign' | 'request' = 'detail') {
     if (!canSave) return;
     const p = profile.data;
+    setSaveDestination(destination);
     createEntry.mutate(
       {
         employer,
@@ -79,7 +89,22 @@ export default function NewEntryScreen() {
         sprat_level_snapshot: p?.sprat_level ?? null,
         irata_level_snapshot: p?.irata_level ?? null,
       },
-      { onSuccess: (entry) => router.replace(`/entry/${entry.id}`) },
+      {
+        onSuccess: (entry) => {
+          if (destination === 'sign') {
+            router.replace(`/entry/${entry.id}/sign`);
+            return;
+          }
+
+          if (destination === 'request') {
+            router.replace(`/entry/${entry.id}/request-signature`);
+            return;
+          }
+
+          router.replace(`/entry/${entry.id}`);
+        },
+        onSettled: () => setSaveDestination(null),
+      },
     );
   }
 
@@ -110,8 +135,9 @@ export default function NewEntryScreen() {
     setHeightUnit(latest.height_unit);
     setDescription(latest.description);
     setHours(String(latest.work_hours));
-    setDateFrom(latest.date_from);
-    setDateTo(latest.date_to);
+    setDateFrom(todayIso());
+    setDateTo(todayIso());
+    setShowDetails(true);
   }
 
   function saveTemplate() {
@@ -138,15 +164,50 @@ export default function NewEntryScreen() {
   return (
     <Screen
       footer={
-        <Button
-          title={isAuditReady ? 'Save audit-ready draft' : 'Save quick draft'}
-          icon={Save}
-          onPress={save}
-          disabled={!canSave}
-          loading={createEntry.isPending}
-        />
+        <View style={{ gap: spacing.sm }}>
+          {isAuditReady ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button
+                title="Sign now"
+                icon={PenLine}
+                onPress={() => save('sign')}
+                disabled={!canSave || createEntry.isPending}
+                loading={saveDestination === 'sign' && createEntry.isPending}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Request"
+                icon={Send}
+                variant="secondary"
+                onPress={() => save('request')}
+                disabled={!canSave || createEntry.isPending}
+                loading={saveDestination === 'request' && createEntry.isPending}
+                style={{ flex: 1 }}
+              />
+            </View>
+          ) : null}
+          <Button
+            title={isAuditReady ? 'Save only' : 'Save draft'}
+            icon={Save}
+            variant={isAuditReady ? 'secondary' : 'primary'}
+            onPress={() => save('detail')}
+            disabled={!canSave || createEntry.isPending}
+            loading={saveDestination === 'detail' && createEntry.isPending}
+          />
+        </View>
       }
     >
+      <Card>
+        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+          {isAuditReady ? 'Ready for supervisor review' : `${missingForSigning.length} items left before signing`}
+        </Text>
+        <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+          {isAuditReady
+            ? 'This entry has the details needed for sign-off. Save it and go straight to local signing or a verifier request.'
+            : `You can save now and finish later. Add ${missingForSigning.join(', ')} before signing.`}
+        </Text>
+      </Card>
+
       <Card>
         {templates.data?.length ? (
           <View style={{ gap: spacing.sm }}>
@@ -162,7 +223,7 @@ export default function NewEntryScreen() {
                     accessibilityRole="button"
                     onPress={() => applyTemplate(template)}
                     style={{
-                      minHeight: 40,
+                      minHeight: touchTarget.min,
                       justifyContent: 'center',
                       borderRadius: radii.sm,
                       borderWidth: 1,
@@ -201,7 +262,7 @@ export default function NewEntryScreen() {
                 accessibilityRole="button"
                 onPress={() => setWorkTask(preset)}
                 style={{
-                  minHeight: 40,
+                  minHeight: touchTarget.min,
                   justifyContent: 'center',
                   borderRadius: radii.sm,
                   borderWidth: 1,
@@ -225,7 +286,7 @@ export default function NewEntryScreen() {
               accessibilityRole="button"
               onPress={() => setAccessMethod(preset)}
               style={{
-                minHeight: 40,
+                minHeight: touchTarget.min,
                 justifyContent: 'center',
                 borderRadius: radii.sm,
                 borderWidth: 1,
@@ -248,7 +309,7 @@ export default function NewEntryScreen() {
           placeholder="8"
         />
         <Button
-          title={showDetails ? 'Hide details' : 'Add details'}
+          title={showDetails ? 'Hide signing details' : 'Add signing details'}
           icon={showDetails ? ChevronUp : ChevronDown}
           variant="ghost"
           onPress={() => setShowDetails((value) => !value)}
