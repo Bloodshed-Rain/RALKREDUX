@@ -32,6 +32,7 @@ import {
 import type { LucideIcon } from 'lucide-react-native';
 import { Image as NativeImage, Platform, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
+import { syncHostedRemoteSigningRequest } from '@/src/cloud/supabase/remote-signing';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
@@ -280,6 +281,7 @@ export default function EntryDetailScreen() {
   const removeGear = useRemoveGearFromEntry();
   const addAttachment = useAddEntryAttachment();
   const [isPdfPending, setIsPdfPending] = React.useState(false);
+  const [isHostedSharePending, setIsHostedSharePending] = React.useState(false);
   const [pdfFailed, setPdfFailed] = React.useState(false);
   const entry = detail.data?.entry;
   const signature = detail.data?.signature;
@@ -361,8 +363,11 @@ export default function EntryDetailScreen() {
   }
 
   async function shareVerifierRequest() {
-    if (!remoteRequest || !entry) return;
-    const verifierLink = buildVerifierLink(remoteRequest);
+    if (!remoteRequest || !entry || !detail.data) return;
+    setIsHostedSharePending(true);
+    const hosted = await syncHostedRemoteSigningRequest(detail.data);
+    setIsHostedSharePending(false);
+    const verifierLink = hosted.ok ? hosted.verifierUrl : buildVerifierLink(remoteRequest);
     const title = 'RALB remote signature request';
     const message = [
       `Please review and sign this RALB work entry for ${entry.site}.`,
@@ -427,9 +432,10 @@ export default function EntryDetailScreen() {
       {remoteRequest ? (
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <Button
-            title="Share"
+            title={isHostedSharePending ? 'Syncing' : 'Share'}
             icon={Share2}
             onPress={shareVerifierRequest}
+            disabled={isHostedSharePending}
             style={{ flex: 1 }}
           />
           <Button

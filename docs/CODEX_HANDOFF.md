@@ -6,9 +6,25 @@ This file is the continuity note for future Codex sessions working from `C:\User
 
 ## Latest Handoff For New Chat
 
-Current git state after the latest work should be `main...origin/main` with a clean tree. The latest pushed app commit before this handoff update is:
+Current git state before this handoff continuation was `main...origin/main` with a clean tree. The latest pushed app commit before this handoff update is:
 
 `80f0747 Add records exit from signed entries`
+
+Latest continuation in this chat:
+
+- Pulled `main`; it was already up to date.
+- Re-ran local validation: TypeScript passed and Jest passed with 28 tests.
+- Started the next product layer by adding Supabase-hosted remote-signing foundations:
+  - `supabase/migrations/20260509085611_hosted_remote_signing.sql`
+  - `supabase/functions/remote-signing-request/index.ts`
+  - `supabase/functions/remote-signing-complete/index.ts`
+  - `supabase/functions/_shared/remote-signing.ts`
+  - `src/cloud/supabase/client.ts`
+  - `src/cloud/supabase/remote-signing.ts`
+  - `docs/hosted-remote-signing.md`
+- The entry detail Share action now tries hosted request sync when Supabase env, an auth session, and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` are available; otherwise it falls back to the existing local verifier route.
+- The verifier route now tries local SQLite first, then falls back to hosted Supabase request read/complete when opened as a public code+token link.
+- Deno is installed on the machine and `npm run functions:check` now validates the Edge Functions with Deno check, lint, and format check.
 
 Recent user-tested remote-signature fixes:
 
@@ -58,6 +74,7 @@ Key docs:
 - `docs/current-ralb-audit.md`: audit of the original Desktop `RALB` folder.
 - `docs/rebuild-blueprint.md`: architecture direction for the rebuild.
 - `docs/sprat-irata-compliance-roadmap.md`: SPRAT/IRATA acceptance roadmap and disclaimers.
+- `docs/hosted-remote-signing.md`: Supabase-hosted verifier link contract and app integration checklist.
 - `docs/CODEX_HANDOFF.md`: this file.
 
 ## Implemented Features
@@ -156,7 +173,7 @@ The first local-first slice is live:
 - Remote signing should eventually send a secure request link to a verifier so they can sign from their own phone/tablet/computer without needing to install the app.
 - Remote signing should not merely be "someone clicked a link." It needs signer identity, request expiry, one-time token behavior, entry hash, timestamps, attestation, and eventually audit metadata.
 - SPRAT/IRATA acceptance is very important to the user, but the product must stay honest until written approval is obtained.
-- The next remote-signature layer should turn local request codes into real hosted, one-time verifier links with server-side token checks.
+- The hosted remote-signature layer now has Supabase schema and Edge Function contracts, but the app is not wired to them yet.
 
 ## Key Source Map
 
@@ -237,6 +254,12 @@ Latest code-validation commits were checked with both commands:
 - `216543e Fix iOS verifier link sharing`
 - `80f0747 Add records exit from signed entries`
 
+Latest local validation in this continuation also passed:
+
+- `.\node_modules\.bin\tsc.cmd --noEmit`
+- `.\node_modules\.bin\jest.cmd --runInBand`
+- `npm run functions:check`
+
 Last phone preview target:
 
 `exp://192.168.86.143:8081`
@@ -264,7 +287,11 @@ npm.cmd run start -- --host lan
 
 First, re-run the latest phone smoke above after pulling this handoff update. Then continue by turning the new foundations into deeper product flows:
 
-1. Supabase-hosted remote signing link with server-side one-time token validation.
+1. Wire the Expo app to the hosted remote-signing foundation:
+   - Add a real technician auth flow so hosted request upload can obtain a Supabase session.
+   - Decide whether to upload hosted requests immediately after local `createRemoteSignatureRequest`, or keep upload-on-share.
+   - Poll/import completed hosted signatures back into local SQLite.
+   - Validate Edge Functions against local/linked Supabase once Docker-backed local Supabase or project secrets are available.
 2. Cloud backup storage and conflict resolution on top of the local snapshot format.
 3. Local signing screen cleanup, especially signature-pad ergonomics and supervisor attestation density.
 4. Gear detail/history screens if inline entry and gear tabs become too dense.

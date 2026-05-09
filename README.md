@@ -9,6 +9,7 @@ The original app is a serious offline-first Expo/React Native product: local SQL
 - `docs/current-ralb-audit.md`: concise audit of the current Desktop RALB folder.
 - `docs/rebuild-blueprint.md`: how I would build the new version.
 - `docs/sprat-irata-compliance-roadmap.md`: deferred but high-priority acceptance roadmap for scheme-specific logging.
+- `docs/hosted-remote-signing.md`: Supabase-hosted verifier link contract and next app integration steps.
 - `docs/CODEX_HANDOFF.md`: continuity note for future Codex sessions, including phone-based work.
 - `app/`: Expo Router routes for onboarding, tabs, entries, local signing, amendments, export, and gear.
 - `src/`: app providers, SQLite migration ledger, local logbook/profile/gear domain services, theme, and primitives.
@@ -42,6 +43,7 @@ The first local-first slice is live:
 - Reuse known supervisors in local signing and remote request flows.
 - Share and restore a local recovery snapshot containing entries, signatures, remote requests, gear, inspections, evidence, templates, supervisors, and profile data.
 - Carry a migration ledger from the first commit.
+- Scaffold Supabase hosted remote-signing storage and Edge Functions for one-time verifier-token validation.
 
 The app is being built as a shared Expo codebase for iOS and Android. Web preview is kept working for fast development, but the product target remains native mobile.
 
@@ -52,6 +54,7 @@ npm install
 npm run start -- --host lan
 npm run web -- --host localhost --port 8091
 npm run typecheck
+npm run functions:check
 npm test
 ```
 

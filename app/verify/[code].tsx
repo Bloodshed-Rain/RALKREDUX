@@ -1,7 +1,12 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import { Platform, Text, View } from 'react-native';
+import {
+  completeHostedRemoteSignatureRequest,
+  fetchHostedRemoteSigningRequest,
+} from '@/src/cloud/supabase/remote-signing';
 import { EntryDetail } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
@@ -40,6 +45,14 @@ export default function RemoteVerifyScreen() {
   const queryToken = firstParam(token);
   const [signingToken, setSigningToken] = React.useState<string | null>(queryToken);
   const requestDetail = useRemoteSignatureRequestDetail(requestCode, signingToken);
+  const hostedRequestDetail = useQuery({
+    enabled: Boolean(requestCode && signingToken && !requestDetail.isLoading && !requestDetail.data),
+    queryKey: ['hostedRemoteSignatureRequest', requestCode, signingToken],
+    queryFn: () => {
+      if (!requestCode || !signingToken) throw new Error('remote_request_code_required');
+      return fetchHostedRemoteSigningRequest(requestCode, signingToken);
+    },
+  });
   const completeRequest = useCompleteRemoteSignatureRequest();
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
@@ -47,8 +60,12 @@ export default function RemoteVerifyScreen() {
   const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
   const [completedDetail, setCompletedDetail] = React.useState<EntryDetail | null>(null);
+  const [completedFromHosted, setCompletedFromHosted] = React.useState(false);
+  const [hostedCompletePending, setHostedCompletePending] = React.useState(false);
+  const [hostedCompleteFailed, setHostedCompleteFailed] = React.useState(false);
   const previousRequestCodeRef = React.useRef<string | null>(requestCode);
-  const detail = requestDetail.data;
+  const detail = requestDetail.data ?? hostedRequestDetail.data ?? null;
+  const isHostedRequest = !requestDetail.data && Boolean(hostedRequestDetail.data);
   const entry = detail?.entry;
   const request = detail?.request;
 
@@ -63,6 +80,8 @@ export default function RemoteVerifyScreen() {
       setSignatureActive(false);
       setAttestationAccepted(false);
       setCompletedDetail(null);
+      setCompletedFromHosted(false);
+      setHostedCompleteFailed(false);
       return;
     }
 
@@ -72,10 +91,10 @@ export default function RemoteVerifyScreen() {
   }, [queryToken, requestCode]);
 
   React.useEffect(() => {
-    if (Platform.OS === 'web' && requestDetail.data && requestCode && queryToken) {
+    if (Platform.OS === 'web' && detail && requestCode && queryToken) {
       router.replace(`/verify/${requestCode}`);
     }
-  }, [queryToken, requestCode, requestDetail.data]);
+  }, [detail, queryToken, requestCode]);
 
   React.useEffect(() => {
     if (request?.recipient_name && !supervisorName) {
@@ -93,19 +112,41 @@ export default function RemoteVerifyScreen() {
     signaturePath.trim().length > 0 &&
     attestationAccepted;
 
-  function submit() {
-    if (!canSign || !requestCode) return;
+  async function submit() {
+    if (!canSign || !requestCode || !detail) return;
+
+    const input = {
+      request_code: requestCode,
+      signing_token: signingToken,
+      supervisor_name: supervisorName,
+      supervisor_cert_number: supervisorCertNumber,
+      signature_path: signaturePath,
+      attestation_accepted: attestationAccepted,
+      signer_attestation: ATTESTATION_TEXT,
+    };
+
+    if (isHostedRequest) {
+      setHostedCompletePending(true);
+      setHostedCompleteFailed(false);
+      try {
+        setCompletedDetail(await completeHostedRemoteSignatureRequest(detail, input));
+        setCompletedFromHosted(true);
+      } catch {
+        setHostedCompleteFailed(true);
+      } finally {
+        setHostedCompletePending(false);
+      }
+      return;
+    }
+
     completeRequest.mutate(
+      input,
       {
-        request_code: requestCode,
-        signing_token: signingToken,
-        supervisor_name: supervisorName,
-        supervisor_cert_number: supervisorCertNumber,
-        signature_path: signaturePath,
-        attestation_accepted: attestationAccepted,
-        signer_attestation: ATTESTATION_TEXT,
+        onSuccess: (signed) => {
+          setCompletedFromHosted(false);
+          setCompletedDetail(signed);
+        },
       },
-      { onSuccess: (signed) => setCompletedDetail(signed) },
     );
   }
 
@@ -132,12 +173,14 @@ export default function RemoteVerifyScreen() {
             </View>
           ) : null}
         </Card>
-        <Button
-          title="Return to logbook record"
-          icon={ArrowLeft}
-          variant="secondary"
-          onPress={() => router.replace(`/entry/${completedDetail.entry.id}`)}
-        />
+        {!completedFromHosted ? (
+          <Button
+            title="Return to logbook record"
+            icon={ArrowLeft}
+            variant="secondary"
+            onPress={() => router.replace(`/entry/${completedDetail.entry.id}`)}
+          />
+        ) : null}
       </Screen>
     );
   }
@@ -157,27 +200,12 @@ export default function RemoteVerifyScreen() {
     );
   }
 
-  if (requestDetail.isLoading) {
+  if (requestDetail.isLoading || hostedRequestDetail.isLoading) {
     return (
       <Screen>
         <Text selectable style={{ ...typography.body, color: colors.textPrimary }}>
           Loading request
         </Text>
-      </Screen>
-    );
-  }
-
-  if (requestDetail.isError) {
-    return (
-      <Screen>
-        <Card>
-          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-            Secure link required
-          </Text>
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            Open the full verifier link from the request message. The request code alone cannot authorize a remote signature.
-          </Text>
-        </Card>
       </Screen>
     );
   }
@@ -209,7 +237,7 @@ export default function RemoteVerifyScreen() {
           icon={CheckCircle2}
           onPress={submit}
           disabled={!canSign}
-          loading={completeRequest.isPending}
+          loading={completeRequest.isPending || hostedCompletePending}
         />
       }
     >
@@ -292,7 +320,7 @@ export default function RemoteVerifyScreen() {
         </Card>
       )}
 
-      {completeRequest.isError ? (
+      {completeRequest.isError || hostedCompleteFailed ? (
         <Text selectable style={{ ...typography.body, color: colors.statusErr }}>
           Remote signing failed. Refresh the request and try again.
         </Text>
