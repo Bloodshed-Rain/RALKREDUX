@@ -11,6 +11,7 @@ import {
   CreateRemoteSignatureRequestInput,
   RemoveGearFromEntryInput,
   SignEntryInput,
+  UpdateDraftEntryInput,
 } from './types';
 
 export function useEntries() {
@@ -65,6 +66,19 @@ export function useCreateEntry() {
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
       queryClient.invalidateQueries({ queryKey: ['careerStats'] });
       queryClient.invalidateQueries({ queryKey: ['entryTemplates'] });
+    },
+  });
+}
+
+export function useUpdateDraftEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateDraftEntryInput) => createLogbookService(getClient()).updateDraft(input),
+    onSuccess: (detail) => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['careerStats'] });
+      queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
     },
   });
 }

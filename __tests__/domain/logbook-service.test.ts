@@ -60,6 +60,56 @@ describe('logbook service', () => {
     expect(summary.signedHours).toBe(0);
   });
 
+  it('updates an incomplete draft before signing', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({
+      client: '',
+      description: '',
+      work_task: 'Inspection',
+      structure_type: '',
+      max_height: 0,
+    }));
+
+    await expect(
+      service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: 'Jordan Lee',
+        supervisor_cert_number: 'SPRAT-1234',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('entry_incomplete');
+
+    const updated = await service.updateDraft({
+      ...draftInput({
+        site: 'Bridge 12 North',
+        client: 'City Works',
+        description: 'Finished anchor inspection and rescue plan review.',
+        structure_type: 'Bridge',
+        max_height: 140,
+      }),
+      entry_id: entry.id,
+    });
+
+    expect(updated.entry.site).toBe('Bridge 12 North');
+    expect(updated.entry.client).toBe('City Works');
+    expect(updated.entry.max_height).toBe(140);
+
+    const signed = await service.signEntryLocal({
+      entry_id: entry.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+    });
+
+    expect(signed.entry.status).toBe('signed');
+    await expect(
+      service.updateDraft({ ...draftInput({ site: 'Edited after signing' }), entry_id: entry.id }),
+    ).rejects.toThrow('entry_locked');
+  });
+
   it('locally signs a draft, stores a hash, and locks the entry', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);

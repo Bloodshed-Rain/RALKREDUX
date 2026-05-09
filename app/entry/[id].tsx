@@ -365,20 +365,30 @@ export default function EntryDetailScreen() {
   const footer = (
     <View style={{ gap: spacing.sm }}>
       {entry.status === 'draft' && !remoteRequest ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ gap: spacing.sm }}>
           <Button
-            title="Sign"
+            title={readiness?.ready ? 'Edit draft' : 'Finish draft'}
             icon={PenLine}
-            onPress={() => router.push(`/entry/${entry.id}/sign`)}
-            style={{ flex: 1 }}
+            onPress={() => router.push(`/entry/${entry.id}/edit`)}
           />
-          <Button
-            title="Request"
-            icon={Send}
-            variant="secondary"
-            onPress={() => router.push(`/entry/${entry.id}/request-signature`)}
-            style={{ flex: 1 }}
-          />
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Button
+              title="Sign"
+              icon={PenLine}
+              variant="secondary"
+              onPress={() => router.push(`/entry/${entry.id}/sign`)}
+              disabled={!readiness?.ready}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title="Request"
+              icon={Send}
+              variant="secondary"
+              onPress={() => router.push(`/entry/${entry.id}/request-signature`)}
+              disabled={!readiness?.ready}
+              style={{ flex: 1 }}
+            />
+          </View>
         </View>
       ) : null}
 

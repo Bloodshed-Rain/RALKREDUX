@@ -73,6 +73,10 @@ export interface CreateEntryInput {
   irata_level_snapshot?: CertLevel | null;
 }
 
+export interface UpdateDraftEntryInput extends CreateEntryInput {
+  entry_id: string;
+}
+
 export interface SignEntryInput {
   entry_id: string;
   supervisor_name: string;

@@ -27,6 +27,7 @@ import {
   RemoveGearFromEntryInput,
   SignEntryInput,
   SupervisorContact,
+  UpdateDraftEntryInput,
 } from './types';
 
 function todayIso(): string {
@@ -382,6 +383,48 @@ export function createLogbookService(db: DbClient) {
       const entry = await db.get<LogbookEntry>('SELECT * FROM entries WHERE id = ?', [id]);
       if (!entry) throw new Error('entry_create_failed');
       return entry;
+    },
+
+    async updateDraft(input: UpdateDraftEntryInput): Promise<EntryDetail> {
+      const existing = await getEntryById(input.entry_id);
+      if (!existing) throw new Error('entry_not_found');
+      if (existing.status !== 'draft') throw new Error('entry_locked');
+      if (existing.pending_signature_id) throw new Error('entry_pending_signature');
+
+      const now = new Date().toISOString();
+      const dateFrom = input.date_from ?? existing.date_from;
+      const dateTo = input.date_to ?? dateFrom;
+      const result = await db.run(
+        `UPDATE entries
+         SET date_from = ?, date_to = ?, employer = ?, site = ?, client = ?,
+             description = ?, work_hours = ?, work_task = ?, access_method = ?,
+             structure_type = ?, max_height = ?, height_unit = ?,
+             sprat_level_snapshot = ?, irata_level_snapshot = ?, updated_at = ?
+         WHERE id = ? AND status = 'draft' AND pending_signature_id IS NULL`,
+        [
+          dateFrom,
+          dateTo,
+          input.employer.trim(),
+          input.site.trim(),
+          input.client.trim(),
+          input.description.trim(),
+          input.work_hours,
+          input.work_task.trim(),
+          input.access_method.trim(),
+          input.structure_type.trim(),
+          input.max_height,
+          input.height_unit,
+          input.sprat_level_snapshot ?? existing.sprat_level_snapshot,
+          input.irata_level_snapshot ?? existing.irata_level_snapshot,
+          now,
+          existing.id,
+        ],
+      );
+      if (result.changes !== 1) throw new Error('entry_update_failed');
+
+      const detail = await getEntryDetail(existing.id);
+      if (!detail) throw new Error('entry_not_found');
+      return detail;
     },
 
     async createAmendmentDraft(input: CreateAmendmentInput): Promise<LogbookEntry> {
