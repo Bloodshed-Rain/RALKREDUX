@@ -1,8 +1,13 @@
 import { Tabs } from 'expo-router';
 import { BookOpen, HardHat, Home, User } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/src/ui/theme/tokens';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
+  const tabBarHeight = 64 + bottomInset;
+
   return (
     <Tabs
       screenOptions={{
@@ -15,20 +20,22 @@ export default function TabLayout() {
           paddingBottom: 2,
         },
         tabBarItemStyle: {
-          height: 54,
-          borderRadius: 18,
+          height: 48,
+          borderRadius: 16,
           marginHorizontal: 5,
-          marginVertical: 7,
-          paddingVertical: 4,
+          marginTop: 6,
+          marginBottom: 6,
+          paddingVertical: 3,
+          overflow: 'hidden',
         },
         tabBarActiveBackgroundColor: colors.bgApp,
         tabBarStyle: {
           backgroundColor: colors.accentPressed,
           borderTopColor: colors.accentPressed,
-          height: 72,
+          height: tabBarHeight,
           paddingHorizontal: 6,
-          paddingTop: 5,
-          paddingBottom: 8,
+          paddingTop: 4,
+          paddingBottom: bottomInset,
         },
       }}
     >
