@@ -22,6 +22,7 @@ export function Screen({
 }: ScreenProps) {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
+  const childTouchIsCapturing = preserveChildTouches && !scrollEnabled;
 
   return (
     <KeyboardAvoidingView
@@ -31,9 +32,9 @@ export function Screen({
     >
       <ScrollView
         automaticallyAdjustKeyboardInsets
-        canCancelContentTouches={!preserveChildTouches}
+        canCancelContentTouches={!childTouchIsCapturing}
         contentInsetAdjustmentBehavior="automatic"
-        disableScrollViewPanResponder={preserveChildTouches && !scrollEnabled}
+        disableScrollViewPanResponder={childTouchIsCapturing}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}
