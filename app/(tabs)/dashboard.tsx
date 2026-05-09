@@ -207,13 +207,10 @@ export default function DashboardScreen() {
     <Screen safeTop>
       <View
         style={{
-          borderRadius: 18,
-          backgroundColor: '#050505',
           paddingHorizontal: spacing.md,
           paddingVertical: spacing.sm,
           minHeight: 86,
           justifyContent: 'center',
-          overflow: 'hidden',
         }}
       >
         <Image
