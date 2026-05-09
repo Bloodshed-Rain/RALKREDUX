@@ -221,7 +221,7 @@ export default function DashboardScreen() {
             source={mastheadLogo}
             resizeMode="contain"
             accessibilityIgnoresInvertColors
-            style={{ width: '142%', height: 192, alignSelf: 'center' }}
+            style={{ width: '90%', height: 145, alignSelf: 'center' }}
           />
         </View>
       }
