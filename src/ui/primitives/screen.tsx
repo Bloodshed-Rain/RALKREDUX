@@ -1,9 +1,10 @@
 import React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme-provider';
 
 interface ScreenProps {
+  background?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   padded?: boolean;
@@ -13,6 +14,7 @@ interface ScreenProps {
 }
 
 export function Screen({
+  background,
   children,
   footer,
   padded = true,
@@ -30,6 +32,11 @@ export function Screen({
       keyboardVerticalOffset={footer ? 72 : 0}
       style={{ flex: 1, backgroundColor: colors.bgApp }}
     >
+      {background ? (
+        <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject }}>
+          {background}
+        </View>
+      ) : null}
       <ScrollView
         automaticallyAdjustKeyboardInsets
         canCancelContentTouches={!childTouchIsCapturing}

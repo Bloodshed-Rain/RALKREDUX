@@ -204,23 +204,29 @@ export default function DashboardScreen() {
   const certProgress = certsForProfile(profile.data, signedHours);
 
   return (
-    <Screen safeTop>
-      <View
-        style={{
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm,
-          minHeight: 86,
-          justifyContent: 'center',
-        }}
-      >
-        <Image
-          source={mastheadLogo}
-          resizeMode="contain"
-          accessibilityIgnoresInvertColors
-          style={{ width: '100%', height: 68 }}
-        />
-      </View>
-
+    <Screen
+      safeTop
+      background={
+        <View
+          style={{
+            position: 'absolute',
+            top: 22,
+            left: -32,
+            right: -32,
+            height: 190,
+            justifyContent: 'center',
+            opacity: 0.22,
+          }}
+        >
+          <Image
+            source={mastheadLogo}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+            style={{ width: '118%', height: 178, alignSelf: 'center' }}
+          />
+        </View>
+      }
+    >
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
           <View style={{ flex: 1, gap: spacing.xs }}>
