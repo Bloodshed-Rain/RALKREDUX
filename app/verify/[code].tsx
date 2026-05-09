@@ -37,7 +37,8 @@ export default function RemoteVerifyScreen() {
   const { colors, spacing, typography } = useTheme();
   const { code, token } = useLocalSearchParams<{ code?: string | string[]; token?: string | string[] }>();
   const requestCode = firstParam(code);
-  const signingToken = firstParam(token);
+  const queryToken = firstParam(token);
+  const [signingToken, setSigningToken] = React.useState<string | null>(queryToken);
   const requestDetail = useRemoteSignatureRequestDetail(requestCode, signingToken);
   const completeRequest = useCompleteRemoteSignatureRequest();
   const [supervisorName, setSupervisorName] = React.useState('');
@@ -49,6 +50,18 @@ export default function RemoteVerifyScreen() {
   const detail = requestDetail.data;
   const entry = detail?.entry;
   const request = detail?.request;
+
+  React.useEffect(() => {
+    if (queryToken) {
+      setSigningToken(queryToken);
+    }
+  }, [queryToken]);
+
+  React.useEffect(() => {
+    if (requestCode && queryToken) {
+      router.replace(`/verify/${requestCode}`);
+    }
+  }, [queryToken, requestCode]);
 
   React.useEffect(() => {
     if (request?.recipient_name && !supervisorName) {
