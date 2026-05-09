@@ -48,7 +48,7 @@ export function useEntryDetail(entryId: string | null) {
 
 export function useRemoteSignatureRequestDetail(requestCode: string | null, signingToken?: string | null) {
   return useQuery({
-    enabled: Boolean(requestCode),
+    enabled: Boolean(requestCode && signingToken),
     queryKey: ['remoteSignatureRequest', requestCode, signingToken ?? null],
     queryFn: () => {
       if (!requestCode) throw new Error('remote_request_code_required');

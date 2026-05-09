@@ -1,7 +1,7 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react-native';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { EntryDetail } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
@@ -58,10 +58,10 @@ export default function RemoteVerifyScreen() {
   }, [queryToken]);
 
   React.useEffect(() => {
-    if (requestCode && queryToken) {
+    if (Platform.OS === 'web' && requestDetail.data && requestCode && queryToken) {
       router.replace(`/verify/${requestCode}`);
     }
-  }, [queryToken, requestCode]);
+  }, [queryToken, requestCode, requestDetail.data]);
 
   React.useEffect(() => {
     if (request?.recipient_name && !supervisorName) {
@@ -124,6 +124,21 @@ export default function RemoteVerifyScreen() {
           variant="secondary"
           onPress={() => router.replace(`/entry/${completedDetail.entry.id}`)}
         />
+      </Screen>
+    );
+  }
+
+  if (!signingToken) {
+    return (
+      <Screen>
+        <Card>
+          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+            Secure link required
+          </Text>
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Open the full verifier link from the request message. The request code alone cannot authorize a remote signature.
+          </Text>
+        </Card>
       </Screen>
     );
   }
