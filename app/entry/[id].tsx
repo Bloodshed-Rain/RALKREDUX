@@ -362,15 +362,19 @@ export default function EntryDetailScreen() {
   async function shareVerifierRequest() {
     if (!remoteRequest || !entry) return;
     const verifierLink = buildVerifierLink(remoteRequest);
-    await Share.share({
-      title: 'RALB remote signature request',
-      message: [
-        `Please review and sign this RALB work entry for ${entry.site}.`,
-        `Request code: ${remoteRequest.request_code}`,
-        `Expires: ${remoteRequest.expires_at ? remoteRequest.expires_at.slice(0, 10) : 'not set'}`,
-        `Verifier link: ${verifierLink}`,
-      ].join('\n'),
-    });
+    const title = 'RALB remote signature request';
+    const message = [
+      `Please review and sign this RALB work entry for ${entry.site}.`,
+      `Request code: ${remoteRequest.request_code}`,
+      `Expires: ${remoteRequest.expires_at ? remoteRequest.expires_at.slice(0, 10) : 'not set'}`,
+    ].join('\n');
+
+    await Share.share(
+      Platform.OS === 'ios'
+        ? { title, message, url: verifierLink }
+        : { title, message: `${message}\nVerifier link: ${verifierLink}` },
+      Platform.OS === 'ios' ? { subject: title } : undefined,
+    );
   }
 
   async function addPhotoEvidence() {
