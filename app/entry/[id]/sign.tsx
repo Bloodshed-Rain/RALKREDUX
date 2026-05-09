@@ -12,8 +12,16 @@ import {
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
+import {
+  certLevelToDigit,
+  formatIrataNumber,
+  irataLevelFromNumber,
+  irataNumberDigits,
+  normalizeSpratNumber,
+} from '@/src/domain/cert-number';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { useEntryDetail, useSignEntryLocal, useSupervisorContacts } from '@/src/domain/logbook/use-logbook';
+import type { CertLevel } from '@/src/domain/profile/types';
 import { Button, Card, CheckboxRow, Field, Screen, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
@@ -33,6 +41,7 @@ export default function LocalSignScreen() {
   const supervisors = useSupervisorContacts();
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
+  const [supervisorIrataLevel, setSupervisorIrataLevel] = React.useState<CertLevel>('II');
   const [signaturePath, setSignaturePath] = React.useState('');
   const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
@@ -43,20 +52,22 @@ export default function LocalSignScreen() {
   const selectedKnownSupervisor = supervisors.data?.find(
     (supervisor) =>
       supervisor.name === supervisorName &&
-      (supervisor.cert_number ?? '') === supervisorCertNumber,
+      (requiresCertNumber
+        ? irataNumberDigits(supervisor.cert_number ?? '') === irataNumberDigits(supervisorCertNumber)
+        : normalizeSpratNumber(supervisor.cert_number ?? '') === normalizeSpratNumber(supervisorCertNumber)),
   );
   const canSign =
     Boolean(entryId) &&
     entry?.status === 'draft' &&
     readiness?.ready === true &&
     supervisorName.trim().length > 1 &&
-    (!requiresCertNumber || supervisorCertNumber.trim().length > 1) &&
+    (!requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5) &&
     signaturePath.trim().length > 0 &&
     attestationAccepted;
   const missingToSign = [
     ...(readiness?.missingFields ?? []),
     supervisorName.trim().length > 1 ? null : 'supervisor name',
-    !requiresCertNumber || supervisorCertNumber.trim().length > 1 ? null : 'IRATA verifier number',
+    !requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5 ? null : '5-digit IRATA verifier number',
     signaturePath.trim() ? null : 'drawn signature',
     attestationAccepted ? null : 'authorization checkbox',
     entry?.status && entry.status !== 'draft' ? 'draft entry' : null,
@@ -68,7 +79,9 @@ export default function LocalSignScreen() {
       {
         entry_id: entryId,
         supervisor_name: supervisorName,
-        supervisor_cert_number: supervisorCertNumber,
+        supervisor_cert_number: requiresCertNumber
+          ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
+          : normalizeSpratNumber(supervisorCertNumber),
         signature_path: signaturePath,
         attestation_accepted: attestationAccepted,
         signer_attestation: ATTESTATION_TEXT,
@@ -146,7 +159,10 @@ export default function LocalSignScreen() {
                   accessibilityState={{ selected }}
                   onPress={() => {
                     setSupervisorName(supervisor.name);
-                    setSupervisorCertNumber(supervisor.cert_number ?? '');
+                    setSupervisorIrataLevel(irataLevelFromNumber(supervisor.cert_number, supervisorIrataLevel));
+                    setSupervisorCertNumber(requiresCertNumber
+                      ? irataNumberDigits(supervisor.cert_number ?? '')
+                      : normalizeSpratNumber(supervisor.cert_number ?? ''));
                   }}
                   style={({ pressed }) => ({
                     minHeight: touchTarget.min,
@@ -176,13 +192,32 @@ export default function LocalSignScreen() {
         <Field label="Supervisor name" value={supervisorName} onChangeText={setSupervisorName} placeholder="Jordan Lee" />
         <Field
           label="SPRAT / IRATA number"
-          value={supervisorCertNumber}
-          onChangeText={setSupervisorCertNumber}
-          placeholder={requiresCertNumber ? 'Required for IRATA' : 'Optional'}
+          value={requiresCertNumber ? irataNumberDigits(supervisorCertNumber) : normalizeSpratNumber(supervisorCertNumber)}
+          onChangeText={(value) => {
+            setSupervisorCertNumber(requiresCertNumber ? formatIrataNumber(supervisorIrataLevel, value) : normalizeSpratNumber(value));
+          }}
+          placeholder={requiresCertNumber ? '12345' : 'Optional'}
+          keyboardType="number-pad"
+          maxLength={requiresCertNumber ? 5 : 12}
           hint={requiresCertNumber
-            ? 'Required for IRATA entries. Use the supervisor or verifier IRATA number.'
+            ? `Required for IRATA entries. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
             : 'Optional for SPRAT entries. Add it when the supervisor has a SPRAT or IRATA card/member number.'}
         />
+        {requiresCertNumber ? (
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {(['I', 'II', 'III'] as const).map((level) => (
+              <LevelChip
+                key={level}
+                label={certLevelToDigit(level)}
+                selected={level === supervisorIrataLevel}
+                onPress={() => {
+                  setSupervisorIrataLevel(level);
+                  setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
       </Card>
 
       <Card>
@@ -222,6 +257,34 @@ export default function LocalSignScreen() {
         </Text>
       ) : null}
     </Screen>
+  );
+}
+
+function LevelChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const { colors, radii, spacing, typography } = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 44,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: radii.sm,
+        borderWidth: 1,
+        borderColor: selected ? colors.accentPrimary : colors.border,
+        backgroundColor: selected ? colors.accentTint : colors.bgSurface,
+        opacity: pressed ? 0.82 : 1,
+        paddingHorizontal: spacing.md,
+      })}
+    >
+      <Text selectable={false} style={{ ...typography.label, color: selected ? colors.accentPrimary : colors.textSecondary }}>
+        Level {label}
+      </Text>
+    </Pressable>
   );
 }
 

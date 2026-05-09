@@ -12,19 +12,23 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontFamily: 'Inter_600SemiBold',
           fontSize: 11,
+          paddingBottom: 2,
         },
         tabBarItemStyle: {
-          borderRadius: 8,
-          marginVertical: 6,
-          marginHorizontal: 3,
+          height: 54,
+          borderRadius: 18,
+          marginHorizontal: 5,
+          marginVertical: 7,
+          paddingVertical: 4,
         },
         tabBarActiveBackgroundColor: colors.bgApp,
         tabBarStyle: {
           backgroundColor: colors.accentPressed,
           borderTopColor: colors.accentPressed,
-          minHeight: 64,
-          paddingTop: 4,
-          paddingBottom: 6,
+          height: 72,
+          paddingHorizontal: 6,
+          paddingTop: 5,
+          paddingBottom: 8,
         },
       }}
     >

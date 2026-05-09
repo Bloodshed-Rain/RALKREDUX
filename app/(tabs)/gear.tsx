@@ -92,6 +92,10 @@ function splitMakeModel(value: string): { manufacturer: string | null; model: st
   };
 }
 
+function categoryLabel(value: GearCategory): string {
+  return CATEGORIES.find((item) => item.value === value)?.label ?? value;
+}
+
 function StatusPill({ status }: { status: GearStatus }) {
   const { colors, radii, spacing, typography } = useTheme();
   const Icon = statusIcon(status);
@@ -215,6 +219,13 @@ export default function GearScreen() {
   const filteredItems = filter === 'all'
     ? allItems
     : allItems.filter(({ status }) => status === filter);
+  const groupedItems = CATEGORIES
+    .map((categoryItem) => ({
+      category: categoryItem.value,
+      label: categoryItem.label,
+      items: filteredItems.filter(({ item }) => item.category === categoryItem.value),
+    }))
+    .filter((group) => group.items.length > 0);
   const catalogSearch = useGearCatalogSearch(makeModel, category);
   const showCatalogSuggestions = !selectedCatalogEntry && Boolean(catalogSearch.data?.length);
   const canCreate = makeModel.trim().length > 0;
@@ -491,39 +502,51 @@ export default function GearScreen() {
           </Text>
           <Button title="Try again" variant="secondary" onPress={() => gearItems.refetch()} />
         </Card>
-      ) : filteredItems.length ? (
-        filteredItems.map(({ item, latest_inspection, status }) => {
-          const meta = [
-            item.category,
-            item.serial_number ? `SN ${item.serial_number}` : null,
-            item.next_inspection_due ? `Due ${formatDate(item.next_inspection_due)}` : null,
-          ].filter(Boolean).join(' - ');
-          return (
-            <Card key={item.id}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
-                <View style={{ flex: 1, gap: spacing.xs }}>
-                  <Text selectable style={{ ...typography.title3, color: colors.textPrimary }} numberOfLines={2}>
-                    {item.name}
-                  </Text>
-                  <Text selectable style={{ ...typography.caption, color: colors.textSecondary }} numberOfLines={2}>
-                    {meta || item.category}
-                  </Text>
-                  {latest_inspection ? (
-                    <Text selectable style={{ ...typography.body, color: colors.textSecondary }} numberOfLines={1}>
-                      {resultLabel(latest_inspection.result)} on {formatDate(latest_inspection.inspected_on)}
+      ) : groupedItems.length ? (
+        groupedItems.map((group) => (
+          <View key={group.category} style={{ gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+              <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+                {group.label}
+              </Text>
+              <Text selectable={false} style={{ ...typography.caption, color: colors.textSecondary }}>
+                {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
+              </Text>
+            </View>
+            {group.items.map(({ item, latest_inspection, status }) => {
+              const meta = [
+                categoryLabel(item.category),
+                item.serial_number ? `SN ${item.serial_number}` : null,
+                item.next_inspection_due ? `Due ${formatDate(item.next_inspection_due)}` : null,
+              ].filter(Boolean).join(' - ');
+              return (
+                <Card key={item.id}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
+                    <View style={{ flex: 1, gap: spacing.xs }}>
+                      <Text selectable style={{ ...typography.title3, color: colors.textPrimary }} numberOfLines={2}>
+                        {item.name}
+                      </Text>
+                      <Text selectable style={{ ...typography.caption, color: colors.textSecondary }} numberOfLines={2}>
+                        {meta || categoryLabel(item.category)}
+                      </Text>
+                      {latest_inspection ? (
+                        <Text selectable style={{ ...typography.body, color: colors.textSecondary }} numberOfLines={1}>
+                          {resultLabel(latest_inspection.result)} on {formatDate(latest_inspection.inspected_on)}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <StatusPill status={status} />
+                  </View>
+                  {latest_inspection?.notes ? (
+                    <Text selectable style={{ ...typography.body, color: colors.textPrimary }} numberOfLines={2}>
+                      {latest_inspection.notes}
                     </Text>
                   ) : null}
-                </View>
-                <StatusPill status={status} />
-              </View>
-              {latest_inspection?.notes ? (
-                <Text selectable style={{ ...typography.body, color: colors.textPrimary }} numberOfLines={2}>
-                  {latest_inspection.notes}
-                </Text>
-              ) : null}
-            </Card>
-          );
-        })
+                </Card>
+              );
+            })}
+          </View>
+        ))
       ) : (
         <Card>
           <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>

@@ -1,12 +1,14 @@
 import { router } from 'expo-router';
 import { BookOpen, ClipboardCheck, Clock3, Plus, Send, ShieldCheck, TrendingUp } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { useCareerStats, useDashboardSummary } from '@/src/domain/logbook/use-logbook';
-import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
+import type { CertLevel, CertScheme, Profile } from '@/src/domain/profile/types';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { ActionTile, Card, Screen, StatRow } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+
+const mastheadLogo = require('@/assets/branding/masthead-logo.png');
 
 type CertProgress = {
   scheme: CertScheme;
@@ -52,6 +54,30 @@ function buildCertProgress(
   };
 }
 
+function dashboardLine(data: ReturnType<typeof useDashboardSummary>['data']): string {
+  if ((data?.pendingSignatureRequests ?? 0) > 0) {
+    return 'Verifier requests are out. Keep the next entry ready.';
+  }
+  if ((data?.draftEntries ?? 0) > 0) {
+    return 'Drafts are staged. Finish the details, then send for sign-off.';
+  }
+  if ((data?.signedEntries ?? 0) > 0) {
+    return 'Signed hours are stacking. Log the next rope day while it is fresh.';
+  }
+  return 'Start with one clean entry. The rest gets easier.';
+}
+
+function certsForProfile(profile: Profile | null | undefined, signedHours: number): CertProgress[] {
+  const progress: CertProgress[] = [];
+  if (profile?.sprat_level) {
+    progress.push(buildCertProgress('sprat', profile.sprat_level, signedHours));
+  }
+  if (profile?.irata_level) {
+    progress.push(buildCertProgress('irata', profile.irata_level, signedHours));
+  }
+  return progress;
+}
+
 function StatusTile({
   label,
   value,
@@ -63,11 +89,23 @@ function StatusTile({
   value: string;
   note: string;
   icon: LucideIcon;
-  tone?: 'default' | 'warn' | 'ok';
+  tone?: 'default' | 'warn' | 'ok' | 'info';
 }) {
   const { colors, radii, spacing, typography } = useTheme();
-  const toneColor = tone === 'ok' ? colors.statusOk : tone === 'warn' ? colors.statusWarn : colors.accentPrimary;
-  const toneBg = tone === 'ok' ? colors.statusOkTint : tone === 'warn' ? colors.statusWarnTint : colors.accentTint;
+  const toneColor = tone === 'ok'
+    ? colors.statusOk
+    : tone === 'warn'
+      ? colors.statusWarn
+      : tone === 'info'
+        ? colors.statusInfo
+        : colors.accentPrimary;
+  const toneBg = tone === 'ok'
+    ? colors.statusOkTint
+    : tone === 'warn'
+      ? colors.statusWarnTint
+      : tone === 'info'
+        ? colors.statusInfoTint
+        : colors.accentTint;
 
   return (
     <View
@@ -163,13 +201,29 @@ export default function DashboardScreen() {
   const hasError = profile.isError || summary.isError || career.isError;
   const signedHours = data?.signedHours ?? 0;
   const draftHours = Math.max((stats?.totalHours ?? 0) - signedHours, 0);
-  const certProgress = [
-    buildCertProgress('sprat', profile.data?.sprat_level ?? null, signedHours),
-    buildCertProgress('irata', profile.data?.irata_level ?? null, signedHours),
-  ];
+  const certProgress = certsForProfile(profile.data, signedHours);
 
   return (
     <Screen safeTop>
+      <View
+        style={{
+          borderRadius: 18,
+          backgroundColor: '#050505',
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          minHeight: 86,
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        <Image
+          source={mastheadLogo}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+          style={{ width: '100%', height: 68 }}
+        />
+      </View>
+
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
           <View style={{ flex: 1, gap: spacing.xs }}>
@@ -180,7 +234,7 @@ export default function DashboardScreen() {
               {profile.data?.full_name ?? 'Your logbook'}
             </Text>
             <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-              Keep the next record easy to finish, sign, and export.
+              {dashboardLine(data)}
             </Text>
           </View>
           <ShieldCheck size={30} color={colors.accentPrimary} strokeWidth={2.1} />
@@ -234,9 +288,15 @@ export default function DashboardScreen() {
         <Text selectable style={{ ...typography.caption, color: colors.textSecondary }}>
           Based on signed hours in this app. Time-in-level and assessor requirements still need to be checked separately.
         </Text>
-        {certProgress.map((item) => (
-          <CertProgressBar key={item.scheme} item={item} />
-        ))}
+        {certProgress.length ? (
+          certProgress.map((item) => (
+            <CertProgressBar key={item.scheme} item={item} />
+          ))
+        ) : (
+          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+            Add SPRAT or IRATA details in Profile to track signed-hour progress here.
+          </Text>
+        )}
       </Card>
 
       <Card>
@@ -259,14 +319,14 @@ export default function DashboardScreen() {
             value={String(data?.draftEntries ?? 0)}
             note={`${draftHours.toFixed(1)} unsignatured hours`}
             icon={Clock3}
-            tone={(data?.draftEntries ?? 0) > 0 ? 'warn' : 'default'}
+            tone="warn"
           />
           <StatusTile
             label="Waiting on verifier"
             value={String(data?.pendingSignatureRequests ?? 0)}
             note="Remote requests out"
             icon={Send}
-            tone={(data?.pendingSignatureRequests ?? 0) > 0 ? 'warn' : 'default'}
+            tone="info"
           />
         </View>
       </Card>

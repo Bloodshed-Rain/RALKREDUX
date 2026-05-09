@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   UserRound,
 } from 'lucide-react-native';
+import { certLevelToDigit, formatIrataNumber, irataNumberDigits, normalizeSpratNumber } from '@/src/domain/cert-number';
 import { useCreateProfile } from '@/src/domain/profile/use-profile';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
 import { Button, Card, DateField, Field, Screen } from '@/src/ui/primitives';
@@ -30,17 +31,20 @@ export default function SetupScreen() {
 
   const canContinue = fullName.trim().length > 1;
   const hasCertDetails = certId.trim().length > 0 || expiresOn.trim().length > 0;
+  const certNumberInputValue = scheme === 'irata' ? irataNumberDigits(certId) : normalizeSpratNumber(certId);
 
   function submit() {
     if (!canContinue) return;
+    const spratNumber = normalizeSpratNumber(certId);
+    const irataNumber = formatIrataNumber(level, certId);
     createProfile.mutate(
       {
         full_name: fullName,
         primary_scheme: scheme,
-        sprat_id: scheme === 'sprat' ? certId || null : null,
+        sprat_id: scheme === 'sprat' ? spratNumber || null : null,
         sprat_level: scheme === 'sprat' ? level : null,
         sprat_expires_on: scheme === 'sprat' ? expiresOn || null : null,
-        irata_id: scheme === 'irata' ? certId || null : null,
+        irata_id: scheme === 'irata' ? irataNumber || null : null,
         irata_level: scheme === 'irata' ? level : null,
         irata_expires_on: scheme === 'irata' ? expiresOn || null : null,
       },
@@ -94,7 +98,14 @@ export default function SetupScreen() {
                     key={item}
                     label={item.toUpperCase()}
                     selected={selected}
-                    onPress={() => setScheme(item)}
+                    onPress={() => {
+                      if (item !== scheme) {
+                        setCertId('');
+                      } else {
+                        setCertId(item === 'irata' ? formatIrataNumber(level, certId) : normalizeSpratNumber(certId));
+                      }
+                      setScheme(item);
+                    }}
                     flex
                   />
                 );
@@ -108,7 +119,12 @@ export default function SetupScreen() {
                 key={item}
                 label={`Level ${item}`}
                 selected={item === level}
-                onPress={() => setLevel(item)}
+                onPress={() => {
+                  setLevel(item);
+                  if (scheme === 'irata') {
+                    setCertId(formatIrataNumber(item, certId));
+                  }
+                }}
                 flex
               />
             ))}
@@ -151,11 +167,14 @@ export default function SetupScreen() {
           {detailsOpen ? (
             <View style={{ gap: spacing.md }}>
               <Field
-                label="Certification number"
-                value={certId}
-                onChangeText={setCertId}
-                placeholder="Optional"
-                autoCapitalize="characters"
+                label={scheme === 'irata' ? `IRATA number (${certLevelToDigit(level)}/12345)` : 'SPRAT number'}
+                value={certNumberInputValue}
+                onChangeText={(value) => {
+                  setCertId(scheme === 'irata' ? formatIrataNumber(level, value) : normalizeSpratNumber(value));
+                }}
+                placeholder={scheme === 'irata' ? '12345' : 'Optional'}
+                keyboardType="number-pad"
+                maxLength={scheme === 'irata' ? 5 : 12}
               />
               <DateField
                 label="Expires on"

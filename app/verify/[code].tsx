@@ -7,12 +7,19 @@ import {
   completeHostedRemoteSignatureRequest,
   fetchHostedRemoteSigningRequest,
 } from '@/src/cloud/supabase/remote-signing';
+import {
+  certLevelToDigit,
+  formatIrataNumber,
+  irataNumberDigits,
+  normalizeSpratNumber,
+} from '@/src/domain/cert-number';
 import { formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import { EntryDetail } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
   useRemoteSignatureRequestDetail,
 } from '@/src/domain/logbook/use-logbook';
+import type { CertLevel } from '@/src/domain/profile/types';
 import { Button, Card, CheckboxRow, Field, Screen, SignaturePad, StatRow } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
@@ -57,6 +64,7 @@ export default function RemoteVerifyScreen() {
   const completeRequest = useCompleteRemoteSignatureRequest();
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
+  const [supervisorIrataLevel, setSupervisorIrataLevel] = React.useState<CertLevel>('II');
   const [signaturePath, setSignaturePath] = React.useState('');
   const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
@@ -78,6 +86,7 @@ export default function RemoteVerifyScreen() {
       setSigningToken(queryToken);
       setSupervisorName('');
       setSupervisorCertNumber('');
+      setSupervisorIrataLevel('II');
       setSignaturePath('');
       setSignatureActive(false);
       setAttestationAccepted(false);
@@ -110,14 +119,14 @@ export default function RemoteVerifyScreen() {
     request?.status === 'pending' &&
     entry?.status === 'draft' &&
     supervisorName.trim().length > 1 &&
-    (!requiresCertNumber || supervisorCertNumber.trim().length > 1) &&
+    (!requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5) &&
     signaturePath.trim().length > 0 &&
     attestationAccepted;
   const missingToSubmit = [
     request?.status === 'pending' ? null : 'pending request',
     entry?.status === 'draft' ? null : 'open draft record',
     supervisorName.trim().length > 1 ? null : 'verifier name',
-    !requiresCertNumber || supervisorCertNumber.trim().length > 1 ? null : 'IRATA verifier number',
+    !requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5 ? null : '5-digit IRATA verifier number',
     signaturePath.trim() ? null : 'drawn signature',
     attestationAccepted ? null : 'authorization checkbox',
   ].filter(Boolean) as string[];
@@ -129,7 +138,9 @@ export default function RemoteVerifyScreen() {
       request_code: requestCode,
       signing_token: signingToken,
       supervisor_name: supervisorName,
-      supervisor_cert_number: supervisorCertNumber,
+      supervisor_cert_number: requiresCertNumber
+        ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
+        : normalizeSpratNumber(supervisorCertNumber),
       signature_path: signaturePath,
       attestation_accepted: attestationAccepted,
       signer_attestation: ATTESTATION_TEXT,
@@ -308,13 +319,32 @@ export default function RemoteVerifyScreen() {
           <Field label="Verifier name" value={supervisorName} onChangeText={setSupervisorName} placeholder="Jordan Lee" />
           <Field
             label="SPRAT / IRATA number"
-            value={supervisorCertNumber}
-            onChangeText={setSupervisorCertNumber}
-            placeholder={requiresCertNumber ? 'Required for IRATA' : 'Optional'}
+            value={requiresCertNumber ? irataNumberDigits(supervisorCertNumber) : normalizeSpratNumber(supervisorCertNumber)}
+            onChangeText={(value) => {
+              setSupervisorCertNumber(requiresCertNumber ? formatIrataNumber(supervisorIrataLevel, value) : normalizeSpratNumber(value));
+            }}
+            placeholder={requiresCertNumber ? '12345' : 'Optional'}
+            keyboardType="number-pad"
+            maxLength={requiresCertNumber ? 5 : 12}
             hint={requiresCertNumber
-              ? 'Required for IRATA entries. Use the verifier IRATA number.'
+              ? `Required for IRATA entries. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
               : 'Optional for SPRAT entries. Add it when the verifier has a SPRAT or IRATA card/member number.'}
           />
+          {requiresCertNumber ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {(['I', 'II', 'III'] as const).map((level) => (
+                <LevelChip
+                  key={level}
+                  label={certLevelToDigit(level)}
+                  selected={level === supervisorIrataLevel}
+                  onPress={() => {
+                    setSupervisorIrataLevel(level);
+                    setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
+                  }}
+                />
+              ))}
+            </View>
+          ) : null}
           <SignaturePad
             label="Verifier signature"
             value={signaturePath}
@@ -345,6 +375,17 @@ export default function RemoteVerifyScreen() {
         </Text>
       ) : null}
     </Screen>
+  );
+}
+
+function LevelChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  return (
+    <Button
+      title={`Level ${label}`}
+      variant={selected ? 'primary' : 'secondary'}
+      onPress={onPress}
+      style={{ flex: 1 }}
+    />
   );
 }
 
