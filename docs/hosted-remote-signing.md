@@ -1,6 +1,6 @@
 # Hosted Remote Signing Foundation
 
-This note describes the first Supabase layer for remote verifier links. The current Expo app still uses the local-first verifier route, but the cloud contract is now present under `supabase/` so the next app pass can sync local requests to a hosted one-time link.
+This note describes the Supabase layer for remote verifier links. The Expo app remains local-first, but it can now upload a local request to hosted Edge Functions, share a public code+token verifier link, and import the completed hosted signature back into local SQLite.
 
 ## Trust Model
 
@@ -61,13 +61,16 @@ Done:
 - Add a cloud remote-signing client under `src/cloud/supabase/`.
 - Let the Share action upload a hosted request using the same request code and token when Supabase auth/env are available.
 - Prefer the hosted verifier URL when hosted sync succeeds, with local verifier links kept as development and offline/manual fallback.
+- Bootstrap and persist an anonymous Supabase Auth session for hosted request upload when the project has anonymous sign-ins enabled.
+- Add an entry-detail `Sync` action that checks the hosted request by code+token and imports a completed hosted signature into local SQLite.
 
 Still pending:
 
-1. Add a real technician auth/session flow so hosted request upload can run outside local experiments.
-2. Add a sync poll or realtime listener that imports completed hosted signatures into local SQLite.
+1. Decide whether anonymous technician sessions are acceptable for the first preview, or replace them with an explicit email/OAuth technician account flow.
+2. Add automatic polling or realtime refresh around the manual `Sync` action.
 3. Validate Edge Functions against local/linked Supabase once project secrets are available.
+4. Enable Anonymous Sign-Ins in the Supabase project if keeping the current preview bootstrap.
 
-The app now has the first piece of client wiring in `src/cloud/supabase/remote-signing.ts`. The entry detail Share action attempts a hosted sync when Supabase env vars, a user session, and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` are available, then falls back to the existing local verifier link when cloud is not ready.
+The app now has the first client wiring in `src/cloud/supabase/remote-signing.ts`. The entry detail Share action attempts a hosted sync when Supabase env vars and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` are available. If no session exists, `src/cloud/supabase/client.ts` attempts `signInAnonymously()` and persists that session through AsyncStorage. If cloud is not ready, sharing falls back to the existing local verifier link.
 
-The verifier route now also has a hosted fallback: `app/verify/[code].tsx` tries local SQLite first, then fetches `remote-signing-request` by code and token when local data is absent. Hosted verifier submission posts to `remote-signing-complete`. The technician-side import of completed hosted signatures is still pending, so hosted completion is not yet reflected back into local SQLite automatically.
+The verifier route now also has a hosted fallback: `app/verify/[code].tsx` tries local SQLite first, then fetches `remote-signing-request` by code and token when local data is absent. Hosted verifier submission posts to `remote-signing-complete`. The technician device can tap `Sync` on the pending entry to pull a completed hosted signature back into local SQLite; automatic polling/realtime refresh is still pending.

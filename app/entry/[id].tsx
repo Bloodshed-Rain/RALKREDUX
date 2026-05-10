@@ -22,6 +22,7 @@ import {
   MapPin,
   PenLine,
   Plus,
+  RefreshCw,
   Ruler,
   Send,
   Share2,
@@ -33,6 +34,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Image as NativeImage, Platform, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { syncHostedRemoteSigningRequest } from '@/src/cloud/supabase/remote-signing';
+import { useImportHostedRemoteSignatureCompletion } from '@/src/cloud/supabase/use-remote-signing-sync';
 import { formatDate, formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
@@ -281,8 +283,10 @@ export default function EntryDetailScreen() {
   const attachGear = useAttachGearToEntry();
   const removeGear = useRemoveGearFromEntry();
   const addAttachment = useAddEntryAttachment();
+  const importHostedCompletion = useImportHostedRemoteSignatureCompletion();
   const [isPdfPending, setIsPdfPending] = React.useState(false);
   const [isHostedSharePending, setIsHostedSharePending] = React.useState(false);
+  const [hostedImportFailed, setHostedImportFailed] = React.useState(false);
   const [pdfFailed, setPdfFailed] = React.useState(false);
   const entry = detail.data?.entry;
   const signature = detail.data?.signature;
@@ -392,6 +396,19 @@ export default function EntryDetailScreen() {
     );
   }
 
+  async function syncHostedCompletion() {
+    if (!remoteRequest) return;
+    setHostedImportFailed(false);
+    try {
+      const result = await importHostedCompletion.mutateAsync(remoteRequest);
+      if (!result.imported && result.reason === 'import_failed') {
+        setHostedImportFailed(true);
+      }
+    } catch {
+      setHostedImportFailed(true);
+    }
+  }
+
   async function addPhotoEvidence() {
     if (!entryId || entry?.status !== 'draft') return;
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -442,21 +459,37 @@ export default function EntryDetailScreen() {
       ) : null}
 
       {remoteRequest ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <Button
-            title={isHostedSharePending ? 'Syncing' : 'Share'}
-            icon={Share2}
-            onPress={shareVerifierRequest}
-            disabled={isHostedSharePending}
-            style={{ flex: 1 }}
-          />
-          <Button
-            title="Preview"
-            icon={Eye}
-            variant="secondary"
-            onPress={() => router.push(`/verify/${remoteRequest.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(remoteRequest))}`)}
-            style={{ flex: 1 }}
-          />
+        <View style={{ gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Button
+              title={isHostedSharePending ? 'Syncing' : 'Share'}
+              icon={Share2}
+              onPress={shareVerifierRequest}
+              disabled={isHostedSharePending || importHostedCompletion.isPending}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title={importHostedCompletion.isPending ? 'Syncing' : 'Sync'}
+              icon={RefreshCw}
+              variant="secondary"
+              onPress={syncHostedCompletion}
+              disabled={isHostedSharePending || importHostedCompletion.isPending}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title="Preview"
+              icon={Eye}
+              variant="secondary"
+              onPress={() => router.push(`/verify/${remoteRequest.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(remoteRequest))}`)}
+              disabled={isHostedSharePending || importHostedCompletion.isPending}
+              style={{ flex: 1 }}
+            />
+          </View>
+          {hostedImportFailed ? (
+            <Text selectable style={{ ...typography.caption, color: colors.statusErr }}>
+              Hosted signature sync failed. Check the connection and try again.
+            </Text>
+          ) : null}
         </View>
       ) : null}
 

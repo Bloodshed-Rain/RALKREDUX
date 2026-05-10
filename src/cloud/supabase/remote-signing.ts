@@ -7,7 +7,7 @@ import {
   RemoteSignatureRequest,
   RemoteSignatureRequestDetail,
 } from '@/src/domain/logbook/types';
-import { getSupabaseClient, isSupabaseConfigured } from './client';
+import { ensureSupabaseSession, getSupabaseClient, isSupabaseConfigured } from './client';
 
 type HostedRemoteSigningResult =
   | { ok: true; verifierUrl: string }
@@ -37,8 +37,8 @@ export async function syncHostedRemoteSigningRequest(detail: EntryDetail): Promi
   const client = getSupabaseClient();
   if (!client) return { ok: false, reason: 'not_configured' };
 
-  const { data: sessionData } = await client.auth.getSession();
-  if (!sessionData.session) return { ok: false, reason: 'not_authenticated' };
+  const session = await ensureSupabaseSession();
+  if (!session) return { ok: false, reason: 'not_authenticated' };
 
   const request = detail.remote_request;
   const verifierUrl = buildHostedVerifierLink(request);
@@ -115,6 +115,26 @@ function toRequestDetail(payload: HostedRequestPayload): RemoteSignatureRequestD
       updated_at: request.updated_at,
     },
     signature: request.completed_signature ?? null,
+  };
+}
+
+export function hostedCompletionInputFromDetail(
+  detail: RemoteSignatureRequestDetail,
+  signingToken: string,
+): CompleteRemoteSignatureRequestInput | null {
+  if (detail.request.status !== 'completed' || !detail.signature) return null;
+  const signaturePath = detail.signature.signature_path?.trim();
+  if (!signaturePath) return null;
+
+  return {
+    request_code: detail.request.request_code,
+    signing_token: signingToken,
+    supervisor_name: detail.signature.supervisor_name,
+    supervisor_cert_number: detail.signature.supervisor_cert_number,
+    signature_path: signaturePath,
+    attestation_accepted: true,
+    signer_attestation: detail.signature.signer_attestation,
+    signed_at: detail.signature.signed_at,
   };
 }
 

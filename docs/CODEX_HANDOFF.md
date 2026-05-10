@@ -1,30 +1,27 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-09
+Last updated: 2026-05-10
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
 ## Latest Handoff For New Chat
 
-Current git state before this handoff continuation was `main...origin/main` with a clean tree. The latest pushed app commit before this handoff update is:
+Current git state before this handoff continuation was `main...origin/main` with a clean tree. The latest pushed app commit before this remote-signing continuation is:
 
-`80f0747 Add records exit from signed entries`
+`70d1f2e Apply RALB brand palette`
 
 Latest continuation in this chat:
 
-- Pulled `main`; it was already up to date.
-- Re-ran local validation: TypeScript passed and Jest passed with 28 tests.
-- Started the next product layer by adding Supabase-hosted remote-signing foundations:
-  - `supabase/migrations/20260509085611_hosted_remote_signing.sql`
-  - `supabase/functions/remote-signing-request/index.ts`
-  - `supabase/functions/remote-signing-complete/index.ts`
-  - `supabase/functions/_shared/remote-signing.ts`
-  - `src/cloud/supabase/client.ts`
-  - `src/cloud/supabase/remote-signing.ts`
-  - `docs/hosted-remote-signing.md`
-- The entry detail Share action now tries hosted request sync when Supabase env, an auth session, and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` are available; otherwise it falls back to the existing local verifier route.
-- The verifier route now tries local SQLite first, then falls back to hosted Supabase request read/complete when opened as a public code+token link.
-- Deno is installed on the machine and `npm run functions:check` now validates the Edge Functions with Deno check, lint, and format check.
+- Replaced the app palette with `#222121`, `#398F30`, `#CACCC5`, and `#1D2B46`; committed and pushed `70d1f2e Apply RALB brand palette`.
+- Continued the hosted remote-signing layer toward true two-device testing:
+  - Added `@react-native-async-storage/async-storage` for persisted Supabase Auth sessions.
+  - Updated `src/cloud/supabase/client.ts` to persist sessions and bootstrap an anonymous session with `signInAnonymously()` when hosted upload needs auth.
+  - Added hosted completion mapping in `src/cloud/supabase/remote-signing.ts`.
+  - Added `src/cloud/supabase/use-remote-signing-sync.ts` so the technician device can import a completed hosted signature into local SQLite.
+  - Added a `Sync` action beside `Share` and `Preview` on pending remote requests in `app/entry/[id].tsx`.
+  - Added `__tests__/cloud/remote-signing.test.ts` for hosted completion mapping.
+- Validation after these code changes: TypeScript passed, Jest passed with 44 tests, `npm run functions:check` passed, and `expo config --type public` passed.
+- Local deployment/config status: no `.env` file is present and `supabase/.temp` has no project ref, so live Supabase deployment/project validation is still pending.
 
 Recent user-tested remote-signature fixes:
 
@@ -40,10 +37,12 @@ Immediate next-chat smoke test:
 
 1. Pull latest `main`.
 2. Run `npm.cmd run start -- --host lan`.
-3. On phone, create a fresh draft entry and remote request.
-4. Tap `Share`, send/open the full verifier link, and complete the remote signature.
-5. Confirm the signed entry page has a visible `Records` exit.
-6. Confirm signature drawing does not drag the page and the verifier page still scrolls when not drawing.
+3. Confirm `.env` has `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN`, and that the linked Supabase project has Anonymous Sign-Ins enabled if using the current preview auth bootstrap.
+4. Deploy/apply `supabase/migrations/20260509085611_hosted_remote_signing.sql` and both Edge Functions if not already deployed.
+5. On phone A, create a fresh draft entry and remote request.
+6. Tap `Share`, send/open the full verifier link on phone B, and complete the remote signature.
+7. Back on phone A, tap `Sync` on the pending request and confirm the entry becomes signed with a visible `Records` exit.
+8. Confirm signature drawing does not drag the page and the verifier page still scrolls when not drawing.
 
 ## Project Intent
 
@@ -173,7 +172,7 @@ The first local-first slice is live:
 - Remote signing should eventually send a secure request link to a verifier so they can sign from their own phone/tablet/computer without needing to install the app.
 - Remote signing should not merely be "someone clicked a link." It needs signer identity, request expiry, one-time token behavior, entry hash, timestamps, attestation, and eventually audit metadata.
 - SPRAT/IRATA acceptance is very important to the user, but the product must stay honest until written approval is obtained.
-- The hosted remote-signature layer now has Supabase schema and Edge Function contracts, but the app is not wired to them yet.
+- The hosted remote-signature layer now has Supabase schema, Edge Function contracts, app upload/read/complete wiring, anonymous-session bootstrap, and a manual technician sync-back action. Live project deployment and automatic polling/realtime sync are still pending.
 
 ## Key Source Map
 

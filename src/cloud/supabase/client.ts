@@ -1,4 +1,5 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient | null = null;
 
@@ -18,12 +19,25 @@ export function getSupabaseClient(): SupabaseClient | null {
     SUPABASE_ANON_KEY,
     {
       auth: {
-        autoRefreshToken: false,
+        storage: AsyncStorage,
+        autoRefreshToken: true,
         detectSessionInUrl: false,
-        persistSession: false,
+        persistSession: true,
       },
     },
   );
 
   return client;
+}
+
+export async function ensureSupabaseSession(): Promise<Session | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const { data: existing } = await supabase.auth.getSession();
+  if (existing.session) return existing.session;
+
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error) return null;
+  return data.session;
 }
