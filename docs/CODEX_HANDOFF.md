@@ -6,9 +6,9 @@ This file is the continuity note for future Codex sessions working from `C:\User
 
 ## Latest Handoff For New Chat
 
-Current git state before this handoff continuation was `main...origin/main` with a clean tree. The latest pushed app commit before this remote-signing continuation is:
+Current git state before this handoff continuation was `main...origin/main` with a clean tree. The latest pushed app commit before this remote-signing deployment continuation is:
 
-`70d1f2e Apply RALB brand palette`
+`7345b61 Add hosted remote signing sync-back`
 
 Latest continuation in this chat:
 
@@ -20,8 +20,14 @@ Latest continuation in this chat:
   - Added `src/cloud/supabase/use-remote-signing-sync.ts` so the technician device can import a completed hosted signature into local SQLite.
   - Added a `Sync` action beside `Share` and `Preview` on pending remote requests in `app/entry/[id].tsx`.
   - Added `__tests__/cloud/remote-signing.test.ts` for hosted completion mapping.
+- Linked this checkout to the Supabase project `zooxewiwaurbfmulkwia` (`Rope Access Logbook`).
+- Applied `supabase/migrations/20260509085611_hosted_remote_signing.sql` to the linked Supabase database and marked migration history as applied.
+- Deployed `remote-signing-request` and `remote-signing-complete` Edge Functions with gateway JWT verification disabled; both are active and use the function-body token/auth checks.
+- Enabled anonymous sign-ins for the current preview auth bootstrap, while restoring the previous auth settings shown by the CLI diff.
+- Created a local, gitignored `.env` with public Supabase client settings and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN=exp://172.20.10.8:8081/--` for the current LAN Expo Go preview.
+- Live hosted backend smoke passed: anonymous auth, hosted request create, token-gated read, completion, one-time replay rejection (`409`), and smoke-row cleanup.
 - Validation after these code changes: TypeScript passed, Jest passed with 44 tests, `npm run functions:check` passed, and `expo config --type public` passed.
-- Local deployment/config status: no `.env` file is present and `supabase/.temp` has no project ref, so live Supabase deployment/project validation is still pending.
+- Watch item: the first auth config push applied Supabase CLI defaults, then the important prior auth settings were restored. The CLI could not restore `external.apple.enabled = true` without a local Apple client id, so re-enable Apple auth in the dashboard if that provider was intentionally active.
 
 Recent user-tested remote-signature fixes:
 
@@ -35,14 +41,13 @@ Recent user-tested remote-signature fixes:
 
 Immediate next-chat smoke test:
 
-1. Pull latest `main`.
-2. Run `npm.cmd run start -- --host lan`.
-3. Confirm `.env` has `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN`, and that the linked Supabase project has Anonymous Sign-Ins enabled if using the current preview auth bootstrap.
-4. Deploy/apply `supabase/migrations/20260509085611_hosted_remote_signing.sql` and both Edge Functions if not already deployed.
-5. On phone A, create a fresh draft entry and remote request.
-6. Tap `Share`, send/open the full verifier link on phone B, and complete the remote signature.
-7. Back on phone A, tap `Sync` on the pending request and confirm the entry becomes signed with a visible `Records` exit.
-8. Confirm signature drawing does not drag the page and the verifier page still scrolls when not drawing.
+1. Run `npm.cmd run start -- --host lan`.
+2. Confirm the LAN IP still matches `.env` `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN`; if Wi-Fi changes, update the origin to `exp://<lan-ip>:8081/--` and restart Expo.
+3. On phone A in Expo Go, create a fresh draft entry and remote request.
+4. Tap `Share`; the hosted sync should run before the share sheet opens.
+5. Send/open the full verifier link on phone B in Expo Go and complete the remote signature.
+6. Back on phone A, tap `Sync` on the pending request and confirm the entry becomes signed with a visible `Records` exit.
+7. Confirm signature drawing does not drag the page and the verifier page still scrolls when not drawing.
 
 ## Project Intent
 
@@ -284,13 +289,12 @@ npm.cmd run start -- --host lan
 
 ## Recommended Next Step
 
-First, re-run the latest phone smoke above after pulling this handoff update. Then continue by turning the new foundations into deeper product flows:
+First, run the two-phone hosted remote-signing smoke above. Then continue by turning the hosted foundation into a less manual product flow:
 
 1. Wire the Expo app to the hosted remote-signing foundation:
-   - Add a real technician auth flow so hosted request upload can obtain a Supabase session.
+   - Decide whether anonymous technician sessions are acceptable for the first preview, or replace them with explicit email/OAuth technician auth.
    - Decide whether to upload hosted requests immediately after local `createRemoteSignatureRequest`, or keep upload-on-share.
-   - Poll/import completed hosted signatures back into local SQLite.
-   - Validate Edge Functions against local/linked Supabase once Docker-backed local Supabase or project secrets are available.
+   - Add automatic polling or realtime refresh around the manual `Sync` action.
 2. Cloud backup storage and conflict resolution on top of the local snapshot format.
 3. Local signing screen cleanup, especially signature-pad ergonomics and supervisor attestation density.
 4. Gear detail/history screens if inline entry and gear tabs become too dense.
