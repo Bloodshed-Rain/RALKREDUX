@@ -15,8 +15,8 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       role="tablist"
       style={{
         height: tabBarHeight,
-        backgroundColor: colors.accentPressed,
-        borderTopColor: colors.accentPressed,
+        backgroundColor: colors.navBar,
+        borderTopColor: colors.navBar,
         borderTopWidth: 1,
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -34,7 +34,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             : options.title !== undefined
               ? options.title
               : route.name;
-        const tintColor = isFocused ? colors.accentPressed : colors.textInverse;
+        const tintColor = isFocused ? colors.navBar : colors.textInverse;
 
         const onPress = () => {
           const event = navigation.emit({
@@ -72,7 +72,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 3,
-              backgroundColor: isFocused ? colors.bgApp : 'transparent',
+              backgroundColor: isFocused ? colors.navBarActive : 'transparent',
               opacity: pressed ? 0.82 : 1,
             })}
           >
@@ -106,7 +106,7 @@ export default function TabLayout() {
       tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accentPressed,
+        tabBarActiveTintColor: colors.navBar,
         tabBarInactiveTintColor: colors.textInverse,
       }}
     >
