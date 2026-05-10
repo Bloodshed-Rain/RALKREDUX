@@ -6,7 +6,7 @@ import { colors } from '@/src/ui/theme/tokens';
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, 8);
-  const tabBarHeight = 64 + bottomInset;
+  const tabBarHeight = 74 + bottomInset;
 
   return (
     <Tabs
@@ -17,16 +17,17 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontFamily: 'Inter_600SemiBold',
           fontSize: 11,
-          paddingBottom: 2,
+          lineHeight: 13,
+          paddingBottom: 3,
         },
         tabBarItemStyle: {
-          height: 48,
+          height: 56,
           borderRadius: 16,
           marginHorizontal: 5,
-          marginTop: 6,
-          marginBottom: 6,
-          paddingVertical: 3,
-          overflow: 'hidden',
+          marginTop: 7,
+          marginBottom: 9,
+          paddingTop: 5,
+          paddingBottom: 6,
         },
         tabBarActiveBackgroundColor: colors.bgApp,
         tabBarStyle: {
@@ -34,8 +35,8 @@ export default function TabLayout() {
           borderTopColor: colors.accentPressed,
           height: tabBarHeight,
           paddingHorizontal: 6,
-          paddingTop: 4,
-          paddingBottom: bottomInset,
+          paddingTop: 5,
+          paddingBottom: bottomInset + 4,
         },
       }}
     >

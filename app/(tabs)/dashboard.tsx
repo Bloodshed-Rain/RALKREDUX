@@ -1,14 +1,12 @@
 import { router } from 'expo-router';
 import { BookOpen, ClipboardCheck, Clock3, Plus, Send, ShieldCheck, TrendingUp } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { Image, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useCareerStats, useDashboardSummary } from '@/src/domain/logbook/use-logbook';
 import type { CertLevel, CertScheme, Profile } from '@/src/domain/profile/types';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { ActionTile, Card, Screen, StatRow } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
-
-const mastheadLogo = require('@/assets/branding/masthead-logo.png');
 
 type CertProgress = {
   scheme: CertScheme;
@@ -204,28 +202,7 @@ export default function DashboardScreen() {
   const certProgress = certsForProfile(profile.data, signedHours);
 
   return (
-    <Screen
-      safeTop
-      background={
-        <View
-          style={{
-            position: 'absolute',
-            top: 18,
-            left: -96,
-            right: -96,
-            height: 210,
-            justifyContent: 'center',
-          }}
-        >
-          <Image
-            source={mastheadLogo}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-            style={{ width: '90%', height: 145, alignSelf: 'center' }}
-          />
-        </View>
-      }
-    >
+    <Screen safeTop>
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
           <View style={{ flex: 1, gap: spacing.xs }}>
