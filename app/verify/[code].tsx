@@ -1,7 +1,8 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { AlertTriangle, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, BadgeCheck, CalendarClock, CheckCircle2, ShieldOff } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import { Platform, Text, View } from 'react-native';
 import {
   completeHostedRemoteSignatureRequest,
@@ -14,6 +15,7 @@ import {
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
 import { formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
+import { describeClosedRemoteRequest, RemoteRequestClosedReason } from '@/src/domain/logbook/remote-signing-status';
 import { EntryDetail } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
@@ -247,24 +249,41 @@ export default function RemoteVerifyScreen() {
   }
 
   const dateLabel = formatDateRange(entry.date_from, entry.date_to);
+  const isActionable = request.status === 'pending' && entry.status === 'draft';
 
   return (
     <Screen
       preserveChildTouches
       scrollEnabled={!signatureActive}
       footer={
-        <View style={{ gap: spacing.sm }}>
-          {!canSign ? <RequirementList title="Before submitting" items={missingToSubmit} /> : null}
+        isActionable ? (
+          <View style={{ gap: spacing.sm }}>
+            {!canSign ? <RequirementList title="Before submitting" items={missingToSubmit} /> : null}
+            <Button
+              title="Submit remote signature"
+              icon={CheckCircle2}
+              onPress={submit}
+              disabled={!canSign}
+              loading={completeRequest.isPending || hostedCompletePending}
+            />
+          </View>
+        ) : (
           <Button
-            title="Submit remote signature"
-            icon={CheckCircle2}
-            onPress={submit}
-            disabled={!canSign}
-            loading={completeRequest.isPending || hostedCompletePending}
+            title="Close"
+            icon={ArrowLeft}
+            variant="secondary"
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/');
+            }}
           />
-        </View>
+        )
       }
     >
+      {!isActionable ? (
+        <ClosedStateCard reason={describeClosedRemoteRequest(request, entry, detail.signature)} />
+      ) : null}
+
       <Card>
         <View style={{ gap: spacing.xs }}>
           <Text selectable style={{ ...typography.caption, color: colors.textSecondary, textTransform: 'uppercase' }}>
@@ -311,7 +330,7 @@ export default function RemoteVerifyScreen() {
         <StatRow label="Company" value={request.verifier_company ?? '-'} />
       </Card>
 
-      {request.status === 'pending' && entry.status === 'draft' ? (
+      {isActionable ? (
         <Card>
           <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
             Remote authorization
@@ -358,16 +377,7 @@ export default function RemoteVerifyScreen() {
             onChange={setAttestationAccepted}
           />
         </Card>
-      ) : (
-        <Card>
-          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-            Request closed
-          </Text>
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            This request is no longer pending.
-          </Text>
-        </Card>
-      )}
+      ) : null}
 
       {completeRequest.isError || hostedCompleteFailed ? (
         <Text selectable style={{ ...typography.body, color: colors.statusErr }}>
@@ -375,6 +385,94 @@ export default function RemoteVerifyScreen() {
         </Text>
       ) : null}
     </Screen>
+  );
+}
+
+type ClosedCardTone = 'ok' | 'warn' | 'err' | 'info';
+
+function closedCardCopy(reason: RemoteRequestClosedReason | null): {
+  title: string;
+  detail: string;
+  icon: LucideIcon;
+  tone: ClosedCardTone;
+  signedAt?: string | null;
+  signer?: string | null;
+  expiresAt?: string | null;
+} {
+  if (!reason) {
+    return {
+      title: 'Request closed',
+      detail: 'This request is no longer pending.',
+      icon: ShieldOff,
+      tone: 'info',
+    };
+  }
+
+  if (reason.kind === 'completed') {
+    return {
+      title: 'Signature already submitted',
+      detail: 'This request has been signed. No further action is needed.',
+      icon: BadgeCheck,
+      tone: 'ok',
+      signedAt: reason.signed_at,
+      signer: reason.signer_name,
+    };
+  }
+
+  if (reason.kind === 'expired') {
+    return {
+      title: 'Request expired',
+      detail: 'Ask the technician to send a new request.',
+      icon: CalendarClock,
+      tone: 'warn',
+      expiresAt: reason.expires_at,
+    };
+  }
+
+  if (reason.kind === 'cancelled') {
+    return {
+      title: 'Request cancelled',
+      detail: 'The technician cancelled this remote signing request.',
+      icon: ShieldOff,
+      tone: 'err',
+    };
+  }
+
+  return {
+    title: 'Entry already closed',
+    detail: 'The technician completed this record without a remote signature.',
+    icon: BadgeCheck,
+    tone: 'info',
+  };
+}
+
+function ClosedStateCard({ reason }: { reason: RemoteRequestClosedReason | null }) {
+  const { colors, spacing, typography } = useTheme();
+  const copy = closedCardCopy(reason);
+  const toneColor = copy.tone === 'ok'
+    ? colors.statusOk
+    : copy.tone === 'warn'
+      ? colors.statusWarn
+      : copy.tone === 'err'
+        ? colors.statusErr
+        : colors.statusInfo;
+  const Icon = copy.icon;
+
+  return (
+    <Card>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Icon size={22} color={toneColor} strokeWidth={2.2} />
+        <Text selectable style={{ ...typography.title3, color: colors.textPrimary, flex: 1 }}>
+          {copy.title}
+        </Text>
+      </View>
+      <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
+        {copy.detail}
+      </Text>
+      {copy.signer ? <StatRow label="Signed by" value={copy.signer} /> : null}
+      {copy.signedAt ? <StatRow label="Signed" value={formatDateOrDash(copy.signedAt)} /> : null}
+      {copy.expiresAt ? <StatRow label="Expired" value={formatDateOrDash(copy.expiresAt)} /> : null}
+    </Card>
   );
 }
 
