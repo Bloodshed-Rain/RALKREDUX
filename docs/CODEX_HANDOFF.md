@@ -8,10 +8,10 @@ This file is the continuity note for future Codex sessions working from `C:\User
 
 Most recent landings on `main`:
 
+- Stale-request verifier UX. Verifiers opening a closed link (completed, expired, cancelled, or pre-empted by a local signature) now see a status-specific card hoisted to the top of the verify screen instead of the generic `Request closed` notice buried below the work record. New pure helper `src/domain/logbook/remote-signing-status.ts` (`describeClosedRemoteRequest`) classifies the closed reason as a discriminated union, and `app/verify/[code].tsx` renders a tone-coded card (green `BadgeCheck` for completed, warn `CalendarClock` for expired, red `ShieldOff` for cancelled) with signer/expiry detail. The submit footer hides when the request is no longer actionable, and a `Close` button is added so the verifier can leave the page. Tests in `__tests__/domain/remote-signing-status.test.ts` cover all four closed reasons plus the actionable-null case.
 - Auto-sync polling for pending hosted remote-signing requests. New `useAutoSyncHostedRemoteSignature` hook in `src/cloud/supabase/use-remote-signing-sync.ts` polls every 5 s via `useFocusEffect` while the open entry has a pending hosted request, calls the same import path the manual `Sync` button used, and stops on success, on expiry, on entry status change, on screen unfocus, or after 3 consecutive failures. Manual `Sync` button stays as the recovery affordance. Tests in `__tests__/cloud/remote-signing.test.ts` cover the polling decision (configured/unconfigured, draft/signed, pending/completed, expired).
 - Tunnel-aware hosted verifier link. `buildHostedVerifierLink` now derives its origin from `Linking.createURL` at runtime, so switching between LAN and tunnel preview no longer requires a `.env` edit. `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` is now only honored when it starts with `http://` or `https://`, reserving it for a future hosted verifier web app.
-- Two-phone hosted smoke succeeded over Expo `--tunnel` with auto-sync: Pixel emulator (technician) created a request, iPhone (verifier) opened the shared link and signed, the technician device imported the completed signature without tapping `Sync`.
-- Watch item: stale or wrong verifier links land on the generic `Request closed` card with no detail about why (completed/expired/cancelled). This is the next UX target.
+- Two-phone hosted smoke succeeded over Expo `--tunnel` with auto-sync: Pixel emulator (technician) created a request, iPhone (verifier) opened the shared link and signed, the technician device imported the completed signature without tapping `Sync`. Stale-request `completed` variant also visually verified on iPhone; `expired`, `cancelled`, and `pre_empted` variants are covered by tests but not yet eyeballed on a phone.
 
 Earlier in this chat (prior to the auto-sync work):
 
@@ -229,6 +229,10 @@ Tests:
 - `__tests__/domain/logbook-service.test.ts`
 - `__tests__/domain/gear-service.test.ts`
 - `__tests__/domain/backup-service.test.ts`
+- `__tests__/domain/cert-number.test.ts`
+- `__tests__/domain/date-format.test.ts`
+- `__tests__/domain/remote-signing-status.test.ts`
+- `__tests__/cloud/remote-signing.test.ts`
 
 ## Current Schema Notes
 
@@ -254,7 +258,7 @@ Last known good checks:
 .\node_modules\.bin\jest.cmd --runInBand
 ```
 
-Result: TypeScript passed, Jest passed with 50 tests.
+Result: TypeScript passed, Jest passed with 56 tests across 9 suites.
 
 Latest code-validation commits were checked with both commands:
 
