@@ -1,16 +1,19 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-10
+Last updated: 2026-05-11
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
 ## Latest Handoff For New Chat
 
-Current git state before this handoff continuation was `main...origin/main` with a clean tree. The latest pushed app commit before this remote-signing deployment continuation is:
+Most recent landings on `main`:
 
-`7345b61 Add hosted remote signing sync-back`
+- Auto-sync polling for pending hosted remote-signing requests. New `useAutoSyncHostedRemoteSignature` hook in `src/cloud/supabase/use-remote-signing-sync.ts` polls every 5 s via `useFocusEffect` while the open entry has a pending hosted request, calls the same import path the manual `Sync` button used, and stops on success, on expiry, on entry status change, on screen unfocus, or after 3 consecutive failures. Manual `Sync` button stays as the recovery affordance. Tests in `__tests__/cloud/remote-signing.test.ts` cover the polling decision (configured/unconfigured, draft/signed, pending/completed, expired).
+- Tunnel-aware hosted verifier link. `buildHostedVerifierLink` now derives its origin from `Linking.createURL` at runtime, so switching between LAN and tunnel preview no longer requires a `.env` edit. `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` is now only honored when it starts with `http://` or `https://`, reserving it for a future hosted verifier web app.
+- Two-phone hosted smoke succeeded over Expo `--tunnel` with auto-sync: Pixel emulator (technician) created a request, iPhone (verifier) opened the shared link and signed, the technician device imported the completed signature without tapping `Sync`.
+- Watch item: stale or wrong verifier links land on the generic `Request closed` card with no detail about why (completed/expired/cancelled). This is the next UX target.
 
-Latest continuation in this chat:
+Earlier in this chat (prior to the auto-sync work):
 
 - Replaced the app palette with `#222121`, `#398F30`, `#CACCC5`, and `#1D2B46`; committed and pushed `70d1f2e Apply RALB brand palette`.
 - Continued the hosted remote-signing layer toward true two-device testing:
@@ -41,12 +44,12 @@ Recent user-tested remote-signature fixes:
 
 Immediate next-chat smoke test:
 
-1. Run `npm.cmd run start -- --host lan`.
-2. Confirm the LAN IP still matches `.env` `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN`; if Wi-Fi changes, update the origin to `exp://<lan-ip>:8081/--` and restart Expo.
-3. On phone A in Expo Go, create a fresh draft entry and remote request.
-4. Tap `Share`; the hosted sync should run before the share sheet opens.
-5. Send/open the full verifier link on phone B in Expo Go and complete the remote signature.
-6. Back on phone A, tap `Sync` on the pending request and confirm the entry becomes signed with a visible `Records` exit.
+1. Run `npm.cmd run start -- --tunnel` (LAN works too; tunnel survives bad Wi-Fi).
+2. With the new tunnel-aware verifier link there is no longer a `.env` edit per session; just confirm both phones connect to the same Expo Go session.
+3. On phone A (technician), create a fresh draft entry and remote request.
+4. Tap `Share`; the hosted sync runs before the share sheet opens and the shared link uses the current dev origin.
+5. Open the full verifier link on phone B (verifier) and submit the remote signature.
+6. Back on phone A, watch the pending request flip to signed automatically within ~5 s without tapping `Sync` (manual `Sync` is still there as the fallback).
 7. Confirm signature drawing does not drag the page and the verifier page still scrolls when not drawing.
 
 ## Project Intent
@@ -251,7 +254,7 @@ Last known good checks:
 .\node_modules\.bin\jest.cmd --runInBand
 ```
 
-Result: TypeScript passed, Jest passed with 28 tests.
+Result: TypeScript passed, Jest passed with 50 tests.
 
 Latest code-validation commits were checked with both commands:
 
@@ -266,7 +269,7 @@ Latest local validation in this continuation also passed:
 
 Last phone preview target:
 
-`exp://192.168.86.143:8081`
+Expo `--tunnel` (URL changes per session; `Linking.createURL` keeps the verifier link in sync automatically).
 
 Last smoke flow passed:
 
