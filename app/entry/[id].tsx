@@ -34,7 +34,10 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Image as NativeImage, Platform, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { syncHostedRemoteSigningRequest } from '@/src/cloud/supabase/remote-signing';
-import { useImportHostedRemoteSignatureCompletion } from '@/src/cloud/supabase/use-remote-signing-sync';
+import {
+  useAutoSyncHostedRemoteSignature,
+  useImportHostedRemoteSignatureCompletion,
+} from '@/src/cloud/supabase/use-remote-signing-sync';
 import { formatDate, formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
@@ -284,6 +287,7 @@ export default function EntryDetailScreen() {
   const removeGear = useRemoveGearFromEntry();
   const addAttachment = useAddEntryAttachment();
   const importHostedCompletion = useImportHostedRemoteSignatureCompletion();
+  useAutoSyncHostedRemoteSignature(detail.data);
   const [isPdfPending, setIsPdfPending] = React.useState(false);
   const [isHostedSharePending, setIsHostedSharePending] = React.useState(false);
   const [hostedImportFailed, setHostedImportFailed] = React.useState(false);

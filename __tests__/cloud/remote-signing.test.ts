@@ -1,5 +1,6 @@
 import { hostedCompletionInputFromDetail } from '@/src/cloud/supabase/remote-signing';
-import { RemoteSignatureRequestDetail } from '@/src/domain/logbook/types';
+import { shouldAutoSyncHostedRemoteSignature } from '@/src/cloud/supabase/use-remote-signing-sync';
+import { EntryDetail, RemoteSignatureRequestDetail } from '@/src/domain/logbook/types';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
@@ -95,5 +96,59 @@ describe('hosted remote signing sync', () => {
       ...baseDetail,
       signature: { ...baseDetail.signature!, signature_path: null },
     }, 'secret-token')).toBeNull();
+  });
+});
+
+describe('shouldAutoSyncHostedRemoteSignature', () => {
+  const now = Date.parse('2026-05-10T12:00:00.000Z');
+  const pendingRequest = {
+    ...baseDetail.request,
+    status: 'pending' as const,
+    expires_at: '2026-05-24T10:00:00.000Z',
+    completed_at: null,
+    completed_signature_id: null,
+  };
+  const detail: EntryDetail = {
+    entry: { ...baseDetail.entry, status: 'draft' },
+    signature: null,
+    remote_request: pendingRequest,
+    gear_usage: [],
+    attachments: [],
+  };
+
+  it('polls a draft entry with a pending hosted request', () => {
+    expect(shouldAutoSyncHostedRemoteSignature(detail, { supabaseConfigured: true, now })).toBe(true);
+  });
+
+  it('does not poll when Supabase is not configured', () => {
+    expect(shouldAutoSyncHostedRemoteSignature(detail, { supabaseConfigured: false, now })).toBe(false);
+  });
+
+  it('does not poll once the entry is signed', () => {
+    expect(shouldAutoSyncHostedRemoteSignature(
+      { ...detail, entry: { ...detail.entry, status: 'signed' } },
+      { supabaseConfigured: true, now },
+    )).toBe(false);
+  });
+
+  it('does not poll when there is no remote request', () => {
+    expect(shouldAutoSyncHostedRemoteSignature(
+      { ...detail, remote_request: null },
+      { supabaseConfigured: true, now },
+    )).toBe(false);
+  });
+
+  it('does not poll a request that is no longer pending', () => {
+    expect(shouldAutoSyncHostedRemoteSignature(
+      { ...detail, remote_request: { ...pendingRequest, status: 'completed' } },
+      { supabaseConfigured: true, now },
+    )).toBe(false);
+  });
+
+  it('stops polling once the request has expired', () => {
+    expect(shouldAutoSyncHostedRemoteSignature(
+      { ...detail, remote_request: { ...pendingRequest, expires_at: '2026-05-09T10:00:00.000Z' } },
+      { supabaseConfigured: true, now },
+    )).toBe(false);
   });
 });
