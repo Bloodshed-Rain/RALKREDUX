@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { buildRemoteSigningToken } from '@/src/domain/logbook/logbook-service';
 import {
   CompleteRemoteSignatureRequestInput,
@@ -17,17 +18,27 @@ const REMOTE_SIGNING_ORIGIN = process.env.EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN?.tri
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? '';
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
 
-function remoteSigningOrigin(): string | null {
+function configuredHttpsOrigin(): string | null {
   const origin = REMOTE_SIGNING_ORIGIN.replace(/\/+$/, '');
-  return origin || null;
+  if (!origin) return null;
+  // Reserve the env override for an https verifier web app. For dev exp://
+  // schemes (LAN or tunnel) prefer Linking.createURL so the link tracks the
+  // current dev server origin without a manual .env edit.
+  return /^https?:\/\//i.test(origin) ? origin : null;
 }
 
 export function buildHostedVerifierLink(request: RemoteSignatureRequest): string | null {
-  const origin = remoteSigningOrigin();
-  if (!origin) return null;
-
   const token = buildRemoteSigningToken(request);
-  return `${origin}/verify/${request.request_code}?token=${encodeURIComponent(token)}`;
+  const httpsOrigin = configuredHttpsOrigin();
+  if (httpsOrigin) {
+    return `${httpsOrigin}/verify/${request.request_code}?token=${encodeURIComponent(token)}`;
+  }
+
+  try {
+    return Linking.createURL(`/verify/${request.request_code}`, { queryParams: { token } });
+  } catch {
+    return null;
+  }
 }
 
 export async function syncHostedRemoteSigningRequest(detail: EntryDetail): Promise<HostedRemoteSigningResult> {
