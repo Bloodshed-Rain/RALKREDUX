@@ -1,8 +1,7 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { AlertTriangle, PenLine } from 'lucide-react-native';
-import type { LucideIcon } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { PenLine } from 'lucide-react-native';
+import { Pressable, Text, View } from 'react-native';
 import {
   certLevelToDigit,
   formatIrataNumber,
@@ -13,7 +12,7 @@ import {
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { useEntryDetail, useSignEntryLocal, useSupervisorContacts } from '@/src/domain/logbook/use-logbook';
 import type { CertLevel } from '@/src/domain/profile/types';
-import { CheckboxRow, Chip, DocBand, Field, Screen, SectionH, SignaturePad, Stamp } from '@/src/ui/primitives';
+import { AnimatedStamp, CheckboxRow, Chip, DocActionButton, DocBand, Field, Screen, SectionH, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -76,15 +75,6 @@ export default function LocalSignScreen() {
     supervisorName.trim().length > 1 &&
     (!requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5) &&
     signatureReady;
-  const missingToSign = [
-    ...(readiness?.missingFields ?? []),
-    supervisorName.trim().length > 1 ? null : 'supervisor name',
-    !requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5 ? null : '5-digit IRATA verifier number',
-    signaturePath.trim() ? null : 'drawn signature',
-    attestationAccepted ? null : 'authorization checkbox',
-    entry?.status && entry.status !== 'draft' ? 'draft entry' : null,
-  ].filter(Boolean) as string[];
-
   function submit() {
     if (!canSign || !entryId) return;
     signEntry.mutate(
@@ -108,16 +98,13 @@ export default function LocalSignScreen() {
       preserveChildTouches
       scrollEnabled={!signatureActive}
       footer={
-        <View style={{ gap: spacing.sm }}>
-          {!canSign ? <RequirementList title="Before signing" items={missingToSign} /> : null}
-          <DocActionButton
-            title={canSign ? 'SIGN ENTRY' : 'FINISH SIGN-OFF'}
-            icon={PenLine}
-            onPress={submit}
-            disabled={!canSign}
-            loading={signEntry.isPending}
-          />
-        </View>
+        <DocActionButton
+          title={canSign ? 'SIGN ENTRY' : 'FINISH SIGN-OFF'}
+          icon={PenLine}
+          onPress={submit}
+          disabled={!canSign}
+          loading={signEntry.isPending}
+        />
       }
     >
       <DocBand
@@ -155,9 +142,9 @@ export default function LocalSignScreen() {
                 {entry?.site || 'Loading entry'}
               </Text>
             </View>
-            <Stamp tone={readiness?.ready ? 'green' : 'yellow'} rotation="light">
+            <AnimatedStamp tone={readiness?.ready ? 'green' : 'yellow'} rotation="light">
               {readiness?.ready ? 'READY' : 'PENDING'}
-            </Stamp>
+            </AnimatedStamp>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
             <Chip tone="ink">{entry?.site || 'LOADING'}</Chip>
@@ -348,74 +335,3 @@ function LevelChip({ label, selected, onPress }: { label: string; selected: bool
   );
 }
 
-function RequirementList({ title, items }: { title: string; items: string[] }) {
-  const { spacing, typography, tidewater } = useTheme();
-  if (!items.length) return null;
-
-  return (
-    <View
-      style={{
-        borderWidth: 1.5,
-        borderColor: tidewater.yellowDeep,
-        backgroundColor: tidewater.yellowSoft,
-        padding: spacing.md,
-        gap: spacing.xs,
-      }}
-    >
-      <Text selectable={false} style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-        {title.toUpperCase()}
-      </Text>
-      {items.map((item) => (
-        <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <AlertTriangle size={14} color={tidewater.yellowDeep} strokeWidth={2.2} />
-          <Text selectable={false} style={{ ...typography.monoSm, color: tidewater.ink2, flex: 1 }}>
-            Needs {item}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function DocActionButton({
-  title,
-  onPress,
-  icon: Icon,
-  disabled = false,
-  loading = false,
-}: {
-  title: string;
-  onPress: () => void;
-  icon?: LucideIcon;
-  disabled?: boolean;
-  loading?: boolean;
-}) {
-  const { spacing, typography, touchTarget, tidewater } = useTheme();
-  const foreground = disabled ? tidewater.ink3 : tidewater.paper;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled || loading}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: touchTarget.preferred + 4,
-        borderWidth: 1.5,
-        borderColor: tidewater.ink,
-        paddingHorizontal: spacing.base,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-        gap: spacing.sm,
-        backgroundColor: disabled ? tidewater.paper2 : pressed ? tidewater.ink2 : tidewater.accent,
-        opacity: disabled ? 0.82 : 1,
-      })}
-    >
-      {loading ? <ActivityIndicator color={foreground} /> : null}
-      {!loading && Icon ? <Icon size={18} color={foreground} strokeWidth={2.2} /> : null}
-      <Text selectable={false} style={{ ...typography.displaySm, color: foreground, letterSpacing: 1.5 }}>
-        {title}
-      </Text>
-    </Pressable>
-  );
-}

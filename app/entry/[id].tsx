@@ -6,32 +6,19 @@ import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import {
-  BadgeCheck,
   BookOpen,
-  BriefcaseBusiness,
-  Building2,
-  CalendarDays,
   Camera,
-  Clock3,
   Eye,
   FileJson,
   FileText,
-  HardHat,
-  Hash,
-  Image,
-  MapPin,
   PenLine,
   Plus,
   RefreshCw,
-  Ruler,
   Send,
   Share2,
-  ShieldCheck,
   Trash2,
-  UserRound,
 } from 'lucide-react-native';
-import type { LucideIcon } from 'lucide-react-native';
-import { Image as NativeImage, Platform, Share, Text, View } from 'react-native';
+import { Image as NativeImage, Platform, Pressable, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { syncHostedRemoteSigningRequest } from '@/src/cloud/supabase/remote-signing';
 import {
@@ -50,7 +37,7 @@ import {
   useExportEntryPacket,
   useRemoveGearFromEntry,
 } from '@/src/domain/logbook/use-logbook';
-import { Button, Card, Screen, StatRow } from '@/src/ui/primitives';
+import { AnimatedStamp, Chip, DocActionButton, DocBand, Screen, SectionH, SignatureFill } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -78,206 +65,18 @@ function buildVerifierLink(request: Parameters<typeof buildRemoteSigningToken>[0
   });
 }
 
+function statusStampTone(status: string): 'green' | 'yellow' | 'red' | 'ink' {
+  if (status === 'signed') return 'green';
+  if (status === 'amended') return 'ink';
+  return 'yellow';
+}
+
 function statusLabel(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-function statusTone(status: string): 'ok' | 'warn' | 'info' {
-  if (status === 'signed') return 'ok';
-  if (status === 'amended') return 'info';
-  return 'warn';
-}
-
-function Pill({
-  label,
-  icon: Icon,
-  tone = 'info',
-}: {
-  label: string;
-  icon?: LucideIcon;
-  tone?: 'ok' | 'warn' | 'err' | 'info' | 'neutral';
-}) {
-  const { colors, radii, spacing, typography } = useTheme();
-  const toneColor = tone === 'ok'
-    ? colors.statusOk
-    : tone === 'warn'
-      ? colors.statusWarn
-      : tone === 'err'
-        ? colors.statusErr
-        : tone === 'neutral'
-          ? colors.textSecondary
-          : colors.statusInfo;
-  const toneBg = tone === 'ok'
-    ? colors.statusOkTint
-    : tone === 'warn'
-      ? colors.statusWarnTint
-      : tone === 'err'
-        ? colors.statusErrTint
-        : tone === 'neutral'
-          ? colors.bgMuted
-          : colors.statusInfoTint;
-
-  return (
-    <View
-      style={{
-        minHeight: 30,
-        alignSelf: 'flex-start',
-        borderRadius: radii.pill,
-        backgroundColor: toneBg,
-        paddingHorizontal: spacing.sm,
-        alignItems: 'center',
-        flexDirection: 'row',
-        gap: spacing.xs,
-      }}
-    >
-      {Icon ? <Icon size={14} color={toneColor} strokeWidth={2.2} /> : null}
-      <Text selectable={false} style={{ ...typography.caption, color: toneColor }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon: LucideIcon;
-}) {
-  const { colors, radii, spacing, typography } = useTheme();
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        minWidth: 118,
-        borderRadius: radii.sm,
-        borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.bgSurface,
-        padding: spacing.md,
-        gap: spacing.sm,
-      }}
-    >
-      <Icon size={18} color={colors.textSecondary} strokeWidth={2.1} />
-      <View style={{ gap: spacing.xs }}>
-        <Text selectable style={{ ...typography.label, color: colors.textPrimary }} numberOfLines={2}>
-          {value}
-        </Text>
-        <Text selectable={false} style={{ ...typography.caption, color: colors.textSecondary }}>
-          {label}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function SectionHeader({
-  title,
-  count,
-  icon: Icon,
-}: {
-  title: string;
-  count?: number;
-  icon: LucideIcon;
-}) {
-  const { colors, spacing, typography } = useTheme();
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <Icon size={18} color={colors.textSecondary} strokeWidth={2.1} />
-        <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-          {title}
-        </Text>
-      </View>
-      {typeof count === 'number' ? <Pill label={String(count)} tone="neutral" /> : null}
-    </View>
-  );
-}
-
-function CompactRow({
-  title,
-  meta,
-  trailing,
-}: {
-  title: string;
-  meta?: string | null;
-  trailing?: React.ReactNode;
-}) {
-  const { colors, spacing, typography } = useTheme();
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-      <View style={{ flex: 1, gap: spacing.xs }}>
-        <Text selectable style={{ ...typography.bodyMed, color: colors.textPrimary }} numberOfLines={2}>
-          {title}
-        </Text>
-        {meta ? (
-          <Text selectable style={{ ...typography.caption, color: colors.textSecondary }} numberOfLines={2}>
-            {meta}
-          </Text>
-        ) : null}
-      </View>
-      {trailing}
-    </View>
-  );
-}
-
-function HashPreview({ value }: { value: string }) {
-  const { colors, typography } = useTheme();
-
-  return (
-    <Text
-      selectable
-      style={{
-        ...typography.caption,
-        color: colors.textSecondary,
-        fontVariant: ['tabular-nums'],
-      }}
-    >
-      {value.slice(0, 16)}...{value.slice(-12)}
-    </Text>
-  );
-}
-
-function SignaturePreview({ value }: { value: string }) {
-  const { colors, radii, spacing, typography } = useTheme();
-  const isImageSignature = value.startsWith('data:image/');
-
-  return (
-    <View style={{ gap: spacing.xs }}>
-      <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-        Drawn signature
-      </Text>
-      <View
-        style={{
-          height: 112,
-          borderRadius: radii.sm,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.bgSurface,
-          overflow: 'hidden',
-        }}
-      >
-        {isImageSignature ? (
-          <NativeImage source={{ uri: value }} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
-        ) : (
-          <Svg width="100%" height="100%" viewBox="0 0 1000 400">
-            <Line x1={48} x2={952} y1={324} y2={324} stroke={colors.divider} strokeWidth={3} />
-            <Path d={value} fill="none" stroke={colors.textPrimary} strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} />
-          </Svg>
-        )}
-      </View>
-    </View>
-  );
+  return status.toUpperCase();
 }
 
 export default function EntryDetailScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { spacing, typography, tidewater, hairlines } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
@@ -306,7 +105,7 @@ export default function EntryDetailScreen() {
   if (detail.isLoading) {
     return (
       <Screen>
-        <Text selectable style={{ ...typography.body, color: colors.textPrimary }}>
+        <Text selectable style={{ ...typography.body, color: tidewater.ink }}>
           Loading entry
         </Text>
       </Screen>
@@ -315,13 +114,19 @@ export default function EntryDetailScreen() {
 
   if (!entry) {
     return (
-      <Screen>
-        <Card>
-          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
+      <Screen padded={false}>
+        <DocBand variant="top" formId="CH.7 - ENTRY RECORD" rev="MISSING" rightLabel="404" />
+        <View style={{ padding: spacing.base, gap: spacing.md }}>
+          <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }}>
             Entry not found
           </Text>
-          <Button title="Back to records" variant="secondary" onPress={() => router.replace('/records')} />
-        </Card>
+          <DocActionButton
+            title="BACK TO RECORDS"
+            icon={BookOpen}
+            variant="secondary"
+            onPress={() => router.replace('/records')}
+          />
+        </View>
       </Screen>
     );
   }
@@ -429,33 +234,37 @@ export default function EntryDetailScreen() {
     });
   }
 
+  const isDraft = entry.status === 'draft';
+  const isReady = readiness?.ready === true;
+  const maxHeightLabel = !entry.max_height || entry.max_height <= 0
+    ? '—'
+    : `${entry.max_height.toFixed(0)} ${entry.height_unit}`;
+  const employerClient = [entry.employer, entry.client].filter(Boolean).join(' · ') || 'No employer / client';
+
   const footer = (
     <View style={{ gap: spacing.sm }}>
-      {entry.status === 'draft' && !remoteRequest ? (
+      {isDraft && !remoteRequest ? (
         <View style={{ gap: spacing.sm }}>
-          {readiness && !readiness.ready ? (
-            <RequirementList title="Before signing or requesting" items={readiness.missingFields} />
-          ) : null}
-          <Button
-            title={readiness?.ready ? 'Edit draft' : 'Finish draft'}
+          <DocActionButton
+            title={isReady ? 'EDIT DRAFT' : 'FINISH DRAFT'}
             icon={PenLine}
             onPress={() => router.push(`/entry/${entry.id}/edit`)}
           />
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Button
-              title="Sign"
+            <DocActionButton
+              title="SIGN"
               icon={PenLine}
               variant="secondary"
               onPress={() => router.push(`/entry/${entry.id}/sign`)}
-              disabled={!readiness?.ready}
+              disabled={!isReady}
               style={{ flex: 1 }}
             />
-            <Button
-              title="Request"
+            <DocActionButton
+              title="REQUEST"
               icon={Send}
               variant="secondary"
               onPress={() => router.push(`/entry/${entry.id}/request-signature`)}
-              disabled={!readiness?.ready}
+              disabled={!isReady}
               style={{ flex: 1 }}
             />
           </View>
@@ -465,32 +274,36 @@ export default function EntryDetailScreen() {
       {remoteRequest ? (
         <View style={{ gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Button
-              title={isHostedSharePending ? 'Syncing' : 'Share'}
+            <DocActionButton
+              title={isHostedSharePending ? 'SYNCING' : 'SHARE'}
               icon={Share2}
               onPress={shareVerifierRequest}
               disabled={isHostedSharePending || importHostedCompletion.isPending}
               style={{ flex: 1 }}
             />
-            <Button
-              title={importHostedCompletion.isPending ? 'Syncing' : 'Sync'}
+            <DocActionButton
+              title={importHostedCompletion.isPending ? 'SYNCING' : 'SYNC'}
               icon={RefreshCw}
               variant="secondary"
               onPress={syncHostedCompletion}
               disabled={isHostedSharePending || importHostedCompletion.isPending}
               style={{ flex: 1 }}
             />
-            <Button
-              title="Preview"
+            <DocActionButton
+              title="PREVIEW"
               icon={Eye}
               variant="secondary"
-              onPress={() => router.push(`/verify/${remoteRequest.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(remoteRequest))}`)}
+              onPress={() =>
+                router.push(
+                  `/verify/${remoteRequest.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(remoteRequest))}`,
+                )
+              }
               disabled={isHostedSharePending || importHostedCompletion.isPending}
               style={{ flex: 1 }}
             />
           </View>
           {hostedImportFailed ? (
-            <Text selectable style={{ ...typography.caption, color: colors.statusErr }}>
+            <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
               Hosted signature sync failed. Check the connection and try again.
             </Text>
           ) : null}
@@ -500,16 +313,16 @@ export default function EntryDetailScreen() {
       {entry.status === 'signed' || entry.status === 'amended' ? (
         <View style={{ gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Button
-              title={isPdfPending ? 'PDF' : 'PDF'}
+            <DocActionButton
+              title="PDF"
               icon={FileText}
               onPress={shareEntryPdf}
               disabled={exportEntry.isPending || isPdfPending}
               loading={isPdfPending}
               style={{ flex: 1 }}
             />
-            <Button
-              title="Audit packet"
+            <DocActionButton
+              title="AUDIT PACKET"
               icon={FileJson}
               onPress={shareEntryPacket}
               variant="secondary"
@@ -519,15 +332,15 @@ export default function EntryDetailScreen() {
           </View>
           {entry.status === 'signed' ? (
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button
-                title="Records"
+              <DocActionButton
+                title="RECORDS"
                 icon={BookOpen}
                 variant="secondary"
                 onPress={() => router.replace('/records')}
                 style={{ flex: 1 }}
               />
-              <Button
-                title="Amend"
+              <DocActionButton
+                title="AMEND"
                 icon={PenLine}
                 variant="ghost"
                 onPress={() => router.push(`/entry/${entry.id}/amend`)}
@@ -535,8 +348,8 @@ export default function EntryDetailScreen() {
               />
             </View>
           ) : (
-            <Button
-              title="Records"
+            <DocActionButton
+              title="RECORDS"
               icon={BookOpen}
               variant="secondary"
               onPress={() => router.replace('/records')}
@@ -546,217 +359,440 @@ export default function EntryDetailScreen() {
       ) : null}
     </View>
   );
-  const maxHeightLabel = !entry.max_height || entry.max_height <= 0
-    ? '-'
-    : `${entry.max_height.toFixed(0)} ${entry.height_unit}`;
-  const employerClient = [entry.employer, entry.client].filter(Boolean).join(' - ') || 'No employer/client';
 
   return (
-    <Screen footer={footer}>
-      <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md }}>
-          <View style={{ flex: 1, gap: spacing.sm }}>
-            <Pill label={statusLabel(entry.status)} icon={ShieldCheck} tone={statusTone(entry.status)} />
-            <Text selectable style={{ ...typography.title1, color: colors.textPrimary }}>
-              {entry.site}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-              <BriefcaseBusiness size={15} color={colors.textSecondary} strokeWidth={2.1} />
-              <Text selectable style={{ ...typography.body, color: colors.textSecondary, flex: 1 }} numberOfLines={2}>
+    <Screen padded={false} footer={footer}>
+      <DocBand
+        variant="top"
+        formId="CH.7 - ENTRY RECORD"
+        rev={entry.status === 'draft' ? 'DRAFT' : entry.status === 'amended' ? 'AMENDED' : 'LOCKED'}
+        effective="ENTRY-HASH v2"
+        rightLabel={isDraft ? (isReady ? 'READY' : 'PENDING') : 'SEALED'}
+      />
+
+      <View style={{ paddingHorizontal: spacing.base, gap: spacing.lg, paddingTop: spacing.base }}>
+        {/* Header card */}
+        <View
+          style={{
+            borderWidth: hairlines.standard.width,
+            borderColor: hairlines.standard.color,
+            backgroundColor: tidewater.white,
+          }}
+        >
+          <View
+            style={{
+              padding: spacing.md,
+              borderBottomWidth: 1.5,
+              borderBottomColor: tidewater.hair,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+              alignItems: 'flex-start',
+            }}
+          >
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
+                LOGGED ENTRY
+              </Text>
+              <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
+                {entry.site}
+              </Text>
+              <Text selectable style={{ ...typography.monoSm, color: tidewater.ink2 }} numberOfLines={2}>
                 {employerClient}
               </Text>
             </View>
+            <AnimatedStamp tone={statusStampTone(entry.status)} rotation="light">
+              {statusLabel(entry.status)}
+            </AnimatedStamp>
           </View>
-          <MapPin size={28} color={colors.accentPrimary} strokeWidth={2.1} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
+            <Chip tone="ink">{dateLabel.toUpperCase()}</Chip>
+            <Chip tone="mute">{`${entry.work_hours.toFixed(1)} HR`}</Chip>
+            <Chip tone="mute">{`HEIGHT ${maxHeightLabel}`}</Chip>
+            {isDraft && readiness && !isReady ? (
+              <Chip tone="yellow">{`${readiness.missingFields.length} MISSING`}</Chip>
+            ) : null}
+            {isDraft && isReady ? <Chip tone="green">READY</Chip> : null}
+          </View>
         </View>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          <MiniStat label="Date" value={dateLabel} icon={CalendarDays} />
-          <MiniStat label="Hours" value={entry.work_hours.toFixed(1)} icon={Clock3} />
-          <MiniStat label="Height" value={maxHeightLabel} icon={Ruler} />
+        {/* Work */}
+        <View>
+          <SectionH n="15" right={entry.amends_entry_id ? 'AMENDMENT' : undefined}>
+            Work
+          </SectionH>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
+            {entry.work_task ? <Chip tone="ink">{entry.work_task.toUpperCase()}</Chip> : null}
+            {entry.access_method ? <Chip tone="mute">{entry.access_method.toUpperCase()}</Chip> : null}
+            {entry.structure_type ? <Chip tone="mute">{entry.structure_type.toUpperCase()}</Chip> : null}
+            {entry.sprat_level_snapshot ? <Chip tone="green">{`SPRAT ${entry.sprat_level_snapshot}`}</Chip> : null}
+            {entry.irata_level_snapshot ? <Chip tone="green">{`IRATA ${entry.irata_level_snapshot}`}</Chip> : null}
+          </View>
+          {entry.description ? (
+            <View
+              style={{
+                borderWidth: 1.5,
+                borderColor: tidewater.hairSoft,
+                backgroundColor: tidewater.white,
+                padding: spacing.sm,
+              }}
+            >
+              <Text selectable style={{ ...typography.body, color: tidewater.ink }}>
+                {entry.description}
+              </Text>
+            </View>
+          ) : null}
+          {entry.amends_entry_id ? (
+            <DocRow label="AMENDS" value={entry.amends_entry_id.slice(0, 18)} />
+          ) : null}
         </View>
-      </Card>
 
-      <Card>
-        <SectionHeader title="Work" icon={Building2} />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          {entry.work_task ? <Pill label={entry.work_task} icon={BriefcaseBusiness} tone="neutral" /> : null}
-          {entry.access_method ? <Pill label={entry.access_method} icon={ShieldCheck} tone="neutral" /> : null}
-          {entry.structure_type ? <Pill label={entry.structure_type} icon={Building2} tone="neutral" /> : null}
-          {entry.sprat_level_snapshot ? <Pill label={`SPRAT ${entry.sprat_level_snapshot}`} tone="info" /> : null}
-          {entry.irata_level_snapshot ? <Pill label={`IRATA ${entry.irata_level_snapshot}`} tone="info" /> : null}
-        </View>
-        {entry.description ? (
-          <Text selectable style={{ ...typography.body, color: colors.textPrimary }}>
-            {entry.description}
-          </Text>
-        ) : null}
-        {readiness && !readiness.ready ? (
-          <Pill label={`Needs ${readiness.missingFields.length} fields`} icon={BadgeCheck} tone="warn" />
-        ) : null}
-        {entry.amends_entry_id ? <StatRow label="Amends" value={entry.amends_entry_id.slice(0, 18)} /> : null}
-      </Card>
-
-      <Card>
-        <SectionHeader title="Gear" count={gearUsage.length} icon={HardHat} />
-        {gearUsage.length ? (
-          gearUsage.map(({ gear, usage }) => (
-            <CompactRow
-              key={gear.id}
-              title={gear.name}
-              meta={[gear.category, gear.serial_number, usage.role].filter(Boolean).join(' - ')}
-              trailing={entry.status === 'draft' ? (
-                <Button
-                  title="Remove"
-                  icon={Trash2}
-                  variant="ghost"
-                  onPress={() => removeGear.mutate({ entry_id: entry.id, gear_id: gear.id })}
-                  disabled={removeGear.isPending}
-                />
-              ) : null}
-            />
-          ))
-        ) : (
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            None
-          </Text>
-        )}
-        {entry.status === 'draft' && attachableGear.length ? (
-          <View style={{ gap: spacing.sm }}>
-            <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-              Attach active gear
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              {attachableGear.map(({ item }) => (
-                <Button
-                  key={item.id}
-                  title={item.name}
-                  icon={Plus}
-                  variant="secondary"
-                  onPress={() => attachGear.mutate({ entry_id: entry.id, gear_id: item.id, role: item.category })}
-                  disabled={attachGear.isPending}
-                  style={{ minWidth: 132 }}
-                />
+        {/* Gear */}
+        <View>
+          <SectionH n="16" right={`${gearUsage.length} ITEM${gearUsage.length === 1 ? '' : 'S'}`}>
+            Gear
+          </SectionH>
+          {gearUsage.length ? (
+            <View style={{ borderWidth: 1.5, borderColor: tidewater.hairSoft, backgroundColor: tidewater.white }}>
+              {gearUsage.map(({ gear, usage }, index) => (
+                <View
+                  key={gear.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs + 2,
+                    borderBottomWidth: index < gearUsage.length - 1 ? 1 : 0,
+                    borderBottomColor: tidewater.hairFaint,
+                    gap: spacing.sm,
+                  }}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text selectable style={{ ...typography.bodyMed, color: tidewater.ink }} numberOfLines={1}>
+                      {gear.name}
+                    </Text>
+                    <Text selectable style={{ ...typography.monoSm, color: tidewater.ink3 }} numberOfLines={1}>
+                      {[gear.category, gear.serial_number, usage.role].filter(Boolean).join(' · ') || '—'}
+                    </Text>
+                  </View>
+                  {isDraft ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => removeGear.mutate({ entry_id: entry.id, gear_id: gear.id })}
+                      disabled={removeGear.isPending}
+                      style={({ pressed }) => ({
+                        padding: spacing.xs,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      <Trash2 size={18} color={tidewater.ink3} strokeWidth={2.2} />
+                    </Pressable>
+                  ) : null}
+                </View>
               ))}
             </View>
-          </View>
-        ) : null}
-      </Card>
-
-      <Card>
-        <SectionHeader title="Evidence" count={attachments.length} icon={Image} />
-        {attachments.length ? (
-          attachments.map((attachment) => (
-            <CompactRow
-              key={attachment.id}
-              title={attachment.label}
-              meta={attachment.mime_type ?? attachment.uri}
-            />
-          ))
-        ) : (
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            None
-          </Text>
-        )}
-        {entry.status === 'draft' ? (
-          <Button
-            title={addAttachment.isPending ? 'Attaching' : 'Attach from photos'}
-            icon={Camera}
-            variant="secondary"
-            onPress={addPhotoEvidence}
-            disabled={addAttachment.isPending}
-          />
-        ) : null}
-      </Card>
-
-      <Card>
-        <SectionHeader title="Verification" icon={Hash} />
-        {signature ? (
-          <>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              <Pill label={signature.method} icon={BadgeCheck} tone="ok" />
-              <Pill label={formatDate(signature.signed_at)} icon={CalendarDays} tone="neutral" />
-            </View>
-            <CompactRow
-              title={signature.supervisor_name}
-              meta={signature.supervisor_cert_number}
-              trailing={<UserRound size={20} color={colors.textSecondary} strokeWidth={2.1} />}
-            />
-            {signature.signature_path ? <SignaturePreview value={signature.signature_path} /> : null}
-            <View style={{ gap: spacing.xs }}>
-              <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-                Entry hash
+          ) : (
+            <EmptyLine>No gear attached</EmptyLine>
+          )}
+          {isDraft && attachableGear.length ? (
+            <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                ATTACH ACTIVE GEAR
               </Text>
-              <HashPreview value={signature.entry_hash} />
-            </View>
-            {signature.chain_hash ? (
-              <View style={{ gap: spacing.xs }}>
-                <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-                  Chain hash
-                </Text>
-                <HashPreview value={signature.chain_hash} />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                {attachableGear.map(({ item }) => (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    onPress={() => attachGear.mutate({ entry_id: entry.id, gear_id: item.id, role: item.category })}
+                    disabled={attachGear.isPending}
+                    style={({ pressed }) => ({
+                      borderWidth: 1.5,
+                      borderColor: tidewater.hair,
+                      backgroundColor: tidewater.white,
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: 6,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.xs,
+                      opacity: pressed ? 0.8 : 1,
+                    })}
+                  >
+                    <Plus size={14} color={tidewater.ink} strokeWidth={2.2} />
+                    <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+                      {item.name.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-            ) : null}
-          </>
-        ) : remoteRequest ? (
-          <>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              <Pill label={statusLabel(remoteRequest.status)} icon={Send} tone="warn" />
-              <Pill label={remoteRequest.request_code} tone="neutral" />
             </View>
-            <CompactRow
-              title={remoteRequest.recipient_name}
-              meta={[remoteRequest.verifier_role, remoteRequest.verifier_company].filter(Boolean).join(' - ') || remoteRequest.recipient_contact}
-              trailing={<UserRound size={20} color={colors.textSecondary} strokeWidth={2.1} />}
-            />
-            <StatRow label="Expires" value={formatDateOrDash(remoteRequest.expires_at)} />
-            <View style={{ gap: spacing.xs }}>
-              <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-                Requested entry hash
-              </Text>
-              <HashPreview value={remoteRequest.entry_hash} />
-            </View>
-          </>
-        ) : (
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            Unsigned
-          </Text>
-        )}
-      </Card>
+          ) : null}
+        </View>
 
-      {exportEntry.isError || pdfFailed ? (
-        <Text selectable style={{ ...typography.caption, color: colors.statusErr }}>
-          Entry export failed.
-        </Text>
-      ) : null}
+        {/* Evidence */}
+        <View>
+          <SectionH n="17" right={`${attachments.length} FILE${attachments.length === 1 ? '' : 'S'}`}>
+            Evidence
+          </SectionH>
+          {attachments.length ? (
+            <View style={{ borderWidth: 1.5, borderColor: tidewater.hairSoft, backgroundColor: tidewater.white }}>
+              {attachments.map((attachment, index) => (
+                <View
+                  key={attachment.id}
+                  style={{
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs + 2,
+                    borderBottomWidth: index < attachments.length - 1 ? 1 : 0,
+                    borderBottomColor: tidewater.hairFaint,
+                    gap: 2,
+                  }}
+                >
+                  <Text selectable style={{ ...typography.bodyMed, color: tidewater.ink }} numberOfLines={1}>
+                    {attachment.label}
+                  </Text>
+                  <Text selectable style={{ ...typography.monoSm, color: tidewater.ink3 }} numberOfLines={1}>
+                    {attachment.mime_type ?? attachment.uri}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <EmptyLine>No attachments</EmptyLine>
+          )}
+          {isDraft ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <DocActionButton
+                title={addAttachment.isPending ? 'ATTACHING' : 'ATTACH FROM PHOTOS'}
+                icon={Camera}
+                variant="secondary"
+                onPress={addPhotoEvidence}
+                disabled={addAttachment.isPending}
+              />
+            </View>
+          ) : null}
+        </View>
+
+        {/* Verification */}
+        <View>
+          <SectionH
+            n="18"
+            right={signature ? 'SIGNED' : remoteRequest ? 'PENDING' : 'UNSIGNED'}
+          >
+            Verification
+          </SectionH>
+          {signature ? (
+            <View
+              style={{
+                borderWidth: 1.5,
+                borderColor: tidewater.hair,
+                backgroundColor: tidewater.white,
+              }}
+            >
+              <View
+                style={{
+                  padding: spacing.sm,
+                  borderBottomWidth: 1,
+                  borderBottomColor: tidewater.hairFaint,
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: spacing.xs,
+                }}
+              >
+                <Chip tone="green" solid>
+                  {signature.method.toUpperCase()}
+                </Chip>
+                <Chip tone="mute">{formatDate(signature.signed_at).toUpperCase()}</Chip>
+              </View>
+              <View
+                style={{
+                  paddingHorizontal: spacing.sm,
+                  paddingTop: spacing.sm,
+                  paddingBottom: spacing.xs,
+                  borderBottomWidth: 1,
+                  borderBottomColor: tidewater.hairFaint,
+                  gap: 4,
+                }}
+              >
+                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                  SIGNER
+                </Text>
+                <SignatureFill name={signature.supervisor_name} fontSize={22} />
+              </View>
+              {signature.supervisor_cert_number ? (
+                <DocRow label="CERT" value={signature.supervisor_cert_number} />
+              ) : null}
+              {signature.signature_path ? (
+                <View style={{ padding: spacing.sm, gap: spacing.xs }}>
+                  <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                    DRAWN SIGNATURE
+                  </Text>
+                  <SignatureFrame value={signature.signature_path} />
+                </View>
+              ) : null}
+              <DocRow label="ENTRY HASH" value={truncateHash(signature.entry_hash)} mono />
+              {signature.chain_hash ? (
+                <DocRow label="CHAIN HASH" value={truncateHash(signature.chain_hash)} mono last />
+              ) : null}
+            </View>
+          ) : remoteRequest ? (
+            <View
+              style={{
+                borderWidth: 1.5,
+                borderColor: tidewater.hair,
+                backgroundColor: tidewater.white,
+              }}
+            >
+              <View
+                style={{
+                  padding: spacing.sm,
+                  borderBottomWidth: 1,
+                  borderBottomColor: tidewater.hairFaint,
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: spacing.xs,
+                }}
+              >
+                <Chip tone="yellow">{remoteRequest.status.toUpperCase()}</Chip>
+                <Chip tone="ink">{remoteRequest.request_code}</Chip>
+              </View>
+              <DocRow label="VERIFIER" value={remoteRequest.recipient_name} />
+              <DocRow
+                label="CONTACT"
+                value={
+                  [remoteRequest.verifier_role, remoteRequest.verifier_company].filter(Boolean).join(' · ') ||
+                  remoteRequest.recipient_contact ||
+                  '—'
+                }
+              />
+              <DocRow label="EXPIRES" value={formatDateOrDash(remoteRequest.expires_at)} />
+              <DocRow label="ENTRY HASH" value={truncateHash(remoteRequest.entry_hash)} mono last />
+            </View>
+          ) : (
+            <EmptyLine>Unsigned — sign locally or request a remote signature</EmptyLine>
+          )}
+        </View>
+
+        {exportEntry.isError || pdfFailed ? (
+          <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
+            Entry export failed.
+          </Text>
+        ) : null}
+      </View>
+
+      <DocBand
+        variant="footer"
+        text={
+          isDraft
+            ? isReady
+              ? 'DRAFT READY - SIGN LOCALLY OR REQUEST REMOTE SIGNATURE'
+              : 'DRAFT - COMPLETE REQUIRED FIELDS BEFORE SIGNING'
+            : entry.status === 'amended'
+              ? 'AMENDED RECORD - SEALED IN HASH CHAIN'
+              : 'SIGNED RECORD - SEALED IN HASH CHAIN'
+        }
+        page={entryId ? `ENTRY ${entryId.slice(-6).toUpperCase()}` : 'ENTRY ------'}
+      />
     </Screen>
   );
 }
 
-function RequirementList({ title, items }: { title: string; items: string[] }) {
-  const { colors, radii, spacing, typography } = useTheme();
-  if (!items.length) return null;
+function truncateHash(value: string): string {
+  return `${value.slice(0, 16)}…${value.slice(-12)}`;
+}
+
+function DocRow({
+  label,
+  value,
+  mono = false,
+  last = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  last?: boolean;
+}) {
+  const { spacing, typography, tidewater } = useTheme();
 
   return (
     <View
       style={{
-        borderRadius: radii.sm,
-        backgroundColor: colors.statusWarnTint,
-        padding: spacing.md,
-        gap: spacing.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs + 2,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: tidewater.hairFaint,
+        gap: spacing.sm,
       }}
     >
-      <Text selectable={false} style={{ ...typography.label, color: colors.statusWarn }}>
-        {title}
+      <Text style={{ ...typography.monoSm, color: tidewater.ink3, width: 96, letterSpacing: 1.5 }}>
+        {label}
       </Text>
-      {items.map((item) => (
-        <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <BadgeCheck size={14} color={colors.statusWarn} strokeWidth={2.2} />
-          <Text selectable={false} style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
-            Add {item}
-          </Text>
-        </View>
-      ))}
+      <Text
+        selectable
+        style={{
+          flex: 1,
+          ...(mono ? typography.monoMd : typography.body),
+          color: tidewater.ink,
+          fontVariant: mono ? ['tabular-nums'] : undefined,
+        }}
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
+
+function EmptyLine({ children }: { children: string }) {
+  const { spacing, typography, tidewater } = useTheme();
+
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: tidewater.hairSoft,
+        borderStyle: 'dashed',
+        padding: spacing.md,
+      }}
+    >
+      <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
+        {children.toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+
+function SignatureFrame({ value }: { value: string }) {
+  const { tidewater } = useTheme();
+  const isImageSignature = value.startsWith('data:image/');
+
+  return (
+    <View
+      style={{
+        height: 112,
+        borderWidth: 1.5,
+        borderColor: tidewater.hair,
+        backgroundColor: tidewater.white,
+        overflow: 'hidden',
+      }}
+    >
+      {isImageSignature ? (
+        <NativeImage source={{ uri: value }} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+      ) : (
+        <Svg width="100%" height="100%" viewBox="0 0 1000 400">
+          <Line x1={48} x2={952} y1={324} y2={324} stroke={tidewater.hairSoft} strokeWidth={3} />
+          <Path
+            d={value}
+            fill="none"
+            stroke={tidewater.ink}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={3}
+          />
+        </Svg>
+      )}
+    </View>
+  );
+}
+

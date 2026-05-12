@@ -26,7 +26,7 @@ import {
   type AdvisoryTone,
   type CertProgress,
 } from '@/src/domain/logbook/today-derivations';
-import { DocBand, Screen, Stamp } from '@/src/ui/primitives';
+import { AnimatedCounter, AnimatedStamp, DocBand, LoadGauge, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function formatEffective(date: Date): string {
@@ -154,31 +154,27 @@ export default function TodayScreen() {
               CUMULATIVE ROPE HR
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 }}>
-              <Text
-                style={{
-                  fontFamily: 'Archivo_900Black',
-                  fontSize: 64,
-                  lineHeight: 60,
-                  color: tidewater.ink,
-                  fontWeight: '900',
-                  letterSpacing: -1,
-                }}
-              >
-                {hoursParts.whole}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Archivo_900Black',
-                  fontSize: 30,
-                  lineHeight: 32,
-                  color: tidewater.accent,
-                  fontWeight: '900',
-                  marginLeft: 4,
-                  paddingBottom: 4,
-                }}
-              >
-                .{hoursParts.decimal}
-              </Text>
+              <AnimatedCounter
+                text={String(hoursParts.whole)}
+                fontFamily="Archivo_900Black"
+                fontSize={64}
+                fontWeight="900"
+                letterSpacing={-1}
+                color={tidewater.ink}
+                height={60}
+                width={36}
+              />
+              <View style={{ marginLeft: 4, paddingBottom: 4 }}>
+                <AnimatedCounter
+                  text={`.${hoursParts.decimal}`}
+                  fontFamily="Archivo_900Black"
+                  fontSize={30}
+                  fontWeight="900"
+                  color={tidewater.accent}
+                  height={32}
+                  width={18}
+                />
+              </View>
             </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -274,7 +270,7 @@ export default function TodayScreen() {
             }}
           >
             <View style={{ position: 'absolute', top: -16, right: spacing.md }}>
-              <Stamp tone="green" rotation="standard">{`SIGNED ${formatStampDate(today)}`}</Stamp>
+              <AnimatedStamp tone="green" rotation="standard">{`SIGNED ${formatStampDate(today)}`}</AnimatedStamp>
             </View>
             <Text style={{ ...typography.displaySm, color: tidewater.green, letterSpacing: 1.2 }}>
               ✓ {signedTodayCount} RECORD{signedTodayCount > 1 ? 'S' : ''} SIGNED TODAY
@@ -345,6 +341,7 @@ function CertDial({ progress }: { progress: CertProgress }) {
         borderWidth: hairlines.standard.width,
         borderColor: hairlines.standard.color,
         padding: spacing.sm,
+        gap: spacing.xs,
       }}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -355,36 +352,28 @@ function CertDial({ progress }: { progress: CertProgress }) {
           {progress.targetLabel}
         </Text>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
-        <Text
-          style={{
-            fontFamily: 'Archivo_900Black',
-            fontSize: 28,
-            lineHeight: 30,
-            color: tidewater.ink,
-            fontWeight: '900',
-          }}
-        >
-          {pct}
-        </Text>
-        <Text style={{ ...typography.monoMd, color: tidewater.accent, fontWeight: '600', marginLeft: 2 }}>
-          %
-        </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <LoadGauge value={progress.ratio} size={92} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <AnimatedCounter
+              text={String(pct)}
+              fontFamily="Archivo_900Black"
+              fontSize={32}
+              fontWeight="900"
+              color={tidewater.ink}
+              height={34}
+              width={20}
+            />
+            <Text style={{ ...typography.monoMd, color: tidewater.accent, fontWeight: '600', marginLeft: 2 }}>
+              %
+            </Text>
+          </View>
+          <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
+            {value} / {progress.target} HR
+          </Text>
+        </View>
       </View>
-      <View
-        style={{
-          marginTop: spacing.xs,
-          height: 4,
-          backgroundColor: tidewater.paper2,
-          borderWidth: 1,
-          borderColor: tidewater.hair,
-        }}
-      >
-        <View style={{ height: '100%', width: `${pct}%`, backgroundColor: accent }} />
-      </View>
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, marginTop: 4, textAlign: 'right' }}>
-        {value} / {progress.target} HR
-      </Text>
     </View>
   );
 }

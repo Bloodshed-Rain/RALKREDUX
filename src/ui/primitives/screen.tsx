@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme-provider';
+import { WeaveBackdrop } from './weave-backdrop';
 
 interface ScreenProps {
   background?: React.ReactNode;
@@ -19,6 +20,8 @@ interface ScreenProps {
   refreshControl?: React.ReactElement<RefreshControlProps>;
   safeTop?: boolean;
   scrollEnabled?: boolean;
+  /** Enable the M.6 weave drift ambient backdrop. Default true. */
+  weave?: boolean;
 }
 
 export function Screen({
@@ -30,6 +33,7 @@ export function Screen({
   refreshControl,
   safeTop = false,
   scrollEnabled = true,
+  weave = true,
 }: ScreenProps) {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
@@ -41,6 +45,7 @@ export function Screen({
       keyboardVerticalOffset={footer ? 72 : 0}
       style={{ flex: 1, backgroundColor: colors.bgApp }}
     >
+      {weave ? <WeaveBackdrop /> : null}
       {background ? (
         <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject }}>
           {background}

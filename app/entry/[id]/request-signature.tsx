@@ -1,15 +1,14 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { AlertTriangle, ChevronDown, ChevronUp, Mail, Send } from 'lucide-react-native';
-import type { LucideIcon } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ChevronDown, ChevronUp, Mail, Send } from 'lucide-react-native';
+import { Pressable, Text, View } from 'react-native';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import {
   useCreateRemoteSignatureRequest,
   useEntryDetail,
   useSupervisorContacts,
 } from '@/src/domain/logbook/use-logbook';
-import { Chip, DocBand, Field, Screen, SectionH, Stamp } from '@/src/ui/primitives';
+import { AnimatedStamp, Chip, DocActionButton, DocBand, Field, Screen, SectionH } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -63,12 +62,6 @@ export default function RemoteSignatureRequestScreen() {
     readiness?.ready === true &&
     !detail.data?.remote_request &&
     hasVerifierName;
-  const missingToCreate = [
-    ...(readiness?.missingFields ?? []),
-    hasVerifierName ? null : 'verifier name',
-    detail.data?.remote_request ? 'finish or cancel the pending request' : null,
-    entry?.status && entry.status !== 'draft' ? 'use a draft entry' : null,
-  ].filter(Boolean) as string[];
 
   const footerTitle = canCreate
     ? 'CREATE REMOTE REQUEST'
@@ -94,16 +87,13 @@ export default function RemoteSignatureRequestScreen() {
     <Screen
       padded={false}
       footer={
-        <View style={{ gap: spacing.sm }}>
-          {!canCreate ? <RequirementList title="Before creating request" items={missingToCreate} /> : null}
-          <DocActionButton
-            title={footerTitle}
-            icon={Send}
-            onPress={submit}
-            disabled={!canCreate}
-            loading={createRequest.isPending}
-          />
-        </View>
+        <DocActionButton
+          title={footerTitle}
+          icon={Send}
+          onPress={submit}
+          disabled={!canCreate}
+          loading={createRequest.isPending}
+        />
       }
     >
       <DocBand
@@ -141,9 +131,9 @@ export default function RemoteSignatureRequestScreen() {
                 {entry?.site || 'Loading entry'}
               </Text>
             </View>
-            <Stamp tone={readiness?.ready && !detail.data?.remote_request ? 'green' : 'yellow'} rotation="light">
+            <AnimatedStamp tone={readiness?.ready && !detail.data?.remote_request ? 'green' : 'yellow'} rotation="light">
               {readiness?.ready && !detail.data?.remote_request ? 'READY' : 'HOLD'}
-            </Stamp>
+            </AnimatedStamp>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
             <Chip tone="ink">{entry?.site || 'LOADING'}</Chip>
@@ -321,74 +311,3 @@ function DocNotice({ title, body }: { title: string; body: string }) {
   );
 }
 
-function RequirementList({ title, items }: { title: string; items: string[] }) {
-  const { spacing, typography, tidewater } = useTheme();
-  if (!items.length) return null;
-
-  return (
-    <View
-      style={{
-        borderWidth: 1.5,
-        borderColor: tidewater.yellowDeep,
-        backgroundColor: tidewater.yellowSoft,
-        padding: spacing.md,
-        gap: spacing.xs,
-      }}
-    >
-      <Text selectable={false} style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-        {title.toUpperCase()}
-      </Text>
-      {items.map((item) => (
-        <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <AlertTriangle size={14} color={tidewater.yellowDeep} strokeWidth={2.2} />
-          <Text selectable={false} style={{ ...typography.monoSm, color: tidewater.ink2, flex: 1 }}>
-            Needs {item}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function DocActionButton({
-  title,
-  onPress,
-  icon: Icon,
-  disabled = false,
-  loading = false,
-}: {
-  title: string;
-  onPress: () => void;
-  icon?: LucideIcon;
-  disabled?: boolean;
-  loading?: boolean;
-}) {
-  const { spacing, typography, touchTarget, tidewater } = useTheme();
-  const foreground = disabled ? tidewater.ink3 : tidewater.paper;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled || loading}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: touchTarget.preferred + 4,
-        borderWidth: 1.5,
-        borderColor: tidewater.ink,
-        paddingHorizontal: spacing.base,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-        gap: spacing.sm,
-        backgroundColor: disabled ? tidewater.paper2 : pressed ? tidewater.ink2 : tidewater.accent,
-        opacity: disabled ? 0.82 : 1,
-      })}
-    >
-      {loading ? <ActivityIndicator color={foreground} /> : null}
-      {!loading && Icon ? <Icon size={18} color={foreground} strokeWidth={2.2} /> : null}
-      <Text selectable={false} style={{ ...typography.displaySm, color: foreground, letterSpacing: 1.5 }}>
-        {title}
-      </Text>
-    </Pressable>
-  );
-}

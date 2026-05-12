@@ -87,6 +87,19 @@ export function useUpdateDraftEntry() {
   });
 }
 
+export function useDeleteDraftEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (entryId: string) => createLogbookService(getClient()).deleteDraftEntry(entryId),
+    onSuccess: ({ id }) => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['careerStats'] });
+      queryClient.removeQueries({ queryKey: ['entryDetail', id] });
+    },
+  });
+}
+
 export function useEntryTemplates() {
   return useQuery({
     queryKey: ['entryTemplates'],

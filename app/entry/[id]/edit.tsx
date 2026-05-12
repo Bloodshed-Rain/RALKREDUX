@@ -1,20 +1,20 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import {
-  ChevronDown,
-  ChevronUp,
-  Save,
-} from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { ChevronDown, ChevronUp, Save } from 'lucide-react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import type { HeightUnit } from '@/src/domain/logbook/types';
 import { useEntryDetail, useUpdateDraftEntry } from '@/src/domain/logbook/use-logbook';
-import { Button, Card, DateField, Field, Screen } from '@/src/ui/primitives';
+import { AnimatedStamp, Chip, DateField, DocActionButton, DocBand, Field, Screen, SectionH } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] : value;
 }
+
+const TASK_PRESETS = ['Inspection', 'Maintenance', 'Rescue standby', 'Training'];
+const ACCESS_PRESETS = ['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'];
+const STRUCTURE_PRESETS = ['Bridge', 'Tower', 'Wind turbine', 'Facade'];
 
 function missingFields(input: {
   dateFrom: string;
@@ -44,7 +44,7 @@ function missingFields(input: {
 }
 
 export default function EditDraftScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
@@ -135,19 +135,27 @@ export default function EditDraftScreen() {
 
   if (detail.isLoading) {
     return (
-      <Screen>
-        <Text selectable style={{ ...typography.body, color: colors.textPrimary }}>
-          Loading draft
-        </Text>
+      <Screen padded={false}>
+        <DocBand variant="top" formId="CH.5A - DRAFT EDIT" rev="LOADING" rightLabel="WAIT" />
+        <View style={{ padding: spacing.base }}>
+          <Text style={{ ...typography.body, color: tidewater.ink }}>Loading draft…</Text>
+        </View>
       </Screen>
     );
   }
 
+  const lockedNotice = entry?.status && entry.status !== 'draft'
+    ? { title: 'ENTRY IS LOCKED', body: 'Signed records use amendments instead of direct edits.' }
+    : hasPendingRequest
+      ? { title: 'REMOTE REQUEST PENDING', body: 'Complete or cancel the pending verifier request before editing.' }
+      : null;
+
   return (
     <Screen
+      padded={false}
       footer={
-        <Button
-          title={isAuditReady ? 'Save audit-ready draft' : 'Save draft'}
+        <DocActionButton
+          title={isAuditReady ? 'SAVE AUDIT-READY DRAFT' : 'SAVE DRAFT'}
           icon={Save}
           onPress={save}
           disabled={!canSave}
@@ -155,217 +163,298 @@ export default function EditDraftScreen() {
         />
       }
     >
-      {entry?.status && entry.status !== 'draft' ? (
-        <Card>
-          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-            Entry is locked
-          </Text>
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            Signed records use amendments instead of direct edits.
-          </Text>
-        </Card>
-      ) : null}
+      <DocBand
+        variant="top"
+        formId="CH.5A - DRAFT EDIT"
+        rev={entry?.status === 'draft' ? 'DRAFT' : 'LOCKED'}
+        effective="ENTRY-HASH v2"
+        rightLabel={canSave ? (isAuditReady ? 'READY' : 'DRAFT') : 'HOLD'}
+      />
 
-      {hasPendingRequest ? (
-        <Card>
-          <Text selectable style={{ ...typography.title3, color: colors.textPrimary }}>
-            Remote request pending
-          </Text>
-          <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-            Complete the pending verifier request before changing this draft.
-          </Text>
-        </Card>
-      ) : null}
-
-      <Card>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          <Pill
-            label={isAuditReady ? 'Ready to sign' : `${missing.length} missing`}
-            tone={isAuditReady ? 'ok' : 'warn'}
-          />
-          {missing.length ? <Pill label="Complete highlighted fields" tone="neutral" /> : null}
+      <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.lg }}>
+        {/* Header card */}
+        <View
+          style={{
+            borderWidth: hairlines.standard.width,
+            borderColor: hairlines.standard.color,
+            backgroundColor: tidewater.white,
+          }}
+        >
+          <View
+            style={{
+              padding: spacing.md,
+              borderBottomWidth: 1.5,
+              borderBottomColor: tidewater.hair,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+              alignItems: 'flex-start',
+            }}
+          >
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
+                EDIT DRAFT
+              </Text>
+              <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
+                {site || entry?.site || 'Untitled draft'}
+              </Text>
+            </View>
+            <AnimatedStamp tone={isAuditReady ? 'green' : 'yellow'} rotation="light">
+              {isAuditReady ? 'READY' : 'DRAFT'}
+            </AnimatedStamp>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
+            <Chip tone={isAuditReady ? 'green' : 'yellow'}>
+              {isAuditReady ? 'AUDIT-READY' : `${missing.length} MISSING`}
+            </Chip>
+            {Number.isFinite(parsedHours) && parsedHours > 0 ? (
+              <Chip tone="mute">{`${parsedHours.toFixed(1)} HR`}</Chip>
+            ) : null}
+            {Number.isFinite(parsedHeight) && parsedHeight > 0 ? (
+              <Chip tone="mute">{`${parsedHeight.toFixed(0)} ${heightUnit.toUpperCase()}`}</Chip>
+            ) : null}
+          </View>
+          {lockedNotice ? (
+            <View
+              style={{
+                borderTopWidth: 1,
+                borderTopColor: tidewater.hairFaint,
+                backgroundColor: tidewater.yellowSoft,
+                padding: spacing.md,
+              }}
+            >
+              <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+                {lockedNotice.title}
+              </Text>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
+                {lockedNotice.body}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        <Field
-          label="Site"
-          value={site}
-          onChangeText={setSite}
-          placeholder="Tower / plant / bridge"
-          invalid={isMissing('site')}
-          hint={isMissing('site') ? 'Required before signing' : undefined}
-        />
-
-        <View style={{ gap: spacing.sm }}>
-          <Text selectable style={{ ...typography.label, color: isMissing('task') ? colors.statusWarn : colors.textPrimary }}>
-            Task
-          </Text>
-          <ChipRow
-            options={['Inspection', 'Maintenance', 'Rescue standby', 'Training']}
-            value={workTask}
-            onChange={setWorkTask}
-          />
-          <Field
-            label="Custom task"
-            value={workTask}
-            onChangeText={setWorkTask}
-            placeholder="Inspection / maintenance / rescue cover"
-            invalid={isMissing('task')}
-            hint={isMissing('task') ? 'Pick a preset or type the task' : undefined}
-          />
+        {/* § 22 Site & task */}
+        <View>
+          <SectionH n="22" right={isMissing('site') || isMissing('task') ? 'REQUIRED' : 'OK'}>
+            Site and task
+          </SectionH>
+          <View style={{ gap: spacing.md }}>
+            <Field
+              label="Site"
+              value={site}
+              onChangeText={setSite}
+              placeholder="Tower / plant / bridge"
+              invalid={isMissing('site')}
+              style={{ borderRadius: 0, borderWidth: 1.5 }}
+            />
+            <View style={{ gap: spacing.xs }}>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                TASK
+              </Text>
+              <ChipRow options={TASK_PRESETS} value={workTask} onChange={setWorkTask} />
+              <Field
+                label="Custom task"
+                value={workTask}
+                onChangeText={setWorkTask}
+                placeholder="Inspection / maintenance / rescue cover"
+                invalid={isMissing('task')}
+                style={{ borderRadius: 0, borderWidth: 1.5 }}
+              />
+            </View>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                ACCESS METHOD
+              </Text>
+              <ChipRow options={ACCESS_PRESETS} value={accessMethod} onChange={setAccessMethod} />
+            </View>
+            <Field
+              label="Rope access hours"
+              value={hours}
+              onChangeText={setHours}
+              keyboardType="decimal-pad"
+              placeholder="8"
+              invalid={isMissing('hours')}
+              style={{ borderRadius: 0, borderWidth: 1.5 }}
+            />
+          </View>
         </View>
 
-        <ChipRow
-          options={['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint']}
-          value={accessMethod}
-          onChange={setAccessMethod}
-        />
-
-        <Field
-          label="Rope access hours"
-          value={hours}
-          onChangeText={setHours}
-          keyboardType="decimal-pad"
-          placeholder="8"
-          invalid={isMissing('hours')}
-          hint={isMissing('hours') ? 'Enter hours greater than 0' : undefined}
-        />
-
-        <Button
-          title={showDetails ? 'Hide details' : 'Add missing details'}
-          icon={showDetails ? ChevronUp : ChevronDown}
-          variant="ghost"
+        <Pressable
+          accessibilityRole="button"
           onPress={() => setShowDetails((value) => !value)}
-        />
+          style={({ pressed }) => ({
+            minHeight: touchTarget.min,
+            borderWidth: 1.5,
+            borderColor: tidewater.hair,
+            backgroundColor: tidewater.white,
+            paddingHorizontal: spacing.md,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: spacing.sm,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+            {showDetails ? 'HIDE DETAILS' : 'SHOW DETAILS'}
+          </Text>
+          {showDetails ? (
+            <ChevronUp size={18} color={tidewater.ink2} strokeWidth={2.2} />
+          ) : (
+            <ChevronDown size={18} color={tidewater.ink2} strokeWidth={2.2} />
+          )}
+        </Pressable>
 
         {showDetails ? (
           <>
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <DateField
-                  label="From"
-                  value={dateFrom}
-                  onChange={setDateFrom}
-                  invalid={isMissing('dates')}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <DateField
-                  label="To"
-                  value={dateTo}
-                  onChange={setDateTo}
-                  invalid={isMissing('dates')}
-                />
-              </View>
-            </View>
-            <Field
-              label="Employer"
-              value={employer}
-              onChangeText={setEmployer}
-              placeholder="Company"
-              invalid={isMissing('employer')}
-              hint={isMissing('employer') ? 'Required before signing' : undefined}
-            />
-            <Field
-              label="Client"
-              value={client}
-              onChangeText={setClient}
-              placeholder="Client"
-              invalid={isMissing('client')}
-              hint={isMissing('client') ? 'Required before signing' : undefined}
-            />
-            <View style={{ gap: spacing.sm }}>
-              <Text selectable style={{ ...typography.label, color: isMissing('structure') ? colors.statusWarn : colors.textPrimary }}>
-                Structure
-              </Text>
-              <ChipRow
-                options={['Bridge', 'Tower', 'Wind turbine', 'Facade']}
-                value={structureType}
-                onChange={setStructureType}
-              />
-              <Field
-                label="Structure type"
-                value={structureType}
-                onChangeText={setStructureType}
-                placeholder="Bridge / tower / wind turbine"
-                invalid={isMissing('structure')}
-                hint={isMissing('structure') ? 'Pick a preset or type the structure' : undefined}
-              />
-            </View>
-            <Field
-              label="Access method"
-              value={accessMethod}
-              onChangeText={setAccessMethod}
-              placeholder="Two-rope access"
-              invalid={isMissing('access')}
-              hint={isMissing('access') ? 'Required before signing' : undefined}
-            />
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <Field
-                  label="Maximum height"
-                  value={maxHeight}
-                  onChangeText={setMaxHeight}
-                  keyboardType="decimal-pad"
-                  placeholder="120"
-                  invalid={isMissing('height')}
-                  hint={isMissing('height') ? 'Required before signing' : undefined}
-                  style={{ minWidth: 0 }}
-                />
-              </View>
-              <View style={{ flex: 1, gap: spacing.xs }}>
-                <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
-                  Unit
-                </Text>
+            {/* § 23 Dates and parties */}
+            <View>
+              <SectionH n="23" right={isMissing('dates') || isMissing('employer') || isMissing('client') ? 'REQUIRED' : 'OK'}>
+                Dates and parties
+              </SectionH>
+              <View style={{ gap: spacing.md }}>
                 <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  {(['ft', 'm'] as const).map((unit) => (
-                    <ChoiceButton
-                      key={unit}
-                      label={unit}
-                      selected={unit === heightUnit}
-                      onPress={() => setHeightUnit(unit)}
+                  <View style={{ flex: 1 }}>
+                    <DateField
+                      label="From"
+                      value={dateFrom}
+                      onChange={setDateFrom}
+                      invalid={isMissing('dates')}
                     />
-                  ))}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <DateField label="To" value={dateTo} onChange={setDateTo} invalid={isMissing('dates')} />
+                  </View>
+                </View>
+                <Field
+                  label="Employer"
+                  value={employer}
+                  onChangeText={setEmployer}
+                  placeholder="Company"
+                  invalid={isMissing('employer')}
+                  style={{ borderRadius: 0, borderWidth: 1.5 }}
+                />
+                <Field
+                  label="Client"
+                  value={client}
+                  onChangeText={setClient}
+                  placeholder="Customer / contractor"
+                  invalid={isMissing('client')}
+                  style={{ borderRadius: 0, borderWidth: 1.5 }}
+                />
+              </View>
+            </View>
+
+            {/* § 24 Structure and height */}
+            <View>
+              <SectionH n="24" right={isMissing('structure') || isMissing('height') ? 'REQUIRED' : 'OK'}>
+                Structure and height
+              </SectionH>
+              <View style={{ gap: spacing.md }}>
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                    STRUCTURE
+                  </Text>
+                  <ChipRow options={STRUCTURE_PRESETS} value={structureType} onChange={setStructureType} />
+                  <Field
+                    label="Structure type"
+                    value={structureType}
+                    onChangeText={setStructureType}
+                    placeholder="Bridge / tower / wind turbine"
+                    invalid={isMissing('structure')}
+                    style={{ borderRadius: 0, borderWidth: 1.5 }}
+                  />
+                </View>
+                <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end' }}>
+                  <View style={{ flex: 2 }}>
+                    <Field
+                      label="Maximum height"
+                      value={maxHeight}
+                      onChangeText={(v) => setMaxHeight(v.replace(/[^\d.]/g, ''))}
+                      keyboardType="decimal-pad"
+                      placeholder="120"
+                      invalid={isMissing('height')}
+                      style={{ borderRadius: 0, borderWidth: 1.5 }}
+                    />
+                  </View>
+                  <View
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      borderWidth: 1.5,
+                      borderColor: tidewater.hair,
+                      height: 48,
+                    }}
+                  >
+                    {(['ft', 'm'] as const).map((unit, i) => {
+                      const active = heightUnit === unit;
+                      return (
+                        <Pressable
+                          key={unit}
+                          onPress={() => setHeightUnit(unit)}
+                          style={{
+                            flex: 1,
+                            backgroundColor: active ? tidewater.ink : 'transparent',
+                            borderRightWidth: i === 0 ? 1 : 0,
+                            borderRightColor: tidewater.hairSoft,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              ...typography.displaySm,
+                              color: active ? tidewater.paper : tidewater.ink2,
+                              letterSpacing: 1.5,
+                            }}
+                          >
+                            {unit.toUpperCase()}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               </View>
             </View>
-            <Field
-              label="Work notes"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              textAlignVertical="top"
-              style={{ minHeight: 96 }}
-              placeholder="What work was performed?"
-              invalid={isMissing('notes')}
-              hint={isMissing('notes') ? 'Required before signing' : undefined}
-            />
+
+            {/* § 25 Notes */}
+            <View>
+              <SectionH n="25" right={isMissing('notes') ? 'REQUIRED' : 'OK'}>
+                Work notes
+              </SectionH>
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                placeholder="What work was performed on rope?"
+                placeholderTextColor={tidewater.ink3}
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: isMissing('notes') ? tidewater.yellowDeep : tidewater.hair,
+                  backgroundColor: isMissing('notes') ? tidewater.yellowSoft : tidewater.white,
+                  padding: spacing.sm,
+                  ...typography.body,
+                  color: tidewater.ink,
+                  minHeight: 120,
+                  textAlignVertical: 'top',
+                }}
+              />
+            </View>
           </>
         ) : null}
-      </Card>
+      </View>
+
+      <DocBand
+        variant="footer"
+        text={
+          isAuditReady
+            ? 'DRAFT IS AUDIT-READY - SAVE TO PROCEED TO SIGN OR REQUEST'
+            : 'DRAFT EDIT - FINISH HIGHLIGHTED FIELDS BEFORE SIGNING'
+        }
+        page={entryId ? `ENTRY ${entryId.slice(-6).toUpperCase()}` : 'ENTRY ------'}
+      />
     </Screen>
-  );
-}
-
-function Pill({ label, tone }: { label: string; tone: 'ok' | 'warn' | 'neutral' }) {
-  const { colors, radii, spacing, typography, touchTarget } = useTheme();
-  const color = tone === 'ok' ? colors.statusOk : tone === 'warn' ? colors.statusWarn : colors.textSecondary;
-  const backgroundColor = tone === 'ok' ? colors.statusOkTint : tone === 'warn' ? colors.statusWarnTint : colors.bgMuted;
-
-  return (
-    <View
-      style={{
-        minHeight: 30,
-        borderRadius: radii.pill,
-        backgroundColor,
-        paddingHorizontal: spacing.sm,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Text selectable={false} style={{ ...typography.caption, color }}>
-        {label}
-      </Text>
-    </View>
   );
 }
 
@@ -378,57 +467,34 @@ function ChipRow({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { tidewater, typography, spacing } = useTheme();
+
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {options.map((option) => (
-        <ChoiceButton
-          key={option}
-          label={option}
-          selected={value === option}
-          onPress={() => onChange(option)}
-        />
-      ))}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+      {options.map((option) => {
+        const selected = option === value;
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(option)}
+            style={({ pressed }) => ({
+              borderWidth: 1.5,
+              borderColor: selected ? tidewater.accent : tidewater.hair,
+              backgroundColor: selected ? tidewater.accentSoft : 'transparent',
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 6,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+              {option.toUpperCase()}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
-function ChoiceButton({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const { colors, radii, spacing, typography, touchTarget } = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: touchTarget.min,
-        borderRadius: radii.sm,
-        borderWidth: 1,
-        borderColor: selected ? colors.accentPrimary : colors.border,
-        backgroundColor: selected ? colors.accentTint : colors.bgSurface,
-        justifyContent: 'center',
-        opacity: pressed ? 0.82 : 1,
-        paddingHorizontal: spacing.sm,
-      })}
-    >
-      <Text
-        selectable={false}
-        numberOfLines={1}
-        style={{
-          ...typography.caption,
-          color: selected ? colors.accentPrimary : colors.textSecondary,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}

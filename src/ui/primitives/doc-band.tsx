@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
+import { MarqueeText } from './marquee-text';
 import { useTheme } from '../theme/theme-provider';
 
 interface DocBandTopProps {
@@ -34,12 +35,11 @@ export function DocBand(props: DocBandProps) {
           alignItems: 'center',
         }}
       >
-        <Text
-          numberOfLines={1}
-          style={{ ...typography.formNumber, color: docBand.top.foreground, flex: 1 }}
-        >
-          {left}
-        </Text>
+        <MarqueeText
+          text={left}
+          duration={28000}
+          style={{ ...typography.formNumber, color: docBand.top.foreground }}
+        />
         {props.rightLabel ? (
           <Text
             numberOfLines={1}
@@ -65,12 +65,11 @@ export function DocBand(props: DocBandProps) {
         alignItems: 'center',
       }}
     >
-      <Text
-        numberOfLines={1}
-        style={{ ...typography.monoSm, color: docBand.footer.foreground, flex: 1 }}
-      >
-        {props.text ?? ''}
-      </Text>
+      <MarqueeText
+        text={props.text ?? ''}
+        duration={36000}
+        style={{ ...typography.monoSm, color: docBand.footer.foreground }}
+      />
       {props.page ? (
         <Text
           numberOfLines={1}

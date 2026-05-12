@@ -137,6 +137,67 @@ describe('logbook service', () => {
     ).rejects.toThrow('entry_locked');
   });
 
+  it('deletes a draft entry and cascades its gear usage and attachments', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const gearService = createGearService(db);
+
+    const entry = await service.createDraft(draftInput());
+    const gear = await gearService.createGearItem({
+      name: 'Petzl Avao Bod Croll',
+      category: 'harness',
+      serial_number: 'A-001',
+    });
+    await service.attachGearToEntry({ entry_id: entry.id, gear_id: gear.id, role: 'harness' });
+    await service.addEntryAttachment({
+      entry_id: entry.id,
+      label: 'Anchor photo',
+      uri: 'file:///tmp/anchor.jpg',
+      mime_type: 'image/jpeg',
+    });
+
+    const deleted = await service.deleteDraftEntry(entry.id);
+    expect(deleted).toEqual({ id: entry.id });
+
+    expect(await service.listEntries()).toHaveLength(0);
+    expect(await db.getAll('SELECT * FROM entry_gear_usage WHERE entry_id = ?', [entry.id])).toHaveLength(0);
+    expect(await db.getAll('SELECT * FROM entry_attachments WHERE entry_id = ?', [entry.id])).toHaveLength(0);
+
+    await expect(service.deleteDraftEntry(entry.id)).rejects.toThrow('entry_not_found');
+  });
+
+  it('refuses to delete a signed entry', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput());
+
+    await service.signEntryLocal({
+      entry_id: entry.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+    });
+
+    await expect(service.deleteDraftEntry(entry.id)).rejects.toThrow('entry_not_deletable');
+    expect(await service.listEntries()).toHaveLength(1);
+  });
+
+  it('refuses to delete a draft with a pending remote signature request', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput());
+
+    await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'Jordan Lee',
+      recipient_contact: 'jordan@example.com',
+    });
+
+    await expect(service.deleteDraftEntry(entry.id)).rejects.toThrow('entry_has_pending_remote_request');
+    expect(await service.listEntries()).toHaveLength(1);
+  });
+
   it('locally signs a draft, stores a hash, and locks the entry', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);

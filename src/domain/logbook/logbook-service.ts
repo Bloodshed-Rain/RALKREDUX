@@ -510,6 +510,27 @@ export function createLogbookService(db: DbClient) {
       return detail;
     },
 
+    async deleteDraftEntry(entryId: string): Promise<{ id: string }> {
+      const existing = await getEntryById(entryId);
+      if (!existing) throw new Error('entry_not_found');
+      if (existing.status !== 'draft') throw new Error('entry_not_deletable');
+
+      const pendingRemote = await getPendingRemoteRequestForEntry(entryId);
+      if (pendingRemote) throw new Error('entry_has_pending_remote_request');
+      if (existing.pending_signature_id) throw new Error('entry_pending_signature');
+
+      // Clean up any non-pending remote signature requests (cancelled / expired).
+      // There won't be a 'completed' one since this is still a draft.
+      await db.run('DELETE FROM remote_signature_requests WHERE entry_id = ?', [entryId]);
+      // entry_gear_usage and entry_attachments cascade automatically via ON DELETE CASCADE.
+      const result = await db.run(
+        "DELETE FROM entries WHERE id = ? AND status = 'draft' AND pending_signature_id IS NULL",
+        [entryId],
+      );
+      if (result.changes !== 1) throw new Error('entry_delete_failed');
+      return { id: entryId };
+    },
+
     async createAmendmentDraft(input: CreateAmendmentInput): Promise<LogbookEntry> {
       const original = await getEntryById(input.entry_id);
       if (!original) throw new Error('entry_not_found');

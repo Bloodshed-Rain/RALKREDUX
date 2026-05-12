@@ -1,9 +1,14 @@
 import React from 'react';
-import { Pressable, RefreshControl, Share, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, Share, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react-native';
-import { useEntries, useExportLogbook, useExportLogbookCsv } from '@/src/domain/logbook/use-logbook';
+import {
+  useDeleteDraftEntry,
+  useEntries,
+  useExportLogbook,
+  useExportLogbookCsv,
+} from '@/src/domain/logbook/use-logbook';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import {
   computeRangeKpis,
@@ -14,7 +19,7 @@ import {
   type EntryListStatus,
   type RangeKey,
 } from '@/src/domain/logbook/records-derivations';
-import { DocBand, RowDoc, Screen } from '@/src/ui/primitives';
+import { AnimatedCounter, DocBand, RowDoc, Screen, SwipeRow } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function formatRowDate(iso: string): string {
@@ -42,11 +47,41 @@ export default function RecordsScreen() {
   const queryClient = useQueryClient();
   const [range, setRange] = React.useState<RangeKey>('30D');
   const [refreshing, setRefreshing] = React.useState(false);
+  const [openSwipeId, setOpenSwipeId] = React.useState<string | null>(null);
   const entries = useEntries();
   const profile = useProfile();
   const exportLogbook = useExportLogbook();
   const exportLogbookCsv = useExportLogbookCsv();
+  const deleteDraft = useDeleteDraftEntry();
   const { tidewater, typography, spacing } = useTheme();
+
+  function confirmDeleteDraft(id: string, label: string) {
+    Alert.alert(
+      'Delete draft?',
+      `Permanently remove the draft for ${label}. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => setOpenSwipeId(null) },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setOpenSwipeId(null);
+            deleteDraft.mutate(id, {
+              onError: (err) => {
+                const reason =
+                  err instanceof Error && err.message === 'entry_has_pending_remote_request'
+                    ? 'A remote signature request is still pending. Resolve it before deleting this draft.'
+                    : err instanceof Error
+                      ? err.message
+                      : 'Could not delete the draft.';
+                Alert.alert('Could not delete draft', reason);
+              },
+            });
+          },
+        },
+      ],
+    );
+  }
 
   const today = new Date();
   const entriesData = entries.data ?? [];
@@ -176,13 +211,13 @@ export default function RecordsScreen() {
             inRange.map((entry) => {
               const status = getEntryListStatus(entry);
               const tone = statusTone(status, tidewater);
-              return (
+              const isDeletableDraft = status === 'DRAFT';
+              const row = (
                 <Pressable
-                  key={entry.id}
                   onPress={() => router.push(`/entry/${entry.id}`)}
                   accessibilityRole="button"
                   accessibilityLabel={`Open entry ${entry.site} on ${entry.date_to}`}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, backgroundColor: tidewater.paper })}
                 >
                   <RowDoc
                     cols={[
@@ -247,6 +282,21 @@ export default function RecordsScreen() {
                   />
                 </Pressable>
               );
+
+              if (!isDeletableDraft) {
+                return <View key={entry.id}>{row}</View>;
+              }
+
+              return (
+                <SwipeRow
+                  key={entry.id}
+                  open={openSwipeId === entry.id}
+                  onToggle={(open) => setOpenSwipeId(open ? entry.id : null)}
+                  onDelete={() => confirmDeleteDraft(entry.id, entry.site || 'this draft')}
+                >
+                  {row}
+                </SwipeRow>
+              );
             })
           )}
         </View>
@@ -304,19 +354,25 @@ function Kpi({ value, unit, label }: { value: string; unit: string; label: strin
   const { tidewater, typography } = useTheme();
   return (
     <View>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
+        <AnimatedCounter
+          text={value}
+          fontFamily="Archivo_900Black"
+          fontSize={26}
+          fontWeight="900"
+          letterSpacing={-0.4}
+          color={tidewater.ink}
+          height={30}
+          width={17}
+        />
         <Text
           style={{
-            fontFamily: 'Archivo_900Black',
-            fontSize: 26,
-            color: tidewater.ink,
-            fontWeight: '900',
-            letterSpacing: -0.4,
+            ...typography.monoSm,
+            color: tidewater.ink3,
+            letterSpacing: 1.2,
+            marginTop: 14,
           }}
         >
-          {value}
-        </Text>
-        <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
           {unit}
         </Text>
       </View>

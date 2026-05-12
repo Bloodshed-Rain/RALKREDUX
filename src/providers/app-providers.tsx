@@ -1,5 +1,4 @@
 import React from 'react';
-import { Text, View } from 'react-native';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -24,28 +23,10 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from '@/src/db/initialize';
+import { SplashScreen } from '@/src/ui/primitives';
 import { ThemeProvider } from '@/src/ui/theme/theme-provider';
-import { colors, typography } from '@/src/ui/theme/tokens';
 
 const queryClient = new QueryClient();
-
-function BootScreen({ label }: { label: string }) {
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.bgApp,
-        padding: 24,
-      }}
-    >
-      <Text selectable style={{ ...typography.bodyMed, color: colors.textPrimary, textAlign: 'center' }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [fontsLoaded] = useFonts({
@@ -73,14 +54,24 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  if (error) return <BootScreen label={`Database setup failed: ${error}`} />;
-  if (!fontsLoaded || !dbReady) return <BootScreen label="Preparing logbook" />;
+  const booting = !fontsLoaded || !dbReady;
+  const splashLabel = error
+    ? `Database setup failed - ${error}`
+    : !fontsLoaded
+      ? 'Loading typeface'
+      : !dbReady
+        ? 'Opening local ledger'
+        : 'Ready';
 
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>{children}</ThemeProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        {error || booting ? (
+          <SplashScreen label={splashLabel} ready={!booting && !error} />
+        ) : (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        )}
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
