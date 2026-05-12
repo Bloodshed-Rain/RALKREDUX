@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Keyboard, Pressable, Text, View } from 'react-native';
 import SignatureCanvas, { SignatureViewRef } from 'react-native-signature-canvas';
+import { RotateCcw } from 'lucide-react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { useTheme } from '../theme/theme-provider';
 
@@ -24,17 +25,33 @@ export function SignaturePad({
   label,
   value,
   onChange,
-  height = 180,
+  height = 220,
   onStrokeStart,
   onStrokeEnd,
 }: SignaturePadProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, radii, spacing, typography, touchTarget } = useTheme();
   const signatureRef = React.useRef<SignatureViewRef>(null);
   const isImageValue = isImageSignature(value);
+  const [hasStarted, setHasStarted] = React.useState(false);
+  const isSigned = Boolean(value);
+  const showHint = !isSigned && !hasStarted;
+  const showClear = isSigned || hasStarted;
+
+  function handleStart() {
+    Keyboard.dismiss();
+    if (!hasStarted) setHasStarted(true);
+    onStrokeStart?.();
+  }
+
+  function handleEnd() {
+    signatureRef.current?.readSignature();
+    onStrokeEnd?.();
+  }
 
   function clear() {
     signatureRef.current?.clearSignature();
     onChange('');
+    setHasStarted(false);
     onStrokeEnd?.();
   }
 
@@ -44,16 +61,40 @@ export function SignaturePad({
         <Text selectable style={{ ...typography.label, color: colors.textPrimary }}>
           {label}
         </Text>
-        <Pressable accessibilityRole="button" onPress={clear}>
-          <Text selectable={false} style={{ ...typography.label, color: colors.accentPrimary }}>
-            Clear
-          </Text>
-        </Pressable>
+        {showClear ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear signature"
+            onPress={clear}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              minHeight: touchTarget.min,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xs,
+              borderRadius: radii.sm,
+              borderWidth: 1,
+              borderColor: colors.border,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: spacing.xs,
+              backgroundColor: pressed ? colors.bgMuted : colors.bgSurface,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <RotateCcw size={16} color={colors.textPrimary} strokeWidth={2.2} />
+            <Text selectable={false} style={{ ...typography.label, color: colors.textPrimary }}>
+              Clear
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
       <View
-        onTouchStart={onStrokeStart}
-        onTouchEnd={onStrokeEnd}
-        onTouchCancel={onStrokeEnd}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={handleStart}
+        onResponderTerminationRequest={() => false}
+        onResponderRelease={handleEnd}
+        onResponderTerminate={handleEnd}
         style={{
           height,
           borderRadius: radii.sm,
@@ -63,7 +104,7 @@ export function SignaturePad({
           overflow: 'hidden',
         }}
       >
-        {value && !isImageValue ? (
+        {isSigned && !isImageValue ? (
           <Svg
             pointerEvents="none"
             width="100%"
@@ -81,44 +122,60 @@ export function SignaturePad({
             <Path d={value} fill="none" stroke={colors.textPrimary} strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} />
           </Svg>
         ) : (
-          <SignatureCanvas
-            ref={signatureRef}
-            autoClear={false}
-            backgroundColor="#ffffff"
-            dataURL={isImageValue ? value : undefined}
-            descriptionText=""
-            imageType="image/png"
-            minDistance={1}
-            minWidth={1.6}
-            maxWidth={3.2}
-            nestedScrollEnabled={false}
-            onBegin={onStrokeStart}
-            onEnd={() => {
-              signatureRef.current?.readSignature();
-              onStrokeEnd?.();
-            }}
-            onOK={onChange}
-            onClear={() => onChange('')}
-            penColor={colors.textPrimary}
-            scrollable={false}
-            trimWhitespace
-            webStyle={`
-              .m-signature-pad { box-shadow: none; border: none; height: 100%; }
-              .m-signature-pad--body { border: none; background-color: #ffffff; inset: 0; height: 100%; }
-              .m-signature-pad--body canvas { height: 100% !important; width: 100% !important; touch-action: none; }
-              .m-signature-pad--footer { display: none; }
-              body,html { height: 100%; margin: 0; overflow: hidden; background: #ffffff; }
-            `}
-            webviewProps={{
-              scrollEnabled: false,
-              bounces: false,
-            }}
-          />
+          <>
+            <SignatureCanvas
+              ref={signatureRef}
+              autoClear={false}
+              backgroundColor="#ffffff"
+              dataURL={isImageValue ? value : undefined}
+              descriptionText=""
+              imageType="image/png"
+              minDistance={1}
+              minWidth={1.6}
+              maxWidth={3.2}
+              nestedScrollEnabled={false}
+              onBegin={handleStart}
+              onEnd={handleEnd}
+              onOK={onChange}
+              onClear={() => onChange('')}
+              penColor={colors.textPrimary}
+              scrollable={false}
+              trimWhitespace
+              webStyle={`
+                .m-signature-pad { box-shadow: none; border: none; height: 100%; }
+                .m-signature-pad--body { border: none; background-color: #ffffff; inset: 0; height: 100%; }
+                .m-signature-pad--body canvas { height: 100% !important; width: 100% !important; touch-action: none; }
+                .m-signature-pad--footer { display: none; }
+                body,html { height: 100%; margin: 0; overflow: hidden; background: #ffffff; }
+              `}
+              webviewProps={{
+                scrollEnabled: false,
+                bounces: false,
+              }}
+            />
+            {showHint ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  alignItems: 'center',
+                  paddingHorizontal: spacing.lg,
+                  paddingBottom: spacing.md,
+                  gap: spacing.xs,
+                }}
+              >
+                <View style={{ alignSelf: 'stretch', height: 1, backgroundColor: colors.divider }} />
+                <Text selectable={false} style={{ ...typography.caption, color: colors.textMuted }}>
+                  Sign here
+                </Text>
+              </View>
+            ) : null}
+          </>
         )}
       </View>
-      <Text selectable style={{ ...typography.caption, color: colors.textSecondary }}>
-        Sign inside the box.
-      </Text>
     </View>
   );
 }

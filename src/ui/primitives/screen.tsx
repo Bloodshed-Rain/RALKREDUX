@@ -42,7 +42,7 @@ export function Screen({
         canCancelContentTouches={!childTouchIsCapturing}
         contentInsetAdjustmentBehavior="automatic"
         disableScrollViewPanResponder={childTouchIsCapturing}
-        keyboardDismissMode="interactive"
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}
         contentContainerStyle={{

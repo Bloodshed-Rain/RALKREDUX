@@ -2,12 +2,10 @@ import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   AlertTriangle,
-  BadgeCheck,
   CheckCircle2,
   Clock3,
   MapPin,
   PenLine,
-  ShieldCheck,
   UserRound,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
@@ -220,36 +218,27 @@ export default function LocalSignScreen() {
         ) : null}
       </Card>
 
-      <Card>
+      <View style={{ gap: spacing.md }}>
         <SectionHeader
           icon={PenLine}
-          title="Signature"
-          pill={signaturePath ? 'Captured' : undefined}
-          tone={signaturePath ? 'ok' : 'default'}
+          title="Signature & attestation"
+          pill={signaturePath && attestationAccepted ? 'Ready' : undefined}
+          tone={signaturePath && attestationAccepted ? 'ok' : 'default'}
         />
         <SignaturePad
           label="Draw signature"
           value={signaturePath}
           onChange={setSignaturePath}
-          height={220}
+          height={240}
           onStrokeStart={() => setSignatureActive(true)}
           onStrokeEnd={() => setSignatureActive(false)}
-        />
-      </Card>
-
-      <Card>
-        <SectionHeader
-          icon={ShieldCheck}
-          title="Attestation"
-          pill={attestationAccepted ? 'Accepted' : undefined}
-          tone={attestationAccepted ? 'ok' : 'default'}
         />
         <CheckboxRow
           checked={attestationAccepted}
           label={ATTESTATION_TEXT}
           onChange={setAttestationAccepted}
         />
-      </Card>
+      </View>
 
       {entry?.status && entry.status !== 'draft' ? (
         <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
