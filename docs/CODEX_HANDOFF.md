@@ -4,14 +4,41 @@ Last updated: 2026-05-11
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
-## Latest Handoff For New Chat
+## READ THIS FIRST — UI redesign incoming
 
-Most recent landings on `main`:
+The user has dropped a high-fidelity redesign spec in `design_handoff_ralkredux/` at the repo root. It is **the spec**, not code to modify. Open `design_handoff_ralkredux/README.md` end-to-end before doing UI work; the JSX files under `design_handoff_ralkredux/prototype/` and `design_handoff_ralkredux/brand/` are annotated reference implementations to mine for tokens/primitives/SVG, not to ship.
 
-- Stale-request verifier UX. Verifiers opening a closed link (completed, expired, cancelled, or pre-empted by a local signature) now see a status-specific card hoisted to the top of the verify screen instead of the generic `Request closed` notice buried below the work record. New pure helper `src/domain/logbook/remote-signing-status.ts` (`describeClosedRemoteRequest`) classifies the closed reason as a discriminated union, and `app/verify/[code].tsx` renders a tone-coded card (green `BadgeCheck` for completed, warn `CalendarClock` for expired, red `ShieldOff` for cancelled) with signer/expiry detail. The submit footer hides when the request is no longer actionable, and a `Close` button is added so the verifier can leave the page. Tests in `__tests__/domain/remote-signing-status.test.ts` cover all four closed reasons plus the actionable-null case.
-- Auto-sync polling for pending hosted remote-signing requests. New `useAutoSyncHostedRemoteSignature` hook in `src/cloud/supabase/use-remote-signing-sync.ts` polls every 5 s via `useFocusEffect` while the open entry has a pending hosted request, calls the same import path the manual `Sync` button used, and stops on success, on expiry, on entry status change, on screen unfocus, or after 3 consecutive failures. Manual `Sync` button stays as the recovery affordance. Tests in `__tests__/cloud/remote-signing.test.ts` cover the polling decision (configured/unconfigured, draft/signed, pending/completed, expired).
-- Tunnel-aware hosted verifier link. `buildHostedVerifierLink` now derives its origin from `Linking.createURL` at runtime, so switching between LAN and tunnel preview no longer requires a `.env` edit. `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` is now only honored when it starts with `http://` or `https://`, reserving it for a future hosted verifier web app.
-- Two-phone hosted smoke succeeded over Expo `--tunnel` with auto-sync: Pixel emulator (technician) created a request, iPhone (verifier) opened the shared link and signed, the technician device imported the completed signature without tapping `Sync`. Stale-request `completed` variant also visually verified on iPhone; `expired`, `cancelled`, and `pre_empted` variants are covered by tests but not yet eyeballed on a phone.
+Short version of the redesign:
+
+- Concept: reframe the app as a **regulated document system** — every screen reads like a numbered government form ("FORM 27-A · REV 4 · EFF 2026.05"), with doc-bands top and bottom, hairline borders (no shadows), high density, mono numbers, and rotated Newsreader-italic stamps (VERIFIED / WITNESSED / FILED / VOID / EXPIRED / DRAFT / AMENDED).
+- Palette: "Tidewater" — `#0b2545` ink, `#f6f3eb` paper, `#f5c518` safety yellow, `#1f7a3d` chain-green, `#b32f1a` void-red, plus tinted soft variants and hairline rules at three opacities.
+- Type: **Archivo** display (700–900) for titles/all-caps labels, **Inter** (400–700) for body, **IBM Plex Mono** (400–600) for form IDs / numbers / chips, **Newsreader italic** (500–700) for signatures and stamps. These are brand identity — do not substitute. Custom font wiring will need to extend `src/providers/app-providers.tsx`'s font load.
+- Nav: 5-item bottom tab bar — Today · Records · **New** (center, raised, opens 3-step modal) · Gear · More. Different from the current 4-tab layout.
+- Screens listed in spec: Splash → Today (home) → Records list → New record (3-step modal: site → activity → sign & witness) → Record detail → PPE/Gear → Audit export → Settings/Profile.
+- Domain shifts implied by the redesign: witness signature (second signer) required for fall-arrest and gear-retirement events; chain head displayed on home and on every record footer; "FILED" stamp is auto-derived from cloud sync state; "VOID" is auto-derived from amendment state. We need to confirm what new fields/services this needs before tearing up the UI.
+
+**Do not modify anything under `design_handoff_ralkredux/`** — the user explicitly carved that folder out as the source of truth.
+
+## Where the user paused
+
+The user picked "audit and propose" — they want the next session to read the redesign spec, audit the current behind-the-scenes (domain services, schema, hooks, providers) against what the new UI will demand, and propose a sequence for shoring up the back end *before* swapping the UI. They want the data/services rock-solid so the new screens are just glass on top. No UI rebuild work yet — the audit and the proposal are the immediate deliverable.
+
+Concrete first moves for the next session:
+
+1. Read `design_handoff_ralkredux/README.md` in full.
+2. Skim `design_handoff_ralkredux/prototype/prototype.jsx` and `official.jsx` to see what data each screen consumes.
+3. Cross-reference against the current `src/domain/*` services and `src/db/migrations.ts` schema.
+4. Produce a written audit: what's already there, what's missing (witness signing? chain-head display field? FILED/VOID derivation? new gear inspection schedule semantics?), and a proposed migration/service plan that does not break the existing signing model or the hosted remote-signing path.
+5. Surface the proposal to the user before writing migrations or new services.
+
+## Most recent landings on `main`
+
+- `0de3b33` Polish local sign screen and signature pad — pad height bumped to 240, taken out of its Card so it spans full Screen content width, in-pad "Sign here" baseline hint, proper bordered Clear button (icon + label) only shown once a stroke starts, Keyboard.dismiss on touch-down, `keyboardDismissMode="on-drag"` so scrolling kills the keyboard early. Sign screen dropped `presentation: 'modal'` from `app/_layout.tsx` so the iOS swipe-down-to-dismiss can no longer fight the signature input. Signature and attestation collapsed into one "Signature & attestation" section with a single Ready pill that lights up green only when both are done.
+- `b16e28e` Document stale-request verifier UX in handoff log.
+- `a6071b1` Surface why a remote signing request is closed — new pure helper `src/domain/logbook/remote-signing-status.ts` classifies the closed reason as a discriminated union (`completed` / `expired` / `cancelled` / `pre_empted`), and `app/verify/[code].tsx` renders a tone-coded card hoisted to the top of the verify screen with signer/expiry detail. Submit footer hides when not actionable, and a Close button lets the verifier leave the page. Tests in `__tests__/domain/remote-signing-status.test.ts` cover all four closed reasons plus the actionable-null case. Visually verified on iPhone for the `completed` variant; `expired` / `cancelled` / `pre_empted` covered by tests only.
+- `2465e6a` Document auto-sync and tunnel-aware verifier link.
+- `5bcf4bf` Derive hosted verifier link at runtime — `buildHostedVerifierLink` now uses `Linking.createURL` so LAN-vs-tunnel switching no longer needs a `.env` edit. `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` is only honored when it starts with `http(s)://`, reserved for a future hosted verifier web app.
+- `39026e5` Auto-sync pending hosted remote signatures — `useAutoSyncHostedRemoteSignature` hook polls every 5 s via `useFocusEffect` while the open entry has a pending hosted request, stops on success/expiry/status-change/unfocus/3-failures. Manual `Sync` button stays as recovery affordance.
 
 Earlier in this chat (prior to the auto-sync work):
 
@@ -296,17 +323,24 @@ npm.cmd run start -- --host lan
 
 ## Recommended Next Step
 
-First, run the two-phone hosted remote-signing smoke above. Then continue by turning the hosted foundation into a less manual product flow:
+The user wants the new UI to land on a back end that already has everything it needs. Do the audit-and-propose described in the "Where the user paused" section before touching screens or tokens.
 
-1. Wire the Expo app to the hosted remote-signing foundation:
-   - Decide whether anonymous technician sessions are acceptable for the first preview, or replace them with explicit email/OAuth technician auth.
-   - Decide whether to upload hosted requests immediately after local `createRemoteSignatureRequest`, or keep upload-on-share.
-   - Add automatic polling or realtime refresh around the manual `Sync` action.
-2. Cloud backup storage and conflict resolution on top of the local snapshot format.
-3. Local signing screen cleanup, especially signature-pad ergonomics and supervisor attestation density.
-4. Gear detail/history screens if inline entry and gear tabs become too dense.
-5. Visual export preview and full-logbook PDF if reviewer feedback calls for it.
-6. Native iOS/Android QA builds.
+The earlier roadmap items below are still real, but most of them now need to be re-prioritized against the redesign:
+
+1. **Witness signing** (second signer for fall-arrest events and gear retirement) — implied by the spec, not in the current schema. Will likely need a new migration, an `entry_witness_signatures` table or similar, and a parallel `useSignEntryWitness` hook. The existing chain-hash logic (`hashSignatureChain`) and `ENTRY_HASH_VERSION` will need a decision: does a witness change what a signature attests to? If yes, bump the hash version.
+2. **Derived stamps** — `VERIFIED`, `WITNESSED`, `FILED`, `VOID`, `AMENDED`, `EXPIRED`, `DRAFT` should be derived from existing entry/signature/remote-request state, not stored. The current code already has `entry.status` covering `draft` / `signed` / `amended` — extend a derivation helper in `src/domain/logbook/` rather than adding columns.
+3. **Chain head** — the spec wants `3f9a1c…b820`-style chain head shown on Today and on each record footer. The `chain_hash` already lives on each signature; expose a `useChainHead` hook that returns the most recent `chain_hash` across signed entries.
+4. **FILED state** — the spec uses `FILED` for "synced to cloud." We currently have no cloud snapshot sync (only hosted remote-signing). Either keep `FILED` derived from the hosted remote-signing path (signed remotely => filed) or invest in real cloud backup. Discuss with the user.
+5. **Tab bar shape change** — current layout is 4 tabs (Dashboard / Records / Gear / Profile). New spec is 5 tabs with a raised center "New" button. The custom mobile tab bar already exists (commit `5bcf4bf` era), so the swap is presentational but the wiring is fine.
+6. **Font load** — extend `@expo-google-fonts/inter` in `AppProviders` to also load Archivo, IBM Plex Mono, and Newsreader. Update `src/ui/theme/tokens.ts` `typography` to add the new families/scales.
+
+Hold off on rewriting the existing screens until the audit produces an agreed sequence.
+
+Earlier roadmap items that are not yet redesign-blocked:
+
+- Cloud backup storage and conflict resolution on top of the local snapshot format.
+- Visual export preview and full-logbook PDF if reviewer feedback calls for it.
+- Native iOS/Android QA builds.
 
 ## User Testing Help Needed
 
