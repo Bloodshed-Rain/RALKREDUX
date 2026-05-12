@@ -1,9 +1,12 @@
-import { Tabs } from 'expo-router';
-import { BookOpen, HardHat, Home, User } from 'lucide-react-native';
+import { router, Tabs } from 'expo-router';
+import { BookOpen, HardHat, MoreHorizontal, Plus, Sun } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/src/ui/theme/tokens';
+import { colors, tidewater } from '@/src/ui/theme/tokens';
+
+const RAISED_BUTTON_SIZE = 56;
+const RAISED_BUTTON_LIFT = 18;
 
 function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -23,6 +26,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         paddingHorizontal: 10,
         paddingTop: 7,
         paddingBottom: bottomInset + 7,
+        overflow: 'visible',
       }}
     >
       {state.routes.map((route) => {
@@ -34,6 +38,59 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             : options.title !== undefined
               ? options.title
               : route.name;
+
+        if (route.name === 'new') {
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityRole="button"
+              accessibilityLabel="Create new entry"
+              onPress={() => router.push('/entry/new')}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                overflow: 'visible',
+              }}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -RAISED_BUTTON_LIFT,
+                  width: RAISED_BUTTON_SIZE,
+                  height: RAISED_BUTTON_SIZE,
+                  borderRadius: RAISED_BUTTON_SIZE / 2,
+                  backgroundColor: colors.accentPrimary,
+                  borderWidth: 2,
+                  borderColor: colors.navBar,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: tidewater.ink,
+                  shadowOpacity: 0.25,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowRadius: 8,
+                  elevation: 6,
+                }}
+              >
+                <Plus color={tidewater.ink} size={28} strokeWidth={2.4} />
+              </View>
+              <Text
+                numberOfLines={1}
+                style={{
+                  position: 'absolute',
+                  top: RAISED_BUTTON_SIZE - RAISED_BUTTON_LIFT + 4,
+                  color: colors.textInverse,
+                  fontFamily: 'IBMPlexMono_500Medium',
+                  fontSize: 10,
+                  letterSpacing: 1.4,
+                }}
+              >
+                NEW
+              </Text>
+            </Pressable>
+          );
+        }
+
         const tintColor = isFocused ? colors.navBar : colors.textInverse;
 
         const onPress = () => {
@@ -67,7 +124,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             style={({ pressed }) => ({
               flex: 1,
               height: 58,
-              borderRadius: 16,
+              borderRadius: 4,
               marginHorizontal: 4,
               alignItems: 'center',
               justifyContent: 'center',
@@ -79,19 +136,19 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             {options.tabBarIcon?.({
               focused: isFocused,
               color: tintColor,
-              size: 24,
+              size: 22,
             })}
             <Text
               numberOfLines={1}
               style={{
                 color: tintColor,
-                fontFamily: 'Inter_600SemiBold',
-                fontSize: 11,
-                lineHeight: 14,
+                fontFamily: 'IBMPlexMono_500Medium',
+                fontSize: 10,
+                letterSpacing: 1.4,
                 textAlign: 'center',
               }}
             >
-              {typeof label === 'string' ? label : route.name}
+              {typeof label === 'string' ? label.toUpperCase() : route.name.toUpperCase()}
             </Text>
           </Pressable>
         );
@@ -111,10 +168,10 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="dashboard"
+        name="today"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} strokeWidth={1.8} />,
+          title: 'Today',
+          tabBarIcon: ({ color, size }) => <Sun color={color} size={size} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
@@ -125,6 +182,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="new"
+        options={{
+          title: 'New',
+        }}
+      />
+      <Tabs.Screen
         name="gear"
         options={{
           title: 'Gear',
@@ -132,10 +195,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="more"
         options={{
-          title: 'Me',
-          tabBarIcon: ({ color, size }) => <User color={color} size={size} strokeWidth={1.8} />,
+          title: 'More',
+          tabBarIcon: ({ color, size }) => (
+            <MoreHorizontal color={color} size={size} strokeWidth={1.8} />
+          ),
         }}
       />
     </Tabs>

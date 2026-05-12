@@ -48,7 +48,7 @@ export default function SetupScreen() {
         irata_level: scheme === 'irata' ? level : null,
         irata_expires_on: scheme === 'irata' ? expiresOn || null : null,
       },
-      { onSuccess: () => router.replace('/dashboard') },
+      { onSuccess: () => router.replace('/today') },
     );
   }
 

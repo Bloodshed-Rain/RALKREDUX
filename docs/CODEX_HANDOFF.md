@@ -29,7 +29,7 @@ Resulting stamp set: `DRAFT · PENDING · CHAIN OK · AMENDED · SYNCED · EXPIR
 
 ## Where the user paused
 
-Audit complete, decisions locked, **Phase A Clusters 1 + 2 implemented and validated** — TypeScript clean, Jest 75 tests across 11 suites all pass.
+Audit complete, decisions locked, **Phase A complete (Clusters 1–4 implemented and validated)** — TypeScript clean, Jest 75 tests across 11 suites all pass. Ready for Phase B (UI rebuild) on user go-ahead.
 
 Phase A scope (full detail in `docs/redesign-audit.md` §3):
 
@@ -39,8 +39,10 @@ Phase A scope (full detail in `docs/redesign-audit.md` §3):
 - [x] Add `verifyChainHashFor(entry, signature)` pure helper in `entry-hash.ts` for `CHAIN OK` derivation; detects entry-hash and chain-hash tampering when `hash_version` matches the running app.
 - [x] Font load: Archivo 700/800/900, IBM Plex Mono 400/500/600, Newsreader italic 500/700, Inter 700 in `AppProviders`.
 - [x] Theme overhaul: Tidewater palette + `tidewater` / `hairlines` / `docBand` / `stamp` token groups + display/mono/italic/formNumber typography scales. Existing screens get an instant facelift via remapped `colors` keys.
-- [ ] New primitives: `DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH` (Cluster 3).
-- [ ] 5-tab nav restructure: `Today / Records / New (raised center) / Gear / More` (Cluster 4).
+- [x] New primitives: `DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH` (all in `src/ui/primitives/`, exported from `index.ts`).
+- [x] 5-tab nav restructure: `Today / Records / New (raised center) / Gear / More`. `dashboard.tsx` → `today.tsx`, `profile.tsx` → `more.tsx`, `new.tsx` is a `Redirect` placeholder (tab-bar override pushes to `/entry/new` directly). Bar labels are mono-uppercase; raised center is a yellow 56px circle with `Plus` icon and an ink shadow (the spec's one allowed exception to "hairlines, not shadows").
+
+Phase A consumers that still need a Phase B pass: screen bodies (today/records/gear/more) still use the legacy Inter typography scales — they now render in Tidewater colors thanks to the remapped `colors` keys, but the doc-band chrome, form-cell layout, and stamp surfaces only land when each screen is rebuilt in Phase B.
 
 Phase B (UI rebuild — Splash / Today / Records / 3-step New modal / Record detail / Gear / More) is a separate proposal once Phase A is green.
 

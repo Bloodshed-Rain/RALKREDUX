@@ -18,6 +18,6 @@ export default function IndexRoute() {
   }
 
   if (!profile.data) return <Redirect href="/setup" />;
-  return <Redirect href="/dashboard" />;
+  return <Redirect href="/today" />;
 }
 
