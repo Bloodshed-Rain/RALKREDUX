@@ -95,6 +95,7 @@ export default function LocalSignScreen() {
   return (
     <Screen
       padded={false}
+      weave
       preserveChildTouches
       scrollEnabled={!signatureActive}
       footer={

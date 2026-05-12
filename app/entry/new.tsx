@@ -511,28 +511,37 @@ function Step1({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              canCancelContentTouches={false}
               contentContainerStyle={{ gap: spacing.xs }}
             >
               {templates.map((t) => (
                 <Pressable
                   key={t.id}
+                  accessibilityRole="button"
                   onPress={() => onApplyTemplate(t)}
-                  style={{
+                  hitSlop={6}
+                  style={({ pressed }) => ({
+                    minHeight: 36,
                     borderWidth: 1.5,
-                    borderColor: tidewater.hair,
+                    borderColor: tidewater.ink,
+                    backgroundColor: pressed ? tidewater.ink : tidewater.white,
                     paddingHorizontal: spacing.sm,
                     paddingVertical: 6,
-                  }}
+                    justifyContent: 'center',
+                  })}
                 >
-                  <Text
-                    style={{
-                      ...typography.displaySm,
-                      color: tidewater.ink,
-                      letterSpacing: 1.5,
-                    }}
-                  >
-                    {t.name.toUpperCase()}
-                  </Text>
+                  {({ pressed }) => (
+                    <Text
+                      style={{
+                        ...typography.displaySm,
+                        color: pressed ? tidewater.paper : tidewater.ink,
+                        letterSpacing: 1.5,
+                      }}
+                    >
+                      {t.name.toUpperCase()}
+                    </Text>
+                  )}
                 </Pressable>
               ))}
             </ScrollView>
@@ -671,15 +680,18 @@ function Step1({
               return (
                 <Pressable
                   key={unit}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   onPress={() => update({ heightUnit: unit })}
-                  style={{
+                  style={({ pressed }) => ({
                     flex: 1,
                     paddingVertical: 12,
                     backgroundColor: active ? tidewater.ink : 'transparent',
                     borderRightWidth: i === 0 ? 1 : 0,
                     borderRightColor: tidewater.hairSoft,
                     alignItems: 'center',
-                  }}
+                    opacity: pressed ? 0.7 : 1,
+                  })}
                 >
                   <Text
                     style={{
@@ -1283,19 +1295,25 @@ function ChipRow({
         return (
           <Pressable
             key={opt}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
             onPress={() => onSelect(opt)}
-            style={{
+            hitSlop={6}
+            style={({ pressed }) => ({
+              minHeight: 36,
               borderWidth: 1.5,
               borderColor: active ? tidewater.accent : tidewater.hair,
-              backgroundColor: active ? tidewater.accentSoft : 'transparent',
+              backgroundColor: active ? tidewater.accent : tidewater.white,
               paddingHorizontal: spacing.sm,
               paddingVertical: 6,
-            }}
+              justifyContent: 'center',
+              opacity: pressed ? 0.7 : 1,
+            })}
           >
             <Text
               style={{
                 ...typography.displaySm,
-                color: tidewater.ink,
+                color: active ? tidewater.paper : tidewater.ink,
                 letterSpacing: 1.5,
               }}
             >

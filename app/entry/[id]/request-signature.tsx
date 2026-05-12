@@ -86,6 +86,7 @@ export default function RemoteSignatureRequestScreen() {
   return (
     <Screen
       padded={false}
+      weave
       footer={
         <DocActionButton
           title={footerTitle}

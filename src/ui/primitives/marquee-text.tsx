@@ -7,31 +7,29 @@ interface MarqueeTextProps {
   style?: TextStyle;
   /** Container style override (gets `flex: 1, overflow: 'hidden'` baked in). */
   containerStyle?: ViewStyle;
-  /** Loop duration when marqueeing. Default 36000ms per the brand spec. */
+  /** Reference loop duration for a 320px wide string. Actual duration scales with content. */
   duration?: number;
-  /** Visible gap between the two looping copies when marqueeing. */
+  /** Visible gap between the two looping copies. */
   gap?: number;
 }
 
 /**
- * M.9 Ticker tape — auto-scrolling status crawl that only activates when the
- * content overflows its container. Static text otherwise. 36s linear default
- * speed per the brand handoff.
+ * M.9 Ticker tape — continuous status crawl. Always animates (per the brand
+ * "Status crawl" semantic) by translating two text copies left across the
+ * container. Falls back to static rendering only when reduced motion is on.
  */
 export function MarqueeText({
   text,
   style,
   containerStyle,
-  duration = 36000,
+  duration = 14000,
   gap = 48,
 }: MarqueeTextProps) {
   const reduced = useReducedMotion();
-  const [containerWidth, setContainerWidth] = React.useState(0);
   const [contentWidth, setContentWidth] = React.useState(0);
   const translateX = React.useRef(new Animated.Value(0)).current;
 
-  const shouldMarquee =
-    !reduced && containerWidth > 0 && contentWidth > 0 && contentWidth > containerWidth + 1;
+  const shouldMarquee = !reduced && contentWidth > 0 && text.length > 0;
 
   React.useEffect(() => {
     if (!shouldMarquee) {
@@ -39,11 +37,13 @@ export function MarqueeText({
       return;
     }
     const distance = contentWidth + gap;
+    // Pace the loop relative to text length so short status strings don't fly past too fast.
+    const pacedDuration = Math.max(duration * (distance / 320), 2200);
     translateX.setValue(0);
     const loop = Animated.loop(
       Animated.timing(translateX, {
         toValue: -distance,
-        duration,
+        duration: pacedDuration,
         easing: Easing.linear,
         useNativeDriver: true,
       }),
@@ -54,29 +54,22 @@ export function MarqueeText({
     };
   }, [contentWidth, duration, gap, shouldMarquee, translateX]);
 
-  function handleContainerLayout(event: LayoutChangeEvent) {
-    setContainerWidth(event.nativeEvent.layout.width);
-  }
-
   function handleContentLayout(event: LayoutChangeEvent) {
     setContentWidth(event.nativeEvent.layout.width);
   }
 
   return (
-    <View
-      onLayout={handleContainerLayout}
-      style={[{ flex: 1, overflow: 'hidden' }, containerStyle]}
-    >
+    <View style={[{ flex: 1, overflow: 'hidden' }, containerStyle]}>
       <Animated.View style={{ flexDirection: 'row', transform: [{ translateX }] }}>
-        <Text
-          style={style}
-          numberOfLines={1}
-          onLayout={handleContentLayout}
-        >
+        <Text style={style} numberOfLines={1} onLayout={handleContentLayout}>
           {text}
         </Text>
         {shouldMarquee ? (
           <>
+            <View style={{ width: gap }} />
+            <Text style={style} numberOfLines={1}>
+              {text}
+            </Text>
             <View style={{ width: gap }} />
             <Text style={style} numberOfLines={1}>
               {text}

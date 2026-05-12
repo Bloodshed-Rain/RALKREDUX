@@ -154,7 +154,7 @@ export default function RemoteVerifyScreen() {
   if (completedDetail) {
     const signed = completedDetail.signature;
     return (
-      <Screen padded={false}>
+      <Screen padded={false} weave>
         <DocBand
           variant="top"
           formId="CH.8 - VERIFIER PORTAL"
@@ -237,7 +237,7 @@ export default function RemoteVerifyScreen() {
   // No token
   if (!signingToken) {
     return (
-      <Screen padded={false}>
+      <Screen padded={false} weave>
         <DocBand variant="top" formId="CH.8 - VERIFIER PORTAL" rev="NO TOKEN" rightLabel="HOLD" />
         <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.md }}>
           <View
@@ -265,7 +265,7 @@ export default function RemoteVerifyScreen() {
   // Loading
   if (requestDetail.isLoading || hostedRequestDetail.isLoading) {
     return (
-      <Screen padded={false}>
+      <Screen padded={false} weave>
         <DocBand variant="top" formId="CH.8 - VERIFIER PORTAL" rev="LOADING" rightLabel="WAIT" />
         <View style={{ padding: spacing.base }}>
           <Text style={{ ...typography.body, color: tidewater.ink }}>Loading request…</Text>
@@ -277,7 +277,7 @@ export default function RemoteVerifyScreen() {
   // Not found
   if (!detail || !entry || !request) {
     return (
-      <Screen padded={false}>
+      <Screen padded={false} weave>
         <DocBand variant="top" formId="CH.8 - VERIFIER PORTAL" rev="NOT FOUND" rightLabel="404" />
         <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.md }}>
           <Text style={{ ...typography.displayMd, color: tidewater.ink }}>Request not found</Text>
@@ -293,6 +293,7 @@ export default function RemoteVerifyScreen() {
   return (
     <Screen
       padded={false}
+      weave
       preserveChildTouches
       scrollEnabled={!signatureActive}
       footer={

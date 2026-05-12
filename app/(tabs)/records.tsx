@@ -363,7 +363,7 @@ function Kpi({ value, unit, label }: { value: string; unit: string; label: strin
           letterSpacing={-0.4}
           color={tidewater.ink}
           height={30}
-          width={17}
+          width={19}
         />
         <Text
           style={{

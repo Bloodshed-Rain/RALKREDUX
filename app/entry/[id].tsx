@@ -114,7 +114,7 @@ export default function EntryDetailScreen() {
 
   if (!entry) {
     return (
-      <Screen padded={false}>
+      <Screen padded={false} weave>
         <DocBand variant="top" formId="CH.7 - ENTRY RECORD" rev="MISSING" rightLabel="404" />
         <View style={{ padding: spacing.base, gap: spacing.md }}>
           <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }}>

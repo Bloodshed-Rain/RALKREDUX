@@ -13,6 +13,7 @@ export type { DocBandProps } from './doc-band';
 export { Field } from './field';
 export { FormCell } from './form-cell';
 export { LoadGauge } from './load-gauge';
+export { MarkPlate } from './mark-plate';
 export { MarqueeText } from './marquee-text';
 export { PulleySpinner } from './pulley-spinner';
 export { RowDoc } from './row-doc';

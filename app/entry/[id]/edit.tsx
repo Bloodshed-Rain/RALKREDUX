@@ -135,7 +135,7 @@ export default function EditDraftScreen() {
 
   if (detail.isLoading) {
     return (
-      <Screen padded={false}>
+      <Screen padded={false} weave>
         <DocBand variant="top" formId="CH.5A - DRAFT EDIT" rev="LOADING" rightLabel="WAIT" />
         <View style={{ padding: spacing.base }}>
           <Text style={{ ...typography.body, color: tidewater.ink }}>Loading draft…</Text>
@@ -153,6 +153,7 @@ export default function EditDraftScreen() {
   return (
     <Screen
       padded={false}
+      weave
       footer={
         <DocActionButton
           title={isAuditReady ? 'SAVE AUDIT-READY DRAFT' : 'SAVE DRAFT'}

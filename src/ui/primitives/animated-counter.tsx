@@ -14,9 +14,9 @@ interface AnimatedCounterProps {
   height?: number;
   /** Visible width of each digit slot. Defaults to fontSize * 0.7. */
   width?: number;
-  /** Per-digit roll duration. Default 4000ms. */
+  /** Per-digit roll duration. Default 1800ms. */
   duration?: number;
-  /** Stagger between adjacent digit starts. Default 180ms. */
+  /** Stagger between adjacent digit starts. Default 120ms. */
   stagger?: number;
 }
 
@@ -37,8 +37,8 @@ export function AnimatedCounter({
   letterSpacing,
   height,
   width,
-  duration = 4000,
-  stagger = 180,
+  duration = 1800,
+  stagger = 120,
 }: AnimatedCounterProps) {
   const slotHeight = height ?? Math.round(fontSize * 1.15);
   const slotWidth = width ?? Math.round(fontSize * 0.7);

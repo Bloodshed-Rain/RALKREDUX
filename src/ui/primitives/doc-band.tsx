@@ -37,7 +37,7 @@ export function DocBand(props: DocBandProps) {
       >
         <MarqueeText
           text={left}
-          duration={28000}
+          duration={11000}
           style={{ ...typography.formNumber, color: docBand.top.foreground }}
         />
         {props.rightLabel ? (
@@ -67,7 +67,7 @@ export function DocBand(props: DocBandProps) {
     >
       <MarqueeText
         text={props.text ?? ''}
-        duration={36000}
+        duration={14000}
         style={{ ...typography.monoSm, color: docBand.footer.foreground }}
       />
       {props.page ? (

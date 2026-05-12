@@ -1,24 +1,25 @@
 import React from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Defs, Line, Pattern, Rect } from 'react-native-svg';
+import { Animated, Easing, StyleSheet } from 'react-native';
+import Svg, { Circle, Defs, Line, Pattern, Rect } from 'react-native-svg';
 import { useReducedMotion } from '../animation/use-reduced-motion';
 import { useTheme } from '../theme/theme-provider';
 
 interface WeaveBackdropProps {
   /** Tile edge length in px. Pattern repeats seamlessly along this size. */
   tile?: number;
-  /** Opacity of the entire weave layer. Default 0.04 — barely perceptible. */
-  opacity?: number;
   /** Override the stroke color. Default tidewater.ink. */
   color?: string;
+  /** Override the layer opacity. Default 1 (lines already have their own opacity per the brand spec). */
+  opacity?: number;
 }
 
 /**
- * M.6 Weave drift — tiled cross-hatch that drifts vertically over 6s linear.
- * Renders as an absolute-positioned, non-interactive overlay. Pattern is sized
- * so the drift loop wraps seamlessly.
+ * M.6 Weave drift — drifting security weave for sensitive screens / splash.
+ * Tile size, line opacities, and center-dot diameter mirror the brand-sheet
+ * `PatternWeave`. Whole layer translates one tile-edge over 6s linear so the
+ * drift loop wraps seamlessly.
  */
-export function WeaveBackdrop({ tile = 24, opacity = 0.04, color }: WeaveBackdropProps) {
+export function WeaveBackdrop({ tile = 20, color, opacity = 1 }: WeaveBackdropProps) {
   const { tidewater } = useTheme();
   const reduced = useReducedMotion();
   const drift = React.useRef(new Animated.Value(0)).current;
@@ -43,6 +44,11 @@ export function WeaveBackdrop({ tile = 24, opacity = 0.04, color }: WeaveBackdro
     };
   }, [drift, reduced]);
 
+  // Drift diagonally — both axes by one tile so the seamless wrap works in 2D.
+  const translateX = drift.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, tile],
+  });
   const translateY = drift.interpolate({
     inputRange: [0, 1],
     outputRange: [0, tile],
@@ -55,18 +61,23 @@ export function WeaveBackdrop({ tile = 24, opacity = 0.04, color }: WeaveBackdro
         StyleSheet.absoluteFillObject,
         {
           opacity,
-          transform: [{ translateY }],
-          // Extra room top + bottom so the drift can shift without revealing edges.
+          transform: [{ translateX }, { translateY }],
+          // Extra room around the edges so the drift can shift without revealing the seam.
           top: -tile,
           bottom: -tile,
+          left: -tile,
+          right: -tile,
         },
       ]}
     >
       <Svg width="100%" height="100%">
         <Defs>
           <Pattern id="ralb-weave" x={0} y={0} width={tile} height={tile} patternUnits="userSpaceOnUse">
-            <Line x1={0} y1={0} x2={tile} y2={tile} stroke={stroke} strokeWidth={0.6} />
-            <Line x1={0} y1={tile} x2={tile} y2={0} stroke={stroke} strokeWidth={0.4} opacity={0.6} />
+            {/* Two diagonal hairlines (NW→SE and SW→NE), bleeding past the tile edge so the cross stays seamless. */}
+            <Line x1={-2} y1={tile + 2} x2={tile + 2} y2={-2} stroke={stroke} strokeWidth={0.5} opacity={0.18} />
+            <Line x1={-2} y1={2} x2={tile + 2} y2={tile + 2} stroke={stroke} strokeWidth={0.5} opacity={0.18} />
+            {/* Center dot for the weave junction. */}
+            <Circle cx={tile / 2} cy={tile / 2} r={0.7} fill={stroke} opacity={0.42} />
           </Pattern>
         </Defs>
         <Rect x={0} y={0} width="100%" height="100%" fill="url(#ralb-weave)" />

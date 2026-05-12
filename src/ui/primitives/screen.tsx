@@ -20,7 +20,7 @@ interface ScreenProps {
   refreshControl?: React.ReactElement<RefreshControlProps>;
   safeTop?: boolean;
   scrollEnabled?: boolean;
-  /** Enable the M.6 weave drift ambient backdrop. Default true. */
+  /** Enable the M.6 security weave backdrop. Off by default — opt in on signing-sensitive screens. */
   weave?: boolean;
 }
 
@@ -33,7 +33,7 @@ export function Screen({
   refreshControl,
   safeTop = false,
   scrollEnabled = true,
-  weave = true,
+  weave = false,
 }: ScreenProps) {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();

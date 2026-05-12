@@ -161,8 +161,8 @@ export default function TodayScreen() {
                 fontWeight="900"
                 letterSpacing={-1}
                 color={tidewater.ink}
-                height={60}
-                width={36}
+                height={64}
+                width={44}
               />
               <View style={{ marginLeft: 4, paddingBottom: 4 }}>
                 <AnimatedCounter
@@ -172,7 +172,7 @@ export default function TodayScreen() {
                   fontWeight="900"
                   color={tidewater.accent}
                   height={32}
-                  width={18}
+                  width={22}
                 />
               </View>
             </View>
@@ -363,7 +363,7 @@ function CertDial({ progress }: { progress: CertProgress }) {
               fontWeight="900"
               color={tidewater.ink}
               height={34}
-              width={20}
+              width={23}
             />
             <Text style={{ ...typography.monoMd, color: tidewater.accent, fontWeight: '600', marginLeft: 2 }}>
               %

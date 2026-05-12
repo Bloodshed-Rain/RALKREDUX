@@ -96,6 +96,7 @@ export default function AmendEntryScreen() {
   return (
     <Screen
       padded={false}
+      weave
       footer={
         <DocActionButton
           title={canSave ? 'CREATE AMENDMENT DRAFT' : 'FINISH AMENDMENT'}

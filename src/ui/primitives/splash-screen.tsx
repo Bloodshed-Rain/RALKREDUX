@@ -3,6 +3,7 @@ import { Animated, Dimensions, Easing, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from '../animation/use-reduced-motion';
 import { useTheme } from '../theme/theme-provider';
+import { MarkPlate } from './mark-plate';
 
 interface SplashScreenProps {
   label?: string;
@@ -115,52 +116,23 @@ export function SplashScreen({ label = 'PREPARING LOGBOOK', ready = false }: Spl
         }}
       />
 
-      {/* Centered monogram */}
+      {/* Centered industrial nameplate logo */}
       <View
         style={{
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
           paddingHorizontal: spacing.lg,
-          gap: spacing.sm,
+          gap: spacing.md,
         }}
       >
-        <View
-          style={{
-            borderWidth: 2,
-            borderColor: tidewater.paper,
-            paddingHorizontal: spacing.base,
-            paddingVertical: spacing.sm,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: 'Archivo_900Black',
-              fontSize: 56,
-              lineHeight: 60,
-              color: tidewater.paper,
-              fontWeight: '900',
-              letterSpacing: 6,
-            }}
-          >
-            RALB
-          </Text>
-        </View>
-        <Text
-          style={{
-            ...typography.monoSm,
-            color: 'rgba(230,236,232,0.72)',
-            letterSpacing: 3,
-            marginTop: spacing.xs,
-          }}
-        >
-          ROPE ACCESS LOGBOOK
-        </Text>
+        <MarkPlate size={220} color={tidewater.ink} />
         <Text
           style={{
             ...typography.monoSm,
             color: 'rgba(230,236,232,0.42)',
             letterSpacing: 2,
+            marginTop: spacing.sm,
           }}
         >
           FORM 27-A · EST. ANNO IV

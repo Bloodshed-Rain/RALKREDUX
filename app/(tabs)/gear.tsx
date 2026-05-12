@@ -752,7 +752,7 @@ function KpiTile({
         letterSpacing={-0.4}
         color={accent}
         height={30}
-        width={18}
+        width={21}
       />
     </Pressable>
   );
