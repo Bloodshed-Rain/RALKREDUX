@@ -34,9 +34,17 @@ export function DocBand(props: DocBandProps) {
           alignItems: 'center',
         }}
       >
-        <Text style={{ ...typography.formNumber, color: docBand.top.foreground }}>{left}</Text>
+        <Text
+          numberOfLines={1}
+          style={{ ...typography.formNumber, color: docBand.top.foreground, flex: 1 }}
+        >
+          {left}
+        </Text>
         {props.rightLabel ? (
-          <Text style={{ ...typography.formNumber, color: docBand.top.foreground }}>
+          <Text
+            numberOfLines={1}
+            style={{ ...typography.formNumber, color: docBand.top.foreground, flexShrink: 0, marginLeft: spacing.sm }}
+          >
             {props.rightLabel}
           </Text>
         ) : null}
@@ -57,11 +65,19 @@ export function DocBand(props: DocBandProps) {
         alignItems: 'center',
       }}
     >
-      <Text style={{ ...typography.monoSm, color: docBand.footer.foreground, flex: 1 }}>
+      <Text
+        numberOfLines={1}
+        style={{ ...typography.monoSm, color: docBand.footer.foreground, flex: 1 }}
+      >
         {props.text ?? ''}
       </Text>
       {props.page ? (
-        <Text style={{ ...typography.monoSm, color: docBand.footer.foreground }}>{props.page}</Text>
+        <Text
+          numberOfLines={1}
+          style={{ ...typography.monoSm, color: docBand.footer.foreground, flexShrink: 0, marginLeft: spacing.sm }}
+        >
+          {props.page}
+        </Text>
       ) : null}
     </View>
   );

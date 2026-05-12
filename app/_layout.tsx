@@ -25,7 +25,10 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false, title: 'RALB' }} />
         <Stack.Screen name="(onboarding)/setup" options={{ headerShown: false, title: 'Set up' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'RALB' }} />
-        <Stack.Screen name="entry/new" options={{ title: 'New entry', presentation: 'modal' }} />
+        <Stack.Screen
+          name="entry/new"
+          options={{ title: 'New entry', presentation: 'modal', headerShown: false }}
+        />
         <Stack.Screen name="entry/[id]" options={{ title: 'Entry' }} />
         <Stack.Screen name="entry/[id]/edit" options={{ title: 'Edit draft', presentation: 'modal' }} />
         <Stack.Screen name="entry/[id]/sign" options={{ title: 'Local sign' }} />

@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Copy, Minus, PenLine, Plus, Send } from 'lucide-react-native';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
@@ -148,6 +148,10 @@ function buildUpdateInput(draft: DraftState, entryId: string): UpdateDraftEntryI
   return { ...buildCreateInput(draft), entry_id: entryId };
 }
 
+function withSupervisor(path: string, supervisorId: string | null): string {
+  return supervisorId ? `${path}?supervisorId=${encodeURIComponent(supervisorId)}` : path;
+}
+
 export default function NewEntryWizard() {
   const { tidewater, typography, spacing } = useTheme();
   const insets = useSafeAreaInsets();
@@ -241,7 +245,7 @@ export default function NewEntryWizard() {
     setBusy('sign');
     try {
       const id = await commitDraft();
-      if (id) router.replace(`/entry/${id}/sign`);
+      if (id) router.replace(withSupervisor(`/entry/${id}/sign`, draft.selectedSupervisorId));
     } catch (err) {
       Alert.alert('Could not save before signing', err instanceof Error ? err.message : String(err));
     } finally {
@@ -253,7 +257,7 @@ export default function NewEntryWizard() {
     setBusy('request');
     try {
       const id = await commitDraft();
-      if (id) router.replace(`/entry/${id}/request-signature`);
+      if (id) router.replace(withSupervisor(`/entry/${id}/request-signature`, draft.selectedSupervisorId));
     } catch (err) {
       Alert.alert('Could not save before requesting', err instanceof Error ? err.message : String(err));
     } finally {
@@ -311,12 +315,10 @@ export default function NewEntryWizard() {
     step === 1 ? step1Ready(draft) : step === 2 ? step2Ready(draft) : false;
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, backgroundColor: tidewater.paper }}
-      >
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tidewater.paper }}
+    >
         <View style={{ paddingTop: insets.top, backgroundColor: tidewater.ink, position: 'relative' }}>
           <View
             style={{
@@ -382,6 +384,7 @@ export default function NewEntryWizard() {
 
         <ScrollView
           style={{ flex: 1 }}
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={{
             padding: spacing.base,
             gap: spacing.md,
@@ -478,8 +481,7 @@ export default function NewEntryWizard() {
             </Pressable>
           </View>
         ) : null}
-      </KeyboardAvoidingView>
-    </>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -255,6 +255,7 @@ export default function RecordsScreen() {
         <View
           style={{
             flexDirection: 'row',
+            flexWrap: 'wrap',
             gap: spacing.sm,
             alignItems: 'center',
             marginTop: spacing.sm,
@@ -275,7 +276,14 @@ export default function RecordsScreen() {
             </Text>
           </Pressable>
           <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>·</Text>
-          <Text style={{ ...typography.displaySm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+          <Text
+            style={{
+              ...typography.displaySm,
+              color: tidewater.ink3,
+              letterSpacing: 1.5,
+              flexShrink: 1,
+            }}
+          >
             PDF (per entry, see detail)
           </Text>
         </View>

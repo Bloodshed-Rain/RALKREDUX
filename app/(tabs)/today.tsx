@@ -280,7 +280,7 @@ export default function TodayScreen() {
               ✓ {signedTodayCount} RECORD{signedTodayCount > 1 ? 'S' : ''} SIGNED TODAY
             </Text>
             <Text style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
-              Hash chain extended · ledger synced
+              Hash chain extended - local ledger updated
             </Text>
           </View>
         ) : null}

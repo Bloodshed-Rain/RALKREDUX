@@ -28,8 +28,12 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default function RemoteSignatureRequestScreen() {
   const { colors, radii, spacing, typography, touchTarget } = useTheme();
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id, supervisorId } = useLocalSearchParams<{
+    id?: string | string[];
+    supervisorId?: string | string[];
+  }>();
   const entryId = firstParam(id);
+  const supervisorIdParam = firstParam(supervisorId);
   const detail = useEntryDetail(entryId);
   const createRequest = useCreateRemoteSignatureRequest();
   const supervisors = useSupervisorContacts();
@@ -38,8 +42,23 @@ export default function RemoteSignatureRequestScreen() {
   const [verifierRole, setVerifierRole] = React.useState('');
   const [verifierCompany, setVerifierCompany] = React.useState('');
   const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const didPrefillSupervisor = React.useRef(false);
   const entry = detail.data?.entry;
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
+
+  React.useEffect(() => {
+    if (didPrefillSupervisor.current || !supervisorIdParam) return;
+    const supervisor = supervisors.data?.find((item) => item.id === supervisorIdParam);
+    if (!supervisor) return;
+
+    didPrefillSupervisor.current = true;
+    setRecipientName(supervisor.name);
+    setRecipientContact(supervisor.contact ?? '');
+    setVerifierRole(supervisor.role ?? '');
+    setVerifierCompany(supervisor.company ?? '');
+    setDetailsOpen(Boolean(supervisor.role || supervisor.company));
+  }, [supervisorIdParam, supervisors.data]);
+
   const selectedKnownSupervisor = supervisors.data?.find(
     (supervisor) =>
       supervisor.name === recipientName &&

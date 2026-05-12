@@ -53,6 +53,7 @@ export function RowDoc({ cols, head, emphasize, danger }: RowDocProps) {
           <View key={index} style={{ ...sizing, alignItems: alignment }}>
             {typeof col.value === 'string' ? (
               <Text
+                numberOfLines={1}
                 style={{
                   ...baseStyle,
                   color,

@@ -32,8 +32,12 @@ const ATTESTATION_TEXT = 'I verify this entry matches the work performed and I a
 
 export default function LocalSignScreen() {
   const { colors, radii, spacing, typography, touchTarget } = useTheme();
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id, supervisorId } = useLocalSearchParams<{
+    id?: string | string[];
+    supervisorId?: string | string[];
+  }>();
   const entryId = firstParam(id);
+  const supervisorIdParam = firstParam(supervisorId);
   const detail = useEntryDetail(entryId);
   const signEntry = useSignEntryLocal();
   const supervisors = useSupervisorContacts();
@@ -43,10 +47,27 @@ export default function LocalSignScreen() {
   const [signaturePath, setSignaturePath] = React.useState('');
   const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
+  const didPrefillSupervisor = React.useRef(false);
 
   const entry = detail.data?.entry;
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
   const requiresCertNumber = Boolean(entry?.irata_level_snapshot);
+
+  React.useEffect(() => {
+    if (didPrefillSupervisor.current || !supervisorIdParam || !entry) return;
+    const supervisor = supervisors.data?.find((item) => item.id === supervisorIdParam);
+    if (!supervisor) return;
+
+    didPrefillSupervisor.current = true;
+    setSupervisorName(supervisor.name);
+    setSupervisorIrataLevel(irataLevelFromNumber(supervisor.cert_number, supervisorIrataLevel));
+    setSupervisorCertNumber(
+      requiresCertNumber
+        ? irataNumberDigits(supervisor.cert_number ?? '')
+        : normalizeSpratNumber(supervisor.cert_number ?? ''),
+    );
+  }, [entry, requiresCertNumber, supervisorIdParam, supervisorIrataLevel, supervisors.data]);
+
   const selectedKnownSupervisor = supervisors.data?.find(
     (supervisor) =>
       supervisor.name === supervisorName &&
