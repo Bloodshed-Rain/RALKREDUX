@@ -29,7 +29,7 @@ Resulting stamp set: `DRAFT · PENDING · CHAIN OK · AMENDED · SYNCED · EXPIR
 
 ## Where the user paused
 
-Audit complete, decisions locked, **Phase A Cluster 1 implemented and validated** — TypeScript clean, Jest 75 tests across 11 suites all pass, `npm run functions:check` green. Awaiting commit.
+Audit complete, decisions locked, **Phase A Clusters 1 + 2 implemented and validated** — TypeScript clean, Jest 75 tests across 11 suites all pass.
 
 Phase A scope (full detail in `docs/redesign-audit.md` §3):
 
@@ -37,8 +37,8 @@ Phase A scope (full detail in `docs/redesign-audit.md` §3):
 - [x] Add `src/domain/logbook/entry-stamps.ts` — pure `deriveEntryStamps(...)` helper. Stamp set: `DRAFT | PENDING | CHAIN_OK | AMENDED | SYNCED`.
 - [x] Add `useEntryCloudState(entryId)` hook → `'local' | 'queued' | 'synced'`.
 - [x] Add `verifyChainHashFor(entry, signature)` pure helper in `entry-hash.ts` for `CHAIN OK` derivation; detects entry-hash and chain-hash tampering when `hash_version` matches the running app.
-- [ ] Font load: Archivo, IBM Plex Mono, Newsreader italic + Inter 700 in `AppProviders` (Cluster 2).
-- [ ] Theme overhaul: Tidewater palette + hairline/doc-band/stamp/typography tokens (Cluster 2).
+- [x] Font load: Archivo 700/800/900, IBM Plex Mono 400/500/600, Newsreader italic 500/700, Inter 700 in `AppProviders`.
+- [x] Theme overhaul: Tidewater palette + `tidewater` / `hairlines` / `docBand` / `stamp` token groups + display/mono/italic/formNumber typography scales. Existing screens get an instant facelift via remapped `colors` keys.
 - [ ] New primitives: `DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH` (Cluster 3).
 - [ ] 5-tab nav restructure: `Today / Records / New (raised center) / Gear / More` (Cluster 4).
 

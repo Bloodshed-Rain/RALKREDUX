@@ -4,8 +4,23 @@ import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
+  Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
+import {
+  Archivo_700Bold,
+  Archivo_800ExtraBold,
+  Archivo_900Black,
+} from '@expo-google-fonts/archivo';
+import {
+  IBMPlexMono_400Regular,
+  IBMPlexMono_500Medium,
+  IBMPlexMono_600SemiBold,
+} from '@expo-google-fonts/ibm-plex-mono';
+import {
+  Newsreader_500Medium_Italic,
+  Newsreader_700Bold_Italic,
+} from '@expo-google-fonts/newsreader';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from '@/src/db/initialize';
@@ -37,6 +52,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
+    Inter_700Bold,
+    Archivo_700Bold,
+    Archivo_800ExtraBold,
+    Archivo_900Black,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
+    IBMPlexMono_600SemiBold,
+    Newsreader_500Medium_Italic,
+    Newsreader_700Bold_Italic,
   });
   const [dbReady, setDbReady] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
