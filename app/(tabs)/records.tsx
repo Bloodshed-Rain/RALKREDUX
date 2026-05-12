@@ -264,13 +264,13 @@ export default function RecordsScreen() {
             EXPORT:
           </Text>
           <Pressable onPress={shareJson} hitSlop={6}>
-            <Text style={{ ...typography.displaySm, color: tidewater.yellowDeep, letterSpacing: 1.5 }}>
+            <Text style={{ ...typography.displaySm, color: tidewater.accent, letterSpacing: 1.5 }}>
               JSON
             </Text>
           </Pressable>
           <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>·</Text>
           <Pressable onPress={shareCsv} hitSlop={6}>
-            <Text style={{ ...typography.displaySm, color: tidewater.yellowDeep, letterSpacing: 1.5 }}>
+            <Text style={{ ...typography.displaySm, color: tidewater.accent, letterSpacing: 1.5 }}>
               CSV
             </Text>
           </Pressable>

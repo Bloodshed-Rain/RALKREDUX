@@ -171,7 +171,7 @@ export default function TodayScreen() {
                   fontFamily: 'Archivo_900Black',
                   fontSize: 30,
                   lineHeight: 32,
-                  color: tidewater.yellow,
+                  color: tidewater.accent,
                   fontWeight: '900',
                   marginLeft: 4,
                   paddingBottom: 4,
@@ -367,7 +367,7 @@ function CertDial({ progress }: { progress: CertProgress }) {
         >
           {pct}
         </Text>
-        <Text style={{ ...typography.monoMd, color: tidewater.yellow, fontWeight: '600', marginLeft: 2 }}>
+        <Text style={{ ...typography.monoMd, color: tidewater.accent, fontWeight: '600', marginLeft: 2 }}>
           %
         </Text>
       </View>
@@ -498,7 +498,7 @@ function ActionRow({ action, index }: { action: ActionItem; index: number }) {
           height: 32,
           borderWidth: 1.5,
           borderColor: tidewater.ink,
-          backgroundColor: action.emphasis ? tidewater.yellow : tidewater.paper2,
+          backgroundColor: action.emphasis ? tidewater.accent : tidewater.paper2,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -507,7 +507,7 @@ function ActionRow({ action, index }: { action: ActionItem; index: number }) {
           style={{
             fontFamily: 'Archivo_900Black',
             fontSize: 16,
-            color: action.emphasis ? tidewater.ink : tidewater.ink2,
+            color: action.emphasis ? tidewater.paper : tidewater.ink2,
             fontWeight: '900',
           }}
         >
