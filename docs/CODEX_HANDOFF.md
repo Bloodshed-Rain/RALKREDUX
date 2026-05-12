@@ -11,7 +11,7 @@ The user has dropped a high-fidelity redesign spec in `design_handoff_ralkredux/
 Short version of the redesign:
 
 - Concept: reframe the app as a **regulated document system** — every screen reads like a numbered government form ("FORM 27-A · REV 4 · EFF 2026.05"), with doc-bands top and bottom, hairline borders (no shadows), high density, mono numbers, and rotated Newsreader-italic stamps.
-- Palette: "Tidewater" — `#0b2545` ink, `#f6f3eb` paper, `#f5c518` safety yellow, `#1f7a3d` chain-green, `#b32f1a` void-red, plus tinted soft variants and hairline rules at three opacities.
+- Palette: "Tidewater" (the prototype's actual `tidewater` preset in `official.jsx:1257`, not the README's quoted hexes which match `orange` instead) — `#0e3a40` ink, `#e6ece8` paper, `#5cb3c4` teal accent (primary action), `#d4a514` amber yellow (warning only), `#2c7256` green, `#b03020` red, plus tinted soft variants and hairline rules at three opacities.
 - Type: **Archivo** display (700–900) for titles/all-caps labels, **Inter** (400–700) for body, **IBM Plex Mono** (400–600) for form IDs / numbers / chips, **Newsreader italic** (500–700) for stamps. These are brand identity — do not substitute.
 - Nav: 5-item bottom tab bar — Today · Records · **New** (center, raised, opens 3-step modal) · Gear · More.
 - Screens listed in spec: Splash → Today (home) → Records list → New record (3-step modal) → Record detail → PPE/Gear → Audit export → Settings/Profile.
@@ -40,7 +40,7 @@ Phase A scope (full detail in `docs/redesign-audit.md` §3):
 - [x] Font load: Archivo 700/800/900, IBM Plex Mono 400/500/600, Newsreader italic 500/700, Inter 700 in `AppProviders`.
 - [x] Theme overhaul: Tidewater palette + `tidewater` / `hairlines` / `docBand` / `stamp` token groups + display/mono/italic/formNumber typography scales. Existing screens get an instant facelift via remapped `colors` keys.
 - [x] New primitives: `DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH` (all in `src/ui/primitives/`, exported from `index.ts`).
-- [x] 5-tab nav restructure: `Today / Records / New (raised center) / Gear / More`. `dashboard.tsx` → `today.tsx`, `profile.tsx` → `more.tsx`, `new.tsx` is a `Redirect` placeholder (tab-bar override pushes to `/entry/new` directly). Bar labels are mono-uppercase; raised center is a yellow 56px circle with `Plus` icon and an ink shadow (the spec's one allowed exception to "hairlines, not shadows").
+- [x] 5-tab nav restructure: `Today / Records / New (raised center) / Gear / More`. `dashboard.tsx` → `today.tsx`, `profile.tsx` → `more.tsx`, `new.tsx` is a `Redirect` placeholder (tab-bar override pushes to `/entry/new` directly). Bar labels are mono-uppercase; raised center is a 56px circle filled with `colors.accentPrimary` (teal after the `9c3f4b3` palette swap) with a `Plus` icon and a single ink-tinted shadow (the spec's one allowed exception to "hairlines, not shadows").
 
 Phase A consumers that still need a Phase B pass: screen bodies (today/records/gear/more) still use the legacy Inter typography scales — they now render in Tidewater colors thanks to the remapped `colors` keys, but the doc-band chrome, form-cell layout, and stamp surfaces only land when each screen is rebuilt in Phase B.
 
