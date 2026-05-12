@@ -5,13 +5,14 @@ import { Pressable, Text, View } from 'react-native';
 import {
   certLevelToDigit,
   formatIrataNumber,
+  inferSchemeFromCertNumber,
   irataLevelFromNumber,
   irataNumberDigits,
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { useEntryDetail, useSignEntryLocal, useSupervisorContacts } from '@/src/domain/logbook/use-logbook';
-import type { CertLevel } from '@/src/domain/profile/types';
+import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
 import { AnimatedStamp, CheckboxRow, Chip, DocActionButton, DocBand, Field, Screen, SectionH, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
@@ -34,6 +35,7 @@ export default function LocalSignScreen() {
   const signEntry = useSignEntryLocal();
   const supervisors = useSupervisorContacts();
   const [supervisorName, setSupervisorName] = React.useState('');
+  const [supervisorScheme, setSupervisorScheme] = React.useState<CertScheme>('sprat');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
   const [supervisorIrataLevel, setSupervisorIrataLevel] = React.useState<CertLevel>('II');
   const [signaturePath, setSignaturePath] = React.useState('');
@@ -43,7 +45,7 @@ export default function LocalSignScreen() {
 
   const entry = detail.data?.entry;
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
-  const requiresCertNumber = Boolean(entry?.irata_level_snapshot);
+  const requiresCertNumber = supervisorScheme === 'irata';
 
   React.useEffect(() => {
     if (didPrefillSupervisor.current || !supervisorIdParam || !entry) return;
@@ -51,14 +53,17 @@ export default function LocalSignScreen() {
     if (!supervisor) return;
 
     didPrefillSupervisor.current = true;
+    const inferredScheme = inferSchemeFromCertNumber(supervisor.cert_number) ?? supervisorScheme;
+    setSupervisorScheme(inferredScheme);
     setSupervisorName(supervisor.name);
-    setSupervisorIrataLevel(irataLevelFromNumber(supervisor.cert_number, supervisorIrataLevel));
+    const level = irataLevelFromNumber(supervisor.cert_number, supervisorIrataLevel);
+    setSupervisorIrataLevel(level);
     setSupervisorCertNumber(
-      requiresCertNumber
+      inferredScheme === 'irata'
         ? irataNumberDigits(supervisor.cert_number ?? '')
         : normalizeSpratNumber(supervisor.cert_number ?? ''),
     );
-  }, [entry, requiresCertNumber, supervisorIdParam, supervisorIrataLevel, supervisors.data]);
+  }, [entry, supervisorIdParam, supervisorIrataLevel, supervisorScheme, supervisors.data]);
 
   const selectedKnownSupervisor = supervisors.data?.find(
     (supervisor) =>
@@ -81,6 +86,7 @@ export default function LocalSignScreen() {
       {
         entry_id: entryId,
         supervisor_name: supervisorName,
+        supervisor_scheme: supervisorScheme,
         supervisor_cert_number: requiresCertNumber
           ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
           : normalizeSpratNumber(supervisorCertNumber),
@@ -188,11 +194,17 @@ export default function LocalSignScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => {
+                      const inferredScheme =
+                        inferSchemeFromCertNumber(supervisor.cert_number) ?? supervisorScheme;
+                      setSupervisorScheme(inferredScheme);
                       setSupervisorName(supervisor.name);
-                      setSupervisorIrataLevel(irataLevelFromNumber(supervisor.cert_number, supervisorIrataLevel));
-                      setSupervisorCertNumber(requiresCertNumber
-                        ? irataNumberDigits(supervisor.cert_number ?? '')
-                        : normalizeSpratNumber(supervisor.cert_number ?? ''));
+                      const level = irataLevelFromNumber(supervisor.cert_number, supervisorIrataLevel);
+                      setSupervisorIrataLevel(level);
+                      setSupervisorCertNumber(
+                        inferredScheme === 'irata'
+                          ? irataNumberDigits(supervisor.cert_number ?? '')
+                          : normalizeSpratNumber(supervisor.cert_number ?? ''),
+                      );
                     }}
                     style={({ pressed }) => ({
                       minHeight: touchTarget.min,
@@ -230,8 +242,32 @@ export default function LocalSignScreen() {
               invalid={supervisorName.trim().length <= 1}
               style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
+            <View style={{ gap: spacing.xs }}>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                SUPERVISOR'S SCHEME
+              </Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {(['sprat', 'irata'] as const).map((scheme) => (
+                  <LevelChip
+                    key={scheme}
+                    label={scheme.toUpperCase()}
+                    selected={scheme === supervisorScheme}
+                    onPress={() => {
+                      setSupervisorScheme(scheme);
+                      // Re-format the stored cert number for the new scheme so
+                      // toggling doesn't strand IRATA digits in SPRAT context.
+                      setSupervisorCertNumber(
+                        scheme === 'irata'
+                          ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
+                          : normalizeSpratNumber(supervisorCertNumber),
+                      );
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
             <Field
-              label="SPRAT / IRATA number"
+              label={requiresCertNumber ? 'IRATA number' : 'SPRAT number'}
               value={requiresCertNumber ? irataNumberDigits(supervisorCertNumber) : normalizeSpratNumber(supervisorCertNumber)}
               onChangeText={(value) => {
                 setSupervisorCertNumber(requiresCertNumber ? formatIrataNumber(supervisorIrataLevel, value) : normalizeSpratNumber(value));
@@ -242,22 +278,27 @@ export default function LocalSignScreen() {
               invalid={requiresCertNumber && irataNumberDigits(supervisorCertNumber).length !== 5}
               style={{ borderRadius: 0, borderWidth: 1.5 }}
               hint={requiresCertNumber
-                ? `Required for IRATA entries. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
-                : 'Optional for SPRAT entries. Add it when the supervisor has a SPRAT or IRATA card/member number.'}
+                ? `Required for IRATA supervisors. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
+                : 'Optional for SPRAT supervisors. Add it if the signer has a SPRAT card number.'}
             />
             {requiresCertNumber ? (
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                {(['I', 'II', 'III'] as const).map((level) => (
-                  <LevelChip
-                    key={level}
-                    label={certLevelToDigit(level)}
-                    selected={level === supervisorIrataLevel}
-                    onPress={() => {
-                      setSupervisorIrataLevel(level);
-                      setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
-                    }}
-                  />
-                ))}
+              <View style={{ gap: spacing.xs }}>
+                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                  SUPERVISOR'S LEVEL
+                </Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  {(['I', 'II', 'III'] as const).map((level) => (
+                    <LevelChip
+                      key={level}
+                      label={certLevelToDigit(level)}
+                      selected={level === supervisorIrataLevel}
+                      onPress={() => {
+                        setSupervisorIrataLevel(level);
+                        setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
+                      }}
+                    />
+                  ))}
+                </View>
               </View>
             ) : null}
           </View>

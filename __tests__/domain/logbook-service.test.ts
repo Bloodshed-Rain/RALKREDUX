@@ -102,6 +102,7 @@ describe('logbook service', () => {
       service.signEntryLocal({
         entry_id: entry.id,
         supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -126,6 +127,7 @@ describe('logbook service', () => {
     const signed = await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -174,6 +176,7 @@ describe('logbook service', () => {
     await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -206,6 +209,7 @@ describe('logbook service', () => {
     const detail = await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -234,6 +238,7 @@ describe('logbook service', () => {
       service.signEntryLocal({
         entry_id: entry.id,
         supervisor_name: 'Another Supervisor',
+        supervisor_scheme: 'irata',
         supervisor_cert_number: 'IRATA-9999',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -256,6 +261,7 @@ describe('logbook service', () => {
     const detail = await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Site Supervisor',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: '',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -282,6 +288,7 @@ describe('logbook service', () => {
       service.signEntryLocal({
         entry_id: entry.id,
         supervisor_name: 'IRATA Supervisor',
+        supervisor_scheme: 'irata',
         supervisor_cert_number: '',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -297,6 +304,7 @@ describe('logbook service', () => {
     await service.signEntryLocal({
       entry_id: original.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -323,6 +331,7 @@ describe('logbook service', () => {
     await service.signEntryLocal({
       entry_id: amendment.id,
       supervisor_name: 'Taylor Smith',
+      supervisor_scheme: 'irata',
       supervisor_cert_number: 'IRATA-4321',
       signature_path: 'M 140 210 L 340 170',
       attestation_accepted: true,
@@ -349,6 +358,7 @@ describe('logbook service', () => {
       service.signEntryLocal({
         entry_id: entry.id,
         supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: '',
         attestation_accepted: true,
@@ -359,6 +369,7 @@ describe('logbook service', () => {
       service.signEntryLocal({
         entry_id: entry.id,
         supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: false,
@@ -455,6 +466,7 @@ describe('logbook service', () => {
       service.signEntryLocal({
         entry_id: entry.id,
         supervisor_name: '',
+        supervisor_scheme: 'sprat',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -476,6 +488,7 @@ describe('logbook service', () => {
     const signed = await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Taylor Smith',
+      supervisor_scheme: 'irata',
       supervisor_cert_number: 'IRATA-4321',
       signature_path: 'M 140 210 L 340 170',
       attestation_accepted: true,
@@ -528,6 +541,7 @@ describe('logbook service', () => {
       service.completeRemoteSignatureRequest({
         request_code: requestCode!,
         supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -538,6 +552,7 @@ describe('logbook service', () => {
       request_code: requestCode!,
       signing_token: signingToken,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -576,6 +591,7 @@ describe('logbook service', () => {
         request_code: requestCode!,
         signing_token: signingToken,
         supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -598,6 +614,7 @@ describe('logbook service', () => {
       request_code: requestCode!,
       signing_token: signingToken,
       supervisor_name: 'Site Supervisor',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: '',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -634,6 +651,7 @@ describe('logbook service', () => {
         request_code: requested.remote_request!.request_code,
         signing_token: buildRemoteSigningToken(requested.remote_request!),
         supervisor_name: 'IRATA Supervisor',
+        supervisor_scheme: 'irata',
         supervisor_cert_number: '',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -658,6 +676,7 @@ describe('logbook service', () => {
       service.signEntryLocal({
         entry_id: entry.id,
         supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
         supervisor_cert_number: 'SPRAT-1234',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted: true,
@@ -750,6 +769,7 @@ describe('logbook service', () => {
     await service.signEntryLocal({
       entry_id: signedEntry.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -800,6 +820,7 @@ describe('logbook service', () => {
     await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -837,6 +858,7 @@ describe('logbook service chain head + remote request lookup', () => {
     const signed = await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
@@ -857,6 +879,7 @@ describe('logbook service chain head + remote request lookup', () => {
     const firstSigned = await service.signEntryLocal({
       entry_id: first.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 1 1',
       attestation_accepted: true,
@@ -869,6 +892,7 @@ describe('logbook service chain head + remote request lookup', () => {
     const secondSigned = await service.signEntryLocal({
       entry_id: second.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 2 2',
       attestation_accepted: true,
@@ -900,6 +924,7 @@ describe('logbook service chain head + remote request lookup', () => {
       request_code: requested.remote_request!.request_code,
       signing_token: buildRemoteSigningToken(requested.remote_request!),
       supervisor_name: 'K. Briggs',
+      supervisor_scheme: 'irata',
       supervisor_cert_number: 'IRATA-99',
       signature_path: 'M 5 5',
       attestation_accepted: true,

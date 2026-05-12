@@ -25,6 +25,7 @@ export default function ProfileScreen() {
   const [restoreError, setRestoreError] = React.useState<string | null>(null);
   const [showRestore, setShowRestore] = React.useState(false);
   const [restoreConfirmed, setRestoreConfirmed] = React.useState(false);
+  const [previewSnapshot, setPreviewSnapshot] = React.useState<BackupSnapshot | null>(null);
   const p = profile.data;
   const primaryCertNumber = p?.primary_scheme === 'sprat' ? p.sprat_id : p?.irata_id;
   const primaryLevel = p?.primary_scheme === 'sprat' ? p.sprat_level : p?.irata_level;
@@ -41,17 +42,46 @@ export default function ProfileScreen() {
     });
   }
 
-  async function restoreSnapshot() {
+  function previewRestoreText() {
     setRestoreError(null);
     try {
-      const snapshot = JSON.parse(restoreText) as BackupSnapshot;
-      await restoreBackup.mutateAsync(snapshot);
+      const trimmed = restoreText.trim();
+      if (!trimmed) {
+        setRestoreError('Paste a recovery snapshot before previewing.');
+        return;
+      }
+      const parsed = JSON.parse(trimmed) as Partial<BackupSnapshot>;
+      if (!parsed || typeof parsed !== 'object' || !parsed.data || !parsed.backup_schema_version) {
+        setRestoreError('That does not look like a RALB recovery snapshot.');
+        return;
+      }
+      setPreviewSnapshot(parsed as BackupSnapshot);
+    } catch {
+      setRestoreError('Recovery file could not be parsed as JSON.');
+    }
+  }
+
+  async function restoreSnapshot() {
+    if (!previewSnapshot) {
+      previewRestoreText();
+      return;
+    }
+    setRestoreError(null);
+    try {
+      await restoreBackup.mutateAsync(previewSnapshot);
       setRestoreText('');
       setRestoreConfirmed(false);
+      setPreviewSnapshot(null);
       setShowRestore(false);
     } catch {
-      setRestoreError('Restore snapshot could not be read.');
+      setRestoreError('Restore failed. The local ledger is unchanged.');
     }
+  }
+
+  function clearPreview() {
+    setPreviewSnapshot(null);
+    setRestoreConfirmed(false);
+    setRestoreError(null);
   }
 
   return (
@@ -184,16 +214,24 @@ export default function ProfileScreen() {
                 <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
                   RECOVERY FILE TEXT
                 </Text>
+                <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
+                  Open the snapshot you shared earlier (Mail, Messages, Files) and paste its
+                  contents here. Preview first; the actual restore is a second confirmed step.
+                </Text>
                 <TextInput
                   value={restoreText}
-                  onChangeText={setRestoreText}
+                  onChangeText={(value) => {
+                    setRestoreText(value);
+                    if (previewSnapshot) clearPreview();
+                  }}
+                  editable={!previewSnapshot}
                   multiline
                   placeholder="Paste recovery file text"
                   placeholderTextColor={tidewater.ink3}
                   style={{
                     borderWidth: 1.5,
                     borderColor: tidewater.hair,
-                    backgroundColor: tidewater.white,
+                    backgroundColor: previewSnapshot ? tidewater.paper2 : tidewater.white,
                     padding: spacing.sm,
                     ...typography.body,
                     color: tidewater.ink,
@@ -202,28 +240,86 @@ export default function ProfileScreen() {
                   }}
                 />
               </View>
-              <View
-                style={{
-                  borderWidth: 1.5,
-                  borderColor: restoreConfirmed ? tidewater.green : tidewater.hairSoft,
-                  backgroundColor: restoreConfirmed ? tidewater.greenSoft : tidewater.white,
-                  padding: spacing.sm,
-                }}
-              >
-                <CheckboxRow
-                  checked={restoreConfirmed}
-                  label="I understand this will replace the local logbook on this device."
-                  onChange={setRestoreConfirmed}
+
+              {previewSnapshot ? (
+                <View
+                  style={{
+                    borderWidth: 1.5,
+                    borderColor: tidewater.green,
+                    backgroundColor: tidewater.greenSoft,
+                    padding: spacing.sm,
+                    gap: spacing.xs,
+                  }}
+                >
+                  <Text style={{ ...typography.displaySm, color: tidewater.green, letterSpacing: 1.2 }}>
+                    SNAPSHOT PREVIEW
+                  </Text>
+                  <SnapshotSummaryRow
+                    label="EXPORTED"
+                    value={formatDateOrDash(previewSnapshot.exported_at)}
+                  />
+                  <SnapshotSummaryRow
+                    label="OPERATOR"
+                    value={previewSnapshot.data.profiles[0]?.full_name || '—'}
+                  />
+                  <SnapshotSummaryRow
+                    label="ENTRIES"
+                    value={String(previewSnapshot.data.entries.length)}
+                  />
+                  <SnapshotSummaryRow
+                    label="SIGNATURES"
+                    value={String(previewSnapshot.data.signatures.length)}
+                  />
+                  <SnapshotSummaryRow
+                    label="GEAR ITEMS"
+                    value={String(previewSnapshot.data.gear_items.length)}
+                  />
+                </View>
+              ) : null}
+
+              {previewSnapshot ? (
+                <>
+                  <View
+                    style={{
+                      borderWidth: 1.5,
+                      borderColor: restoreConfirmed ? tidewater.green : tidewater.hairSoft,
+                      backgroundColor: restoreConfirmed ? tidewater.greenSoft : tidewater.white,
+                      padding: spacing.sm,
+                    }}
+                  >
+                    <CheckboxRow
+                      checked={restoreConfirmed}
+                      label="I understand this will replace the local logbook on this device."
+                      onChange={setRestoreConfirmed}
+                    />
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    <DocActionButton
+                      title="BACK TO PASTE"
+                      variant="secondary"
+                      onPress={clearPreview}
+                      disabled={restoreBackup.isPending}
+                      style={{ flex: 1 }}
+                    />
+                    <DocActionButton
+                      title={restoreBackup.isPending ? 'RESTORING' : 'RESTORE LEDGER'}
+                      icon={RotateCcw}
+                      onPress={restoreSnapshot}
+                      disabled={!restoreConfirmed || restoreBackup.isPending}
+                      loading={restoreBackup.isPending}
+                      style={{ flex: 1 }}
+                    />
+                  </View>
+                </>
+              ) : (
+                <DocActionButton
+                  title="PREVIEW SNAPSHOT"
+                  variant="secondary"
+                  onPress={previewRestoreText}
+                  disabled={!restoreText.trim()}
                 />
-              </View>
-              <DocActionButton
-                title={restoreBackup.isPending ? 'RESTORING' : 'RESTORE LEDGER'}
-                icon={RotateCcw}
-                variant="secondary"
-                onPress={restoreSnapshot}
-                disabled={!restoreText.trim() || !restoreConfirmed || restoreBackup.isPending}
-                loading={restoreBackup.isPending}
-              />
+              )}
+
               {restoreError ? (
                 <Text style={{ ...typography.monoSm, color: tidewater.red, letterSpacing: 1.2 }}>
                   {restoreError.toUpperCase()}
@@ -322,6 +418,27 @@ function DocRow({
         }}
         numberOfLines={2}
       >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function SnapshotSummaryRow({ label, value }: { label: string; value: string }) {
+  const { spacing, typography, tidewater } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm }}>
+      <Text
+        style={{
+          ...typography.monoSm,
+          color: tidewater.ink3,
+          letterSpacing: 1.5,
+          width: 88,
+        }}
+      >
+        {label}
+      </Text>
+      <Text style={{ ...typography.bodyMed, color: tidewater.ink, flex: 1 }} numberOfLines={1}>
         {value}
       </Text>
     </View>

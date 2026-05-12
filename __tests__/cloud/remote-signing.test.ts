@@ -76,6 +76,7 @@ describe('hosted remote signing sync', () => {
       request_code: 'ABC1234567',
       signing_token: 'secret-token',
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,

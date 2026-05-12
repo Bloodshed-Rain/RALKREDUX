@@ -1,6 +1,7 @@
 import { DbClient } from '@/src/db/client';
 import { createId } from '../id';
 import { addDaysIso, isExpiredAt, isValidIsoDateRange, todayLocalIsoDate } from '../date-utils';
+import { CertScheme } from '../profile/types';
 import { getEntryVerificationReadiness } from './entry-readiness';
 import { ENTRY_HASH_VERSION, hashEntry, hashRemoteSigningToken, hashSignatureChain } from './entry-hash';
 import { buildEntryExportPacket, buildLogbookCsv, buildLogbookExportBundle } from './export';
@@ -207,8 +208,13 @@ export function createLogbookService(db: DbClient) {
     return row?.chain_hash ?? null;
   }
 
-  function requiresVerifierCertNumber(entry: LogbookEntry): boolean {
-    return Boolean(entry.irata_level_snapshot);
+  /**
+   * Cert-number requirement is gated on the SIGNER'S scheme, not the
+   * technician's certification on the entry. The signer is the one
+   * authorizing the signature with their own card / member number.
+   */
+  function requiresVerifierCertNumber(supervisorScheme: CertScheme): boolean {
+    return supervisorScheme === 'irata';
   }
 
   async function upsertSupervisorContact(input: {
@@ -657,7 +663,7 @@ export function createLogbookService(db: DbClient) {
         if (!entry) throw new Error('entry_not_found');
         if (entry.status !== 'draft') throw new Error('entry_not_signable');
         if (!getEntryVerificationReadiness(entry).ready) throw new Error('entry_incomplete');
-        if (requiresVerifierCertNumber(entry) && input.supervisor_cert_number.trim().length < 2) {
+        if (requiresVerifierCertNumber(input.supervisor_scheme) && input.supervisor_cert_number.trim().length < 2) {
           throw new Error('supervisor_cert_required');
         }
 
@@ -754,7 +760,7 @@ export function createLogbookService(db: DbClient) {
         const entry = await getEntryById(request.entry_id);
         if (!entry) throw new Error('entry_not_found');
         if (entry.status !== 'draft') throw new Error('entry_not_signable');
-        if (requiresVerifierCertNumber(entry) && input.supervisor_cert_number.trim().length < 2) {
+        if (requiresVerifierCertNumber(input.supervisor_scheme) && input.supervisor_cert_number.trim().length < 2) {
           throw new Error('supervisor_cert_required');
         }
         if (entry.pending_signature_id && entry.pending_signature_id !== request.id) {

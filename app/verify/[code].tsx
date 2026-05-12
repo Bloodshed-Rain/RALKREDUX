@@ -11,6 +11,7 @@ import {
 import {
   certLevelToDigit,
   formatIrataNumber,
+  inferSchemeFromCertNumber,
   irataNumberDigits,
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
@@ -21,7 +22,7 @@ import {
   useCompleteRemoteSignatureRequest,
   useRemoteSignatureRequestDetail,
 } from '@/src/domain/logbook/use-logbook';
-import type { CertLevel } from '@/src/domain/profile/types';
+import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
 import { AnimatedStamp, CheckboxRow, Chip, DocActionButton, DocBand, Field, Screen, SectionH, SignatureFill, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
@@ -50,6 +51,7 @@ export default function RemoteVerifyScreen() {
   });
   const completeRequest = useCompleteRemoteSignatureRequest();
   const [supervisorName, setSupervisorName] = React.useState('');
+  const [supervisorScheme, setSupervisorScheme] = React.useState<CertScheme>('sprat');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
   const [supervisorIrataLevel, setSupervisorIrataLevel] = React.useState<CertLevel>('II');
   const [signaturePath, setSignaturePath] = React.useState('');
@@ -64,7 +66,7 @@ export default function RemoteVerifyScreen() {
   const isHostedRequest = !requestDetail.data && Boolean(hostedRequestDetail.data);
   const entry = detail?.entry;
   const request = detail?.request;
-  const requiresCertNumber = Boolean(entry?.irata_level_snapshot);
+  const requiresCertNumber = supervisorScheme === 'irata';
 
   React.useEffect(() => {
     const requestChanged = previousRequestCodeRef.current !== requestCode;
@@ -72,6 +74,7 @@ export default function RemoteVerifyScreen() {
       previousRequestCodeRef.current = requestCode;
       setSigningToken(queryToken);
       setSupervisorName('');
+      setSupervisorScheme('sprat');
       setSupervisorCertNumber('');
       setSupervisorIrataLevel('II');
       setSignaturePath('');
@@ -120,6 +123,7 @@ export default function RemoteVerifyScreen() {
       request_code: requestCode,
       signing_token: signingToken,
       supervisor_name: supervisorName,
+      supervisor_scheme: supervisorScheme,
       supervisor_cert_number: requiresCertNumber
         ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
         : normalizeSpratNumber(supervisorCertNumber),
@@ -462,8 +466,30 @@ export default function RemoteVerifyScreen() {
                 invalid={!hasName}
                 style={{ borderRadius: 0, borderWidth: 1.5 }}
               />
+              <View style={{ gap: spacing.xs }}>
+                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                  YOUR SCHEME
+                </Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  {(['sprat', 'irata'] as const).map((scheme) => (
+                    <LevelChip
+                      key={scheme}
+                      label={scheme.toUpperCase()}
+                      selected={scheme === supervisorScheme}
+                      onPress={() => {
+                        setSupervisorScheme(scheme);
+                        setSupervisorCertNumber(
+                          scheme === 'irata'
+                            ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
+                            : normalizeSpratNumber(supervisorCertNumber),
+                        );
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
               <Field
-                label="SPRAT / IRATA number"
+                label={requiresCertNumber ? 'IRATA number' : 'SPRAT number'}
                 value={
                   requiresCertNumber
                     ? irataNumberDigits(supervisorCertNumber)
@@ -483,23 +509,28 @@ export default function RemoteVerifyScreen() {
                 style={{ borderRadius: 0, borderWidth: 1.5 }}
                 hint={
                   requiresCertNumber
-                    ? `Required for IRATA entries. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
-                    : 'Optional for SPRAT entries. Add it when the verifier has a SPRAT or IRATA card/member number.'
+                    ? `Required for IRATA verifiers. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
+                    : 'Optional for SPRAT verifiers. Add it if you have a SPRAT card number.'
                 }
               />
               {requiresCertNumber ? (
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  {(['I', 'II', 'III'] as const).map((level) => (
-                    <LevelChip
-                      key={level}
-                      label={certLevelToDigit(level)}
-                      selected={level === supervisorIrataLevel}
-                      onPress={() => {
-                        setSupervisorIrataLevel(level);
-                        setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
-                      }}
-                    />
-                  ))}
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                    YOUR LEVEL
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    {(['I', 'II', 'III'] as const).map((level) => (
+                      <LevelChip
+                        key={level}
+                        label={certLevelToDigit(level)}
+                        selected={level === supervisorIrataLevel}
+                        onPress={() => {
+                          setSupervisorIrataLevel(level);
+                          setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
+                        }}
+                      />
+                    ))}
+                  </View>
                 </View>
               ) : null}
               <SignaturePad

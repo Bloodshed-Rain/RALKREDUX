@@ -1,6 +1,6 @@
 import React from 'react';
 import { ClipboardCheck, Plus, Save, XCircle } from 'lucide-react-native';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { formatDate } from '@/src/domain/date-format';
 import { todayLocalIsoDate } from '@/src/domain/date-utils';
 import type { GearCatalogEntry, GearCategory, GearInspectionResult, GearStatus } from '@/src/domain/gear/types';
@@ -13,7 +13,7 @@ import {
 } from '@/src/domain/gear/use-gear';
 import {
   AnimatedCounter,
-  AnimatedStamp,
+  Chip,
   DateField,
   DocActionButton,
   DocBand,
@@ -177,7 +177,7 @@ export default function GearScreen() {
     );
   }
 
-  function logInspection() {
+  function performSave() {
     if (!canInspect || !selectedGearId) return;
     recordInspection.mutate(
       {
@@ -197,6 +197,23 @@ export default function GearScreen() {
         },
       },
     );
+  }
+
+  function logInspection() {
+    if (!canInspect || !selectedGearId) return;
+    if (inspectionResult === 'fail') {
+      const gearName = activeItems.find(({ item }) => item.id === selectedGearId)?.item.name ?? 'this gear';
+      Alert.alert(
+        'Retire gear?',
+        `Saving a failed inspection retires ${gearName} from active use. This cannot be undone from the app — re-add the item if it's later restored to service.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Retire on fail', style: 'destructive', onPress: performSave },
+        ],
+      );
+      return;
+    }
+    performSave();
   }
 
   return (
@@ -637,9 +654,9 @@ export default function GearScreen() {
                                 </Text>
                               ) : null}
                             </View>
-                            <AnimatedStamp tone={statusStampTone(status)} rotation="light">
+                            <Chip tone={statusStampTone(status)}>
                               {statusLabel(status)}
-                            </AnimatedStamp>
+                            </Chip>
                           </View>
                           {latest_inspection?.notes ? (
                             <View

@@ -39,3 +39,15 @@ export function irataLevelFromNumber(value: string | null | undefined, fallback:
   const match = /^([123])\//.exec(value.trim());
   return match ? certDigitToLevel(match[1]) : fallback;
 }
+
+/**
+ * Best-effort guess of a cert-number's scheme based on its format. IRATA
+ * numbers are stored as `D/DDDDD`; SPRAT numbers are bare digits. Used only
+ * for prefill defaults — the user can always toggle scheme at sign time.
+ */
+export function inferSchemeFromCertNumber(value: string | null | undefined): 'sprat' | 'irata' | null {
+  if (!value) return null;
+  if (/^[123]\/\d/.test(value.trim())) return 'irata';
+  if (/^\d{2,}$/.test(value.trim())) return 'sprat';
+  return null;
+}

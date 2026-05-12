@@ -1,4 +1,5 @@
 import * as Linking from 'expo-linking';
+import { inferSchemeFromCertNumber } from '@/src/domain/cert-number';
 import { buildRemoteSigningToken } from '@/src/domain/logbook/logbook-service';
 import {
   CompleteRemoteSignatureRequestInput,
@@ -141,6 +142,7 @@ export function hostedCompletionInputFromDetail(
     request_code: detail.request.request_code,
     signing_token: signingToken,
     supervisor_name: detail.signature.supervisor_name,
+    supervisor_scheme: inferSchemeFromCertNumber(detail.signature.supervisor_cert_number) ?? 'sprat',
     supervisor_cert_number: detail.signature.supervisor_cert_number,
     signature_path: signaturePath,
     attestation_accepted: true,

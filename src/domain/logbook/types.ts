@@ -1,4 +1,4 @@
-import { CertLevel, Profile } from '../profile/types';
+import { CertLevel, CertScheme, Profile } from '../profile/types';
 import { GearItem } from '../gear/types';
 
 export type EntryStatus = 'draft' | 'signed' | 'amended';
@@ -80,6 +80,13 @@ export interface UpdateDraftEntryInput extends CreateEntryInput {
 export interface SignEntryInput {
   entry_id: string;
   supervisor_name: string;
+  /**
+   * The signer's own scheme. Drives whether a cert number is required and what
+   * format it takes — NOT the technician's certification on the entry. Per
+   * rope-access norms, the signer authorizes the signature with their own
+   * card / member number.
+   */
+  supervisor_scheme: CertScheme;
   supervisor_cert_number: string;
   signature_path: string;
   attestation_accepted: boolean;
@@ -127,6 +134,11 @@ export interface CompleteRemoteSignatureRequestInput {
   request_code: string;
   signing_token?: string | null;
   supervisor_name: string;
+  /**
+   * The verifier's own scheme. Drives whether a cert number is required and
+   * what format it takes — NOT the technician's certification on the entry.
+   */
+  supervisor_scheme: CertScheme;
   supervisor_cert_number: string;
   signature_path: string;
   attestation_accepted: boolean;

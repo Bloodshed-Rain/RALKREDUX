@@ -23,6 +23,7 @@ import type {
 } from '@/src/domain/logbook/types';
 import {
   useCreateEntry,
+  useDeleteDraftEntry,
   useEntries,
   useEntryTemplates,
   useSupervisorContacts,
@@ -161,6 +162,7 @@ export default function NewEntryWizard() {
   const supervisors = useSupervisorContacts();
   const createEntry = useCreateEntry();
   const updateDraft = useUpdateDraftEntry();
+  const deleteDraft = useDeleteDraftEntry();
 
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [draft, setDraft] = React.useState<DraftState>(initialDraft);
@@ -223,7 +225,33 @@ export default function NewEntryWizard() {
   }
 
   function handleClose() {
-    if (hasAnyContent(draft) && !draft.entryId) {
+    if (draft.entryId) {
+      // A draft has already been persisted (committed on Step 1 → 2 transition).
+      // Be explicit: keep it (route to detail), or delete it.
+      const committedId = draft.entryId;
+      Alert.alert(
+        'Cancel new entry?',
+        'Step 1 already saved a draft on this device. Keep it for later or delete it now?',
+        [
+          { text: 'Keep editing', style: 'cancel' },
+          {
+            text: 'Keep draft',
+            onPress: () => router.replace(`/entry/${committedId}`),
+          },
+          {
+            text: 'Delete draft',
+            style: 'destructive',
+            onPress: () => {
+              deleteDraft.mutate(committedId, {
+                onSettled: () => router.back(),
+              });
+            },
+          },
+        ],
+      );
+      return;
+    }
+    if (hasAnyContent(draft)) {
       Alert.alert(
         'Discard new entry?',
         "You haven't saved anything yet. Discard or keep editing?",
@@ -234,11 +262,7 @@ export default function NewEntryWizard() {
       );
       return;
     }
-    if (draft.entryId) {
-      router.replace(`/entry/${draft.entryId}`);
-    } else {
-      router.back();
-    }
+    router.back();
   }
 
   async function handleSignNow() {

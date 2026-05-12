@@ -35,11 +35,12 @@ export function DocBand(props: DocBandProps) {
           alignItems: 'center',
         }}
       >
-        <MarqueeText
-          text={left}
-          duration={11000}
-          style={{ ...typography.formNumber, color: docBand.top.foreground }}
-        />
+        <Text
+          numberOfLines={1}
+          style={{ ...typography.formNumber, color: docBand.top.foreground, flex: 1 }}
+        >
+          {left}
+        </Text>
         {props.rightLabel ? (
           <Text
             numberOfLines={1}

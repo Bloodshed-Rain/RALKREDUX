@@ -11,7 +11,19 @@ interface AnimatedStampProps {
   children: string;
   /** Set false to skip the slam-in animation (renders settled state). */
   animate?: boolean;
+  /**
+   * Optional dedupe key. Each stamp slams at most once per app session for a
+   * given key; subsequent mounts settle directly. Defaults to `tone:children`
+   * so navigating back to a screen with the same stamp doesn't re-slam it.
+   */
+  slamKey?: string;
 }
+
+/**
+ * Module-level set of stamp keys that have already played their slam during
+ * this app session. Cleared on app restart, not on remount.
+ */
+const playedSlamKeys = new Set<string>();
 
 const SLAM_EASING = Easing.bezier(0.2, 0.7, 0.3, 1.4);
 const DURATIONS = {
@@ -36,10 +48,13 @@ export function AnimatedStamp({
   big,
   children,
   animate = true,
+  slamKey,
 }: AnimatedStampProps) {
   const { stamp, typography, spacing } = useTheme();
   const reduced = useReducedMotion();
-  const shouldAnimate = animate && !reduced;
+  const resolvedKey = slamKey ?? `${tone}:${children}`;
+  const alreadyPlayed = React.useRef(playedSlamKeys.has(resolvedKey)).current;
+  const shouldAnimate = animate && !reduced && !alreadyPlayed;
   const tintColor = stamp.tones[tone];
   const finalRotation = typeof rotation === 'number' ? rotation : stamp.rotation[rotation];
 
@@ -56,6 +71,7 @@ export function AnimatedStamp({
       opacity.setValue(stamp.opacity);
       return;
     }
+    playedSlamKeys.add(resolvedKey);
     Animated.sequence([
       // 0% → 55%: slam down to settled position
       Animated.parallel([
@@ -110,7 +126,7 @@ export function AnimatedStamp({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [finalRotation, opacity, rotateProgress, scale, shouldAnimate, stamp.opacity, translateY]);
+  }, [finalRotation, opacity, resolvedKey, rotateProgress, scale, shouldAnimate, stamp.opacity, translateY]);
 
   const rotateInterp = rotateProgress.interpolate({
     inputRange: [0, 1],

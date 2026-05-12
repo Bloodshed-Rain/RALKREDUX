@@ -66,6 +66,7 @@ describe('backup service', () => {
     await logbookService.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
       supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
