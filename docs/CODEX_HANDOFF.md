@@ -72,6 +72,7 @@ No schema changes, no ENTRY_HASH_VERSION bump.
 
 ## Most recent landings on `main`
 
+- `ec7d8e1` Rebuild Records screen as a ranged ledger — Phase B step 3. Range chip strip (`7D / 30D / 90D / YTD / ALL`), KPI row (`HR SHOWN` + `DAYS ON ROPE`) with the spec's `+ ADD` button, doc-style table with hairline rows and 3-letter status code (`OK / PEN / DRF / AMD`) in tone-coded mono, JSON + CSV export remain in the footer, empty states discriminate "no entries on file" vs "no entries in range". New pure module `src/domain/logbook/records-derivations.ts` (range filtering + KPIs + status mapping) with 12 unit tests.
 - `6755450` Rebuild Today screen on Tidewater foundation — Phase B step 2. Doc-band top (rolling `DAY n / 365`), Archivo-900 hours hero with yellow `.5` decimal, dual SPRAT/IRATA cert dials with progress bar, advisory card derived from gear + cert state (P1 red overdue-gear/expired-cert = not dismissible; P2 due-soon gear with HOLD TO ACK 1.2 s long-press; P3/P4 cert expiry), 3-rung action ladder with ghost rungs when sparse, signed-today banner with rotated Newsreader stamp, doc-band footer with chain head. Pull-to-refresh + focus-invalidation wired. New pure module `src/domain/logbook/today-derivations.ts` + 30 unit tests.
 - `de56c74` Restructure tabs to 5-slot nav with raised center — 5-tab nav (Today / Records / New raised-center / Gear / More); `AppTabBar` renders the new-tab as a yellow circle with ink shadow; tap pushes directly to `/entry/new`. `dashboard.tsx` → `today.tsx`, `profile.tsx` → `more.tsx`. Mono-uppercase labels via IBM Plex Mono 500.
 - `2f6dc2d` Add Tidewater document primitives — six new primitives (`DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH`) under `src/ui/primitives/`, all token-driven, no inline hex. Used by Phase B screens.
@@ -330,17 +331,18 @@ Last known good checks:
 npm run functions:check
 ```
 
-Result: TypeScript passed, Jest passed with **105 tests across 12 suites**, `functions:check` passed.
+Result: TypeScript passed, Jest passed with **117 tests across 13 suites**, `functions:check` passed.
 
-Latest code-validation commits cover all of Phase A and Phase B step 2:
+Latest code-validation commits cover all of Phase A and Phase B steps 2–3:
 
 - `d4680e2` Expose chain head, derived stamps, cloud-state hook (Phase A Cluster 1)
 - `8139ce3` Load Tidewater fonts and apply token foundation (Phase A Cluster 2)
 - `2f6dc2d` Add Tidewater document primitives (Phase A Cluster 3)
 - `de56c74` Restructure tabs to 5-slot nav with raised center (Phase A Cluster 4)
 - `6755450` Rebuild Today screen on Tidewater foundation (Phase B step 2)
+- `ec7d8e1` Rebuild Records screen as a ranged ledger (Phase B step 3)
 
-Phone smoke is still pending. Open Phase B with `npm run start -- --tunnel` to confirm Tidewater palette + Archivo / Plex Mono / Newsreader fonts render + 5-tab nav + raised center button + new Today screen all land correctly on iOS and Android **before** continuing to Records (step 3).
+**Phone smoke is still owed.** Two redesign screens have landed (Today + Records) without on-device validation. Before step 4 (3-step New modal) ships, open `npm run start -- --tunnel` and walk: Today (advisory, ladder, cert dials, doc-band footer) → Records (range chips swap counts, tap row → entry detail, ADD → /entry/new, JSON/CSV exports share) → 5-tab nav. Anything that doesn't render correctly here will be cheaper to fix now than after the New modal lands.
 
 Last phone preview target:
 
@@ -373,7 +375,7 @@ Suggested approach for Phase B (separate commits per screen, matching the projec
 
 1. **Phone preview smoke** — `npm run start -- --tunnel`. **Owed: confirm fonts + palette + nav + new Today screen on iOS and Android before shipping step 3.**
 2. **[x] Today** (`app/(tabs)/today.tsx`) — done in `6755450`. UX-locked decisions baked in: rolling `DAY n / 365` from profile creation; P1 advisories (overdue gear / expired cert) are not dismissible; P2+ require HOLD TO ACK (1.2 s long-press, in-memory acknowledge); ladder caps at 3 rungs with `+N more` tail; primary CTA is the tab bar `+` only (no duplicate Today CTA). Open follow-ups: (a) persist advisory acknowledge across launches (currently in-memory); (b) re-surface acknowledged advisories after 24 h or on new-advisory-of-same-kind state change.
-3. **Records** (`app/(tabs)/records.tsx`) — `useEntries` + per-row `useEntryStamps`. Range chips (7D/30D/90D/YTD/ALL), `RowDoc` rows with mono date + site/client + hours + tone-coded stamp.
+3. **[x] Records** (`app/(tabs)/records.tsx`) — done in `ec7d8e1`. Range chip strip persists range state to component memory (no AsyncStorage yet — resets on launch). KPIs are hours-in-range + distinct op-days. Table rows derive status via `getEntryListStatus`: `SIGNED` (entry.status='signed'), `AMENDED` (entry.status='amended'), `PENDING` (draft + pending_signature_id), `DRAFT` (vanilla draft). Tone-coded 3-letter chip in last column. Export footer keeps JSON/CSV (full-logbook PDF still owed; per-entry PDF stays on detail). Open follow-ups: persist last range across launches, full-logbook PDF export.
 4. **3-step New modal** — restructure `app/entry/new.tsx` into a wizard reading from existing hooks (`useCreateEntry`, `useEntryTemplates`, `useSupervisorContacts`, `useAttachGearToEntry`, `useSignEntryLocal`). Step 1: hours + job particulars. Step 2: gear + work + conditions + photos. Step 3: supervisor + lock confirmation.
 5. **Record detail** (`app/entry/[id].tsx`) — full doc-style view with `DocBand` chrome, `FormCell` rows, `Stamp` overlay set from `deriveEntryStamps()`, chain-hash footer.
 6. **Gear** (`app/(tabs)/gear.tsx`) — `useGearItems` + `useGearSummary` + `useRecordGearInspection`. `RowDoc` list with due-offset chip + tone-coded `Stamp` for `OVR` / `SOON` items.
