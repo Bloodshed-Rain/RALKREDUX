@@ -1,24 +1,15 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import {
-  AlertTriangle,
-  BadgeCheck,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Mail,
-  Send,
-  UserRound,
-} from 'lucide-react-native';
+import { AlertTriangle, ChevronDown, ChevronUp, Mail, Send } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import {
   useCreateRemoteSignatureRequest,
   useEntryDetail,
   useSupervisorContacts,
 } from '@/src/domain/logbook/use-logbook';
-import { Button, Card, Field, Screen } from '@/src/ui/primitives';
+import { Chip, DocBand, Field, Screen, SectionH, Stamp } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -27,7 +18,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 }
 
 export default function RemoteSignatureRequestScreen() {
-  const { colors, radii, spacing, typography, touchTarget } = useTheme();
+  const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
   const { id, supervisorId } = useLocalSearchParams<{
     id?: string | string[];
     supervisorId?: string | string[];
@@ -80,10 +71,10 @@ export default function RemoteSignatureRequestScreen() {
   ].filter(Boolean) as string[];
 
   const footerTitle = canCreate
-    ? 'Create remote request'
+    ? 'CREATE REMOTE REQUEST'
     : hasVerifierName
-      ? 'Finish entry first'
-      : 'Add verifier name';
+      ? 'FINISH ENTRY FIRST'
+      : 'ADD VERIFIER NAME';
 
   function submit() {
     if (!canCreate || !entryId) return;
@@ -101,10 +92,11 @@ export default function RemoteSignatureRequestScreen() {
 
   return (
     <Screen
+      padded={false}
       footer={
         <View style={{ gap: spacing.sm }}>
           {!canCreate ? <RequirementList title="Before creating request" items={missingToCreate} /> : null}
-          <Button
+          <DocActionButton
             title={footerTitle}
             icon={Send}
             onPress={submit}
@@ -114,184 +106,242 @@ export default function RemoteSignatureRequestScreen() {
         </View>
       }
     >
-      <Card>
-        <SectionHeader icon={Send} title="Remote request" />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          <Pill icon={BadgeCheck} label={entry ? `${entry.site} - ${entry.work_hours.toFixed(1)} h` : 'Loading'} />
-          <Pill
-            icon={readiness?.ready ? CheckCircle2 : AlertTriangle}
-            label={readiness?.ready ? 'Ready' : `${readiness?.missingFields.length ?? 0} missing`}
-            tone={readiness?.ready ? 'ok' : 'warn'}
-          />
-        </View>
-        {entry?.status === 'draft' && readiness && !readiness.ready ? (
+      <DocBand
+        variant="top"
+        formId="CH.6 - REMOTE REQUEST"
+        rev={detail.data?.remote_request ? 'REQUEST EXISTS' : 'TOKEN LINK'}
+        effective="HOSTED FALLBACK"
+        rightLabel={canCreate ? 'READY' : 'HOLD'}
+      />
+
+      <View style={{ paddingHorizontal: spacing.base, gap: spacing.lg }}>
+        <View
+          style={{
+            borderWidth: hairlines.standard.width,
+            borderColor: hairlines.standard.color,
+            backgroundColor: tidewater.white,
+          }}
+        >
           <View
             style={{
-              borderRadius: radii.sm,
-              backgroundColor: colors.statusWarnTint,
               padding: spacing.md,
+              borderBottomWidth: 1.5,
+              borderBottomColor: tidewater.hair,
               flexDirection: 'row',
-              alignItems: 'center',
+              justifyContent: 'space-between',
               gap: spacing.sm,
+              alignItems: 'flex-start',
             }}
           >
-            <AlertTriangle size={18} color={colors.statusWarn} strokeWidth={2.2} />
             <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text selectable style={{ ...typography.label, color: colors.statusWarn }}>
-                Finish the entry first
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
+                REQUEST READINESS
               </Text>
-              <Text selectable style={{ ...typography.caption, color: colors.statusWarn }}>
-                Add {readiness.missingFields.join(', ')}
+              <Text style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
+                {entry?.site || 'Loading entry'}
               </Text>
             </View>
+            <Stamp tone={readiness?.ready && !detail.data?.remote_request ? 'green' : 'yellow'} rotation="light">
+              {readiness?.ready && !detail.data?.remote_request ? 'READY' : 'HOLD'}
+            </Stamp>
           </View>
-        ) : null}
-      </Card>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
+            <Chip tone="ink">{entry?.site || 'LOADING'}</Chip>
+            <Chip tone="mute">{entry ? `${entry.work_hours.toFixed(1)} HR` : '0.0 HR'}</Chip>
+            <Chip tone={readiness?.ready ? 'green' : 'yellow'}>
+              {readiness?.ready ? 'ENTRY READY' : `${readiness?.missingFields.length ?? 0} MISSING`}
+            </Chip>
+            {detail.data?.remote_request ? <Chip tone="yellow">REQUEST PENDING</Chip> : null}
+          </View>
+          {entry?.status === 'draft' && readiness && !readiness.ready ? (
+            <DocNotice title="Finish the entry first" body={`Add ${readiness.missingFields.join(', ')}`} />
+          ) : null}
+          {detail.data?.remote_request ? (
+            <DocNotice
+              title="Remote request already open"
+              body="Use the existing request on the entry detail screen, or close it before creating another."
+            />
+          ) : null}
+        </View>
 
-      <Card>
-        <SectionHeader
-          icon={UserRound}
-          title="Verifier"
-          pill={selectedKnownSupervisor ? 'Known' : hasVerifierName ? 'New' : undefined}
-        />
-        <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-          Choose a saved supervisor or type a new verifier. Contact is optional; the request link can still be shared manually.
-        </Text>
-        {supervisors.data?.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            {supervisors.data.map((supervisor) => {
-              const selected = supervisor.id === selectedKnownSupervisor?.id;
+        <View>
+          <SectionH n="17" right={selectedKnownSupervisor ? 'KNOWN' : hasVerifierName ? 'NEW' : 'REQUIRED'}>
+            Verifier
+          </SectionH>
+          <Text selectable style={{ ...typography.monoSm, color: tidewater.ink3, marginBottom: spacing.sm }}>
+            Choose a saved supervisor or type the verifier who will receive the secure signing link.
+          </Text>
+          {supervisors.data?.length ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
+              {supervisors.data.map((supervisor) => {
+                const selected = supervisor.id === selectedKnownSupervisor?.id;
 
-              return (
-                <Pressable
-                  key={supervisor.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => {
-                    setRecipientName(supervisor.name);
-                    setRecipientContact(supervisor.contact ?? '');
-                    setVerifierRole(supervisor.role ?? '');
-                    setVerifierCompany(supervisor.company ?? '');
-                    setDetailsOpen(Boolean(supervisor.role || supervisor.company));
-                  }}
-                  style={({ pressed }) => ({
-                    minHeight: touchTarget.min,
-                    justifyContent: 'center',
-                    borderRadius: radii.sm,
-                    borderWidth: 1,
-                    borderColor: selected ? colors.accentPrimary : colors.border,
-                    backgroundColor: selected ? colors.accentTint : colors.bgSurface,
-                    opacity: pressed ? 0.82 : 1,
-                    paddingHorizontal: spacing.sm,
-                  })}
-                >
-                  <Text
-                    selectable={false}
-                    style={{
-                      ...typography.caption,
-                      color: selected ? colors.accentPrimary : colors.textSecondary,
+                return (
+                  <Pressable
+                    key={supervisor.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      setRecipientName(supervisor.name);
+                      setRecipientContact(supervisor.contact ?? '');
+                      setVerifierRole(supervisor.role ?? '');
+                      setVerifierCompany(supervisor.company ?? '');
+                      setDetailsOpen(Boolean(supervisor.role || supervisor.company));
                     }}
+                    style={({ pressed }) => ({
+                      minHeight: touchTarget.min,
+                      justifyContent: 'center',
+                      borderWidth: 1.5,
+                      borderColor: selected ? tidewater.accent : tidewater.hair,
+                      backgroundColor: selected ? tidewater.accentSoft : tidewater.white,
+                      opacity: pressed ? 0.82 : 1,
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: 6,
+                    })}
                   >
-                    {supervisor.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-        <Field label="Verifier name" value={recipientName} onChangeText={setRecipientName} placeholder="Jordan Lee" />
-        <Field
-          label="Verifier contact"
-          value={recipientContact}
-          onChangeText={setRecipientContact}
-          placeholder="Optional email or phone"
-          hint="Optional. Add it if you want it saved for next time."
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setDetailsOpen((value) => !value)}
-          style={({ pressed }) => ({
-            minHeight: 48,
-            borderRadius: radii.sm,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: verifierRole || verifierCompany ? colors.statusOkTint : colors.bgSurface,
-            opacity: pressed ? 0.82 : 1,
-            paddingHorizontal: spacing.md,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: spacing.sm,
-          })}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
-            <Mail size={18} color={verifierRole || verifierCompany ? colors.statusOk : colors.textSecondary} strokeWidth={2.2} />
-            <Text selectable={false} style={{ ...typography.label, color: colors.textPrimary }}>
-              Verifier details
-            </Text>
-          </View>
-          {detailsOpen ? (
-            <ChevronUp size={18} color={colors.textSecondary} strokeWidth={2.2} />
-          ) : (
-            <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.2} />
-          )}
-        </Pressable>
-        {detailsOpen ? (
-          <>
+                    <Text
+                      selectable={false}
+                      style={{
+                        ...typography.monoSm,
+                        color: selected ? tidewater.accent : tidewater.ink2,
+                        fontFamily: 'IBMPlexMono_600SemiBold',
+                        fontWeight: '600',
+                      }}
+                    >
+                      {supervisor.name.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+          <View style={{ gap: spacing.md }}>
             <Field
-              label="Verifier role"
-              value={verifierRole}
-              onChangeText={setVerifierRole}
-              placeholder="IRATA L3 / Rope Access Manager"
+              label="Verifier name"
+              value={recipientName}
+              onChangeText={setRecipientName}
+              placeholder="Jordan Lee"
+              invalid={!hasVerifierName}
+              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
             <Field
-              label="Company"
-              value={verifierCompany}
-              onChangeText={setVerifierCompany}
-              placeholder="Optional"
+              label="Verifier contact"
+              value={recipientContact}
+              onChangeText={setRecipientContact}
+              placeholder="Optional email or phone"
+              hint="Optional. Add it if you want it saved for next time."
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
-          </>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setDetailsOpen((value) => !value)}
+              style={({ pressed }) => ({
+                minHeight: 48,
+                borderWidth: 1.5,
+                borderColor: tidewater.hair,
+                backgroundColor: verifierRole || verifierCompany ? tidewater.greenSoft : tidewater.white,
+                opacity: pressed ? 0.82 : 1,
+                paddingHorizontal: spacing.md,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: spacing.sm,
+              })}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+                <Mail size={18} color={verifierRole || verifierCompany ? tidewater.green : tidewater.ink2} strokeWidth={2.2} />
+                <Text selectable={false} style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+                  VERIFIER DETAILS
+                </Text>
+              </View>
+              {detailsOpen ? (
+                <ChevronUp size={18} color={tidewater.ink2} strokeWidth={2.2} />
+              ) : (
+                <ChevronDown size={18} color={tidewater.ink2} strokeWidth={2.2} />
+              )}
+            </Pressable>
+            {detailsOpen ? (
+              <>
+                <Field
+                  label="Verifier role"
+                  value={verifierRole}
+                  onChangeText={setVerifierRole}
+                  placeholder="IRATA L3 / Rope Access Manager"
+                  style={{ borderRadius: 0, borderWidth: 1.5 }}
+                />
+                <Field
+                  label="Company"
+                  value={verifierCompany}
+                  onChangeText={setVerifierCompany}
+                  placeholder="Optional"
+                  style={{ borderRadius: 0, borderWidth: 1.5 }}
+                />
+              </>
+            ) : null}
+          </View>
+        </View>
+
+        {entry?.status && entry.status !== 'draft' ? (
+          <Text selectable style={{ ...typography.body, color: tidewater.ink2 }}>
+            Remote requests can only be created for draft entries.
+          </Text>
         ) : null}
-      </Card>
+      </View>
 
-      {detail.data?.remote_request ? (
-        <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-          A remote request is already pending for this entry.
-        </Text>
-      ) : null}
-
-      {entry?.status && entry.status !== 'draft' ? (
-        <Text selectable style={{ ...typography.body, color: colors.textSecondary }}>
-          Remote requests can only be created for draft entries.
-        </Text>
-      ) : null}
-
+      <DocBand
+        variant="footer"
+        text={canCreate ? 'REMOTE LINK WILL BE TOKEN-GATED AND ONE-TIME COMPLETABLE' : 'REMOTE REQUEST HOLD - COMPLETE REQUIRED FIELDS'}
+        page={entryId ? `ENTRY ${entryId.slice(-6).toUpperCase()}` : 'ENTRY ------'}
+      />
     </Screen>
   );
 }
 
+function DocNotice({ title, body }: { title: string; body: string }) {
+  const { spacing, typography, tidewater } = useTheme();
+
+  return (
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderTopColor: tidewater.hairFaint,
+        backgroundColor: tidewater.yellowSoft,
+        padding: spacing.md,
+      }}
+    >
+      <Text selectable style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+        {title.toUpperCase()}
+      </Text>
+      <Text selectable style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
+        {body}
+      </Text>
+    </View>
+  );
+}
+
 function RequirementList({ title, items }: { title: string; items: string[] }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { spacing, typography, tidewater } = useTheme();
   if (!items.length) return null;
 
   return (
     <View
       style={{
-        borderRadius: radii.sm,
-        backgroundColor: colors.statusWarnTint,
+        borderWidth: 1.5,
+        borderColor: tidewater.yellowDeep,
+        backgroundColor: tidewater.yellowSoft,
         padding: spacing.md,
         gap: spacing.xs,
       }}
     >
-      <Text selectable={false} style={{ ...typography.label, color: colors.statusWarn }}>
-        {title}
+      <Text selectable={false} style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+        {title.toUpperCase()}
       </Text>
       {items.map((item) => (
         <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <AlertTriangle size={14} color={colors.statusWarn} strokeWidth={2.2} />
-          <Text selectable={false} style={{ ...typography.caption, color: colors.statusWarn, flex: 1 }}>
+          <AlertTriangle size={14} color={tidewater.yellowDeep} strokeWidth={2.2} />
+          <Text selectable={false} style={{ ...typography.monoSm, color: tidewater.ink2, flex: 1 }}>
             Needs {item}
           </Text>
         </View>
@@ -300,81 +350,45 @@ function RequirementList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function SectionHeader({
-  icon: Icon,
+function DocActionButton({
   title,
-  pill,
+  onPress,
+  icon: Icon,
+  disabled = false,
+  loading = false,
 }: {
-  icon: LucideIcon;
   title: string;
-  pill?: string;
+  onPress: () => void;
+  icon?: LucideIcon;
+  disabled?: boolean;
+  loading?: boolean;
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { spacing, typography, touchTarget, tidewater } = useTheme();
+  const foreground = disabled ? tidewater.ink3 : tidewater.paper;
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-      <View
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: radii.sm,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.bgMuted,
-        }}
-      >
-        <Icon size={18} color={colors.textSecondary} strokeWidth={2.2} />
-      </View>
-      <Text selectable={false} style={{ ...typography.title3, color: colors.textPrimary, flex: 1 }}>
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled || loading}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: touchTarget.preferred + 4,
+        borderWidth: 1.5,
+        borderColor: tidewater.ink,
+        paddingHorizontal: spacing.base,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: spacing.sm,
+        backgroundColor: disabled ? tidewater.paper2 : pressed ? tidewater.ink2 : tidewater.accent,
+        opacity: disabled ? 0.82 : 1,
+      })}
+    >
+      {loading ? <ActivityIndicator color={foreground} /> : null}
+      {!loading && Icon ? <Icon size={18} color={foreground} strokeWidth={2.2} /> : null}
+      <Text selectable={false} style={{ ...typography.displaySm, color: foreground, letterSpacing: 1.5 }}>
         {title}
       </Text>
-      {pill ? (
-        <View
-          style={{
-            borderRadius: radii.pill,
-            backgroundColor: colors.accentTint,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: spacing.xs,
-          }}
-        >
-          <Text selectable={false} style={{ ...typography.caption, color: colors.accentPrimary }}>
-            {pill}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function Pill({
-  icon: Icon,
-  label,
-  tone = 'default',
-}: {
-  icon: LucideIcon;
-  label: string;
-  tone?: 'default' | 'ok' | 'warn';
-}) {
-  const { colors, radii, spacing, typography } = useTheme();
-  const color = tone === 'ok' ? colors.statusOk : tone === 'warn' ? colors.statusWarn : colors.textSecondary;
-  const bg = tone === 'ok' ? colors.statusOkTint : tone === 'warn' ? colors.statusWarnTint : colors.bgMuted;
-
-  return (
-    <View
-      style={{
-        minHeight: 32,
-        borderRadius: radii.pill,
-        backgroundColor: bg,
-        paddingHorizontal: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.xs,
-      }}
-    >
-      <Icon size={14} color={color} strokeWidth={2.2} />
-      <Text selectable={false} numberOfLines={1} style={{ ...typography.caption, color }}>
-        {label}
-      </Text>
-    </View>
+    </Pressable>
   );
 }
