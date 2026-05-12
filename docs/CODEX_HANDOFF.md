@@ -4,32 +4,69 @@ Last updated: 2026-05-11
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
-## READ THIS FIRST — UI redesign incoming
+## READ THIS FIRST — UI redesign incoming, audit complete
 
-The user has dropped a high-fidelity redesign spec in `design_handoff_ralkredux/` at the repo root. It is **the spec**, not code to modify. Open `design_handoff_ralkredux/README.md` end-to-end before doing UI work; the JSX files under `design_handoff_ralkredux/prototype/` and `design_handoff_ralkredux/brand/` are annotated reference implementations to mine for tokens/primitives/SVG, not to ship.
+The user has dropped a high-fidelity redesign spec in `design_handoff_ralkredux/` at the repo root. Open `design_handoff_ralkredux/README.md` end-to-end before doing UI work; the JSX files under `design_handoff_ralkredux/prototype/` and `design_handoff_ralkredux/brand/` are annotated reference implementations to mine for tokens/primitives/SVG. The folder can be edited (the earlier "do not modify" wording was just to keep it from being deleted during the handoff) but it remains the spec of record.
 
 Short version of the redesign:
 
-- Concept: reframe the app as a **regulated document system** — every screen reads like a numbered government form ("FORM 27-A · REV 4 · EFF 2026.05"), with doc-bands top and bottom, hairline borders (no shadows), high density, mono numbers, and rotated Newsreader-italic stamps (VERIFIED / WITNESSED / FILED / VOID / EXPIRED / DRAFT / AMENDED).
+- Concept: reframe the app as a **regulated document system** — every screen reads like a numbered government form ("FORM 27-A · REV 4 · EFF 2026.05"), with doc-bands top and bottom, hairline borders (no shadows), high density, mono numbers, and rotated Newsreader-italic stamps.
 - Palette: "Tidewater" — `#0b2545` ink, `#f6f3eb` paper, `#f5c518` safety yellow, `#1f7a3d` chain-green, `#b32f1a` void-red, plus tinted soft variants and hairline rules at three opacities.
-- Type: **Archivo** display (700–900) for titles/all-caps labels, **Inter** (400–700) for body, **IBM Plex Mono** (400–600) for form IDs / numbers / chips, **Newsreader italic** (500–700) for signatures and stamps. These are brand identity — do not substitute. Custom font wiring will need to extend `src/providers/app-providers.tsx`'s font load.
-- Nav: 5-item bottom tab bar — Today · Records · **New** (center, raised, opens 3-step modal) · Gear · More. Different from the current 4-tab layout.
-- Screens listed in spec: Splash → Today (home) → Records list → New record (3-step modal: site → activity → sign & witness) → Record detail → PPE/Gear → Audit export → Settings/Profile.
-- Domain shifts implied by the redesign: witness signature (second signer) required for fall-arrest and gear-retirement events; chain head displayed on home and on every record footer; "FILED" stamp is auto-derived from cloud sync state; "VOID" is auto-derived from amendment state. We need to confirm what new fields/services this needs before tearing up the UI.
+- Type: **Archivo** display (700–900) for titles/all-caps labels, **Inter** (400–700) for body, **IBM Plex Mono** (400–600) for form IDs / numbers / chips, **Newsreader italic** (500–700) for stamps. These are brand identity — do not substitute.
+- Nav: 5-item bottom tab bar — Today · Records · **New** (center, raised, opens 3-step modal) · Gear · More.
+- Screens listed in spec: Splash → Today (home) → Records list → New record (3-step modal) → Record detail → PPE/Gear → Audit export → Settings/Profile.
 
-**Do not modify anything under `design_handoff_ralkredux/`** — the user explicitly carved that folder out as the source of truth.
+**Audit completed 2026-05-11.** Full document: `docs/redesign-audit.md`. Locked decisions after rope-access advisor pushback:
+
+| # | Topic | Decision |
+|---|---|---|
+| D1 | Witness signing | **Removed from scope.** No `entry_type` enum, no multi-signature refactor, no hash-version bump. |
+| D2 | `FILED` stamp | **Renamed to `SYNCED`.** Derives from `remote_signature_requests.status = 'completed'`. |
+| D3 | Amended-original stamp | **Keep `AMENDED`.** Matches existing `entry.status`. |
+| D4 | `VERIFIED` auto-stamp | **Renamed to `CHAIN OK`.** `VERIFIED` reserved for future human verification. |
+
+Resulting stamp set: `DRAFT · PENDING · CHAIN OK · AMENDED · SYNCED · EXPIRED (gear/certs only)`.
 
 ## Where the user paused
 
-The user picked "audit and propose" — they want the next session to read the redesign spec, audit the current behind-the-scenes (domain services, schema, hooks, providers) against what the new UI will demand, and propose a sequence for shoring up the back end *before* swapping the UI. They want the data/services rock-solid so the new screens are just glass on top. No UI rebuild work yet — the audit and the proposal are the immediate deliverable.
+Audit complete, decisions locked, **Phase A Cluster 1 implemented and validated** — TypeScript clean, Jest 75 tests across 11 suites all pass, `npm run functions:check` green. Awaiting commit.
 
-Concrete first moves for the next session:
+Phase A scope (full detail in `docs/redesign-audit.md` §3):
 
-1. Read `design_handoff_ralkredux/README.md` in full.
-2. Skim `design_handoff_ralkredux/prototype/prototype.jsx` and `official.jsx` to see what data each screen consumes.
-3. Cross-reference against the current `src/domain/*` services and `src/db/migrations.ts` schema.
-4. Produce a written audit: what's already there, what's missing (witness signing? chain-head display field? FILED/VOID derivation? new gear inspection schedule semantics?), and a proposed migration/service plan that does not break the existing signing model or the hosted remote-signing path.
-5. Surface the proposal to the user before writing migrations or new services.
+- [x] Expose `useChainHead()` hook (and `getLatestChainHash` / `getLatestRemoteRequestForEntry` on the logbook service).
+- [x] Add `src/domain/logbook/entry-stamps.ts` — pure `deriveEntryStamps(...)` helper. Stamp set: `DRAFT | PENDING | CHAIN_OK | AMENDED | SYNCED`.
+- [x] Add `useEntryCloudState(entryId)` hook → `'local' | 'queued' | 'synced'`.
+- [x] Add `verifyChainHashFor(entry, signature)` pure helper in `entry-hash.ts` for `CHAIN OK` derivation; detects entry-hash and chain-hash tampering when `hash_version` matches the running app.
+- [ ] Font load: Archivo, IBM Plex Mono, Newsreader italic + Inter 700 in `AppProviders` (Cluster 2).
+- [ ] Theme overhaul: Tidewater palette + hairline/doc-band/stamp/typography tokens (Cluster 2).
+- [ ] New primitives: `DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH` (Cluster 3).
+- [ ] 5-tab nav restructure: `Today / Records / New (raised center) / Gear / More` (Cluster 4).
+
+Phase B (UI rebuild — Splash / Today / Records / 3-step New modal / Record detail / Gear / More) is a separate proposal once Phase A is green.
+
+New tests landing in this cluster:
+- `__tests__/domain/entry-stamps.test.ts` — 10 cases covering every stamp combination + defensive paths.
+- `__tests__/domain/entry-hash.test.ts` — 6 cases for `verifyChainHashFor` including hash-version mismatch, entry-hash tampering, chain-hash tampering, and chained sigs with `previous_chain_hash`.
+- `__tests__/domain/logbook-service.test.ts` (extended) — 3 cases for `getLatestChainHash` + `getLatestRemoteRequestForEntry`.
+
+Suggested commit message:
+
+```
+Expose chain head, derived stamps, cloud-state hook
+
+Phase A Cluster 1 of the redesign back-end shore-up:
+- Expose getLatestChainHash and getLatestRemoteRequestForEntry on the
+  logbook service; add useChainHead and useEntryCloudState hooks.
+- New entry-stamps.ts derives the stamp set (DRAFT / PENDING / CHAIN_OK /
+  AMENDED / SYNCED) from entry + signature + remote-request + chain
+  validity.
+- New verifyChainHashFor helper in entry-hash.ts recomputes a signature's
+  chain hash and detects tampering when hash_version matches the app.
+- Sign + remote-request mutations invalidate chainHead and
+  entryCloudState query keys.
+
+No schema changes, no ENTRY_HASH_VERSION bump.
+```
 
 ## Most recent landings on `main`
 
@@ -323,20 +360,9 @@ npm.cmd run start -- --host lan
 
 ## Recommended Next Step
 
-The user wants the new UI to land on a back end that already has everything it needs. Do the audit-and-propose described in the "Where the user paused" section before touching screens or tokens.
+Phase A roadmap (see `docs/redesign-audit.md` §3 for full detail) is the only thing between us and the UI rebuild. No schema, no hash-version bump, no breaking type changes — pure additive plumbing across hooks, derivations, theme tokens, fonts, primitives, and the 5-tab nav swap.
 
-The earlier roadmap items below are still real, but most of them now need to be re-prioritized against the redesign:
-
-1. **Witness signing** (second signer for fall-arrest events and gear retirement) — implied by the spec, not in the current schema. Will likely need a new migration, an `entry_witness_signatures` table or similar, and a parallel `useSignEntryWitness` hook. The existing chain-hash logic (`hashSignatureChain`) and `ENTRY_HASH_VERSION` will need a decision: does a witness change what a signature attests to? If yes, bump the hash version.
-2. **Derived stamps** — `VERIFIED`, `WITNESSED`, `FILED`, `VOID`, `AMENDED`, `EXPIRED`, `DRAFT` should be derived from existing entry/signature/remote-request state, not stored. The current code already has `entry.status` covering `draft` / `signed` / `amended` — extend a derivation helper in `src/domain/logbook/` rather than adding columns.
-3. **Chain head** — the spec wants `3f9a1c…b820`-style chain head shown on Today and on each record footer. The `chain_hash` already lives on each signature; expose a `useChainHead` hook that returns the most recent `chain_hash` across signed entries.
-4. **FILED state** — the spec uses `FILED` for "synced to cloud." We currently have no cloud snapshot sync (only hosted remote-signing). Either keep `FILED` derived from the hosted remote-signing path (signed remotely => filed) or invest in real cloud backup. Discuss with the user.
-5. **Tab bar shape change** — current layout is 4 tabs (Dashboard / Records / Gear / Profile). New spec is 5 tabs with a raised center "New" button. The custom mobile tab bar already exists (commit `5bcf4bf` era), so the swap is presentational but the wiring is fine.
-6. **Font load** — extend `@expo-google-fonts/inter` in `AppProviders` to also load Archivo, IBM Plex Mono, and Newsreader. Update `src/ui/theme/tokens.ts` `typography` to add the new families/scales.
-
-Hold off on rewriting the existing screens until the audit produces an agreed sequence.
-
-Earlier roadmap items that are not yet redesign-blocked:
+Earlier roadmap items not yet redesign-blocked:
 
 - Cloud backup storage and conflict resolution on top of the local snapshot format.
 - Visual export preview and full-logbook PDF if reviewer feedback calls for it.

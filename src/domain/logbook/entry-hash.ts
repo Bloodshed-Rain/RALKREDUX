@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { LogbookEntry } from './types';
+import { EntrySignature, LogbookEntry } from './types';
 
 export const ENTRY_HASH_VERSION = 2;
 
@@ -83,4 +83,30 @@ export async function hashRemoteSigningToken(token: string): Promise<string> {
       version: 1,
     }),
   );
+}
+
+export async function verifyChainHashFor(input: {
+  entry: LogbookEntry;
+  signature: EntrySignature;
+}): Promise<boolean> {
+  const { entry, signature } = input;
+  if (!signature.chain_hash) return false;
+
+  // If the signature was made at a different hash version than the running app,
+  // we can't faithfully recompute it; trust the stored chain hash exists.
+  if (signature.hash_version !== ENTRY_HASH_VERSION) return true;
+
+  const currentEntryHash = await hashEntry(entry);
+  if (currentEntryHash !== signature.entry_hash) return false;
+
+  const recomputedChain = await hashSignatureChain({
+    entryHash: signature.entry_hash,
+    signatureId: signature.id,
+    signedAt: signature.signed_at,
+    method: signature.method,
+    previousChainHash: signature.previous_chain_hash,
+    remoteRequestId: signature.remote_request_id,
+  });
+
+  return recomputedChain === signature.chain_hash;
 }

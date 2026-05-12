@@ -136,6 +136,8 @@ export function useSignEntryLocal() {
       queryClient.invalidateQueries({ queryKey: ['careerStats'] });
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['chainHead'] });
+      queryClient.invalidateQueries({ queryKey: ['entryCloudState', detail.entry.id] });
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
@@ -153,6 +155,7 @@ export function useCreateRemoteSignatureRequest() {
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['entryCloudState', detail.entry.id] });
     },
   });
 }
@@ -169,6 +172,8 @@ export function useCompleteRemoteSignatureRequest() {
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['remoteSignatureRequest', input.request_code] });
+      queryClient.invalidateQueries({ queryKey: ['chainHead'] });
+      queryClient.invalidateQueries({ queryKey: ['entryCloudState', detail.entry.id] });
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
@@ -225,5 +230,29 @@ export function useExportLogbookCsv() {
 export function useExportEntryPacket() {
   return useMutation({
     mutationFn: (entryId: string) => createLogbookService(getClient()).exportEntryPacket(entryId),
+  });
+}
+
+export function useChainHead() {
+  return useQuery({
+    queryKey: ['chainHead'],
+    queryFn: () => createLogbookService(getClient()).getLatestChainHash(),
+  });
+}
+
+export type EntryCloudState = 'local' | 'queued' | 'synced';
+
+export function useEntryCloudState(entryId: string | null) {
+  return useQuery<EntryCloudState>({
+    enabled: Boolean(entryId),
+    queryKey: ['entryCloudState', entryId],
+    queryFn: async () => {
+      if (!entryId) throw new Error('entry_id_required');
+      const request = await createLogbookService(getClient()).getLatestRemoteRequestForEntry(entryId);
+      if (!request) return 'local';
+      if (request.status === 'pending') return 'queued';
+      if (request.status === 'completed') return 'synced';
+      return 'local';
+    },
   });
 }

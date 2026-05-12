@@ -108,6 +108,20 @@ export function createLogbookService(db: DbClient) {
     );
   }
 
+  async function getLatestRemoteRequestForEntry(entryId: string): Promise<RemoteSignatureRequest | null> {
+    return db.get<RemoteSignatureRequest>(
+      `SELECT
+        id, entry_id, recipient_name, recipient_contact, verifier_role, verifier_company,
+        status, request_code, entry_hash, hash_version, expires_at, completed_signature_id,
+        signing_token_hash, token_hint, viewed_at, completed_at, created_at, updated_at
+      FROM remote_signature_requests
+      WHERE entry_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1`,
+      [entryId],
+    );
+  }
+
   async function getRemoteRequestByCode(requestCode: string): Promise<RemoteSignatureRequest | null> {
     return db.get<RemoteSignatureRequest>(
       `SELECT
@@ -340,6 +354,10 @@ export function createLogbookService(db: DbClient) {
     getEntryDetail,
 
     getRemoteSignatureRequestDetail,
+
+    getLatestChainHash,
+
+    getLatestRemoteRequestForEntry,
 
     async listEntryTemplates(): Promise<EntryTemplate[]> {
       return db.getAll<EntryTemplate>(

@@ -760,3 +760,95 @@ describe('logbook service', () => {
     expect(csv).toContain('Jordan Lee,SPRAT-1234');
   });
 });
+
+describe('logbook service chain head + remote request lookup', () => {
+  beforeEach(() => {
+    mockUuidCounter = 0;
+  });
+
+  it('returns null chain head before any signature, then exposes the most recent chain hash', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+
+    expect(await service.getLatestChainHash()).toBeNull();
+
+    const entry = await service.createDraft(draftInput());
+    const signed = await service.signEntryLocal({
+      entry_id: entry.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+      signed_at: '2026-05-08T10:00:00.000Z',
+    });
+
+    expect(signed.signature?.chain_hash).toBeTruthy();
+    expect(await service.getLatestChainHash()).toBe(signed.signature?.chain_hash);
+  });
+
+  it('reports the latest chain hash across two signed entries', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+
+    const first = await service.createDraft(
+      draftInput({ date_from: '2026-05-01', date_to: '2026-05-01' }),
+    );
+    const firstSigned = await service.signEntryLocal({
+      entry_id: first.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 1 1',
+      attestation_accepted: true,
+      signed_at: '2026-05-01T10:00:00.000Z',
+    });
+
+    const second = await service.createDraft(
+      draftInput({ date_from: '2026-05-02', date_to: '2026-05-02' }),
+    );
+    const secondSigned = await service.signEntryLocal({
+      entry_id: second.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 2 2',
+      attestation_accepted: true,
+      signed_at: '2026-05-02T10:00:00.000Z',
+    });
+
+    expect(secondSigned.signature?.previous_chain_hash).toBe(firstSigned.signature?.chain_hash);
+    expect(await service.getLatestChainHash()).toBe(secondSigned.signature?.chain_hash);
+  });
+
+  it('returns the latest remote signature request regardless of status', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+
+    const entry = await service.createDraft(draftInput());
+    expect(await service.getLatestRemoteRequestForEntry(entry.id)).toBeNull();
+
+    const requested = await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'K. Briggs',
+    });
+    expect(requested.remote_request?.status).toBe('pending');
+
+    const pendingLookup = await service.getLatestRemoteRequestForEntry(entry.id);
+    expect(pendingLookup?.status).toBe('pending');
+    expect(pendingLookup?.id).toBe(requested.remote_request?.id);
+
+    const completed = await service.completeRemoteSignatureRequest({
+      request_code: requested.remote_request!.request_code,
+      signing_token: buildRemoteSigningToken(requested.remote_request!),
+      supervisor_name: 'K. Briggs',
+      supervisor_cert_number: 'IRATA-99',
+      signature_path: 'M 5 5',
+      attestation_accepted: true,
+      signed_at: '2026-05-08T11:00:00.000Z',
+    });
+
+    expect(completed.signature?.method).toBe('remote');
+
+    const completedLookup = await service.getLatestRemoteRequestForEntry(entry.id);
+    expect(completedLookup?.status).toBe('completed');
+    expect(completedLookup?.id).toBe(requested.remote_request?.id);
+  });
+});
