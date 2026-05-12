@@ -1,5 +1,12 @@
 import React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControlProps,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme-provider';
 
@@ -9,6 +16,7 @@ interface ScreenProps {
   footer?: React.ReactNode;
   padded?: boolean;
   preserveChildTouches?: boolean;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
   safeTop?: boolean;
   scrollEnabled?: boolean;
 }
@@ -19,6 +27,7 @@ export function Screen({
   footer,
   padded = true,
   preserveChildTouches = false,
+  refreshControl,
   safeTop = false,
   scrollEnabled = true,
 }: ScreenProps) {
@@ -44,6 +53,7 @@ export function Screen({
         disableScrollViewPanResponder={childTouchIsCapturing}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
+        refreshControl={refreshControl}
         scrollEnabled={scrollEnabled}
         contentContainerStyle={{
           paddingHorizontal: padded ? spacing.base : 0,
