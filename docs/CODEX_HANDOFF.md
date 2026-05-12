@@ -72,6 +72,10 @@ No schema changes, no ENTRY_HASH_VERSION bump.
 
 ## Most recent landings on `main`
 
+- `de56c74` Restructure tabs to 5-slot nav with raised center — 5-tab nav (Today / Records / New raised-center / Gear / More); `AppTabBar` renders the new-tab as a yellow circle with ink shadow; tap pushes directly to `/entry/new`. `dashboard.tsx` → `today.tsx`, `profile.tsx` → `more.tsx`. Mono-uppercase labels via IBM Plex Mono 500.
+- `2f6dc2d` Add Tidewater document primitives — six new primitives (`DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH`) under `src/ui/primitives/`, all token-driven, no inline hex. Used by Phase B screens.
+- `8139ce3` Load Tidewater fonts and apply token foundation — Archivo 700/800/900, IBM Plex Mono 400/500/600, Newsreader italic 500/700, Inter 700 loaded in `AppProviders`; `tokens.ts` swapped to Tidewater + new `tidewater` / `hairlines` / `docBand` / `stamp` token groups + display/mono/italic/formNumber typography. Existing screens get an instant facelift via remapped `colors` keys.
+- `d4680e2` Expose chain head, derived stamps, cloud-state hook — public `useChainHead()` + `useEntryCloudState()`, pure `deriveEntryStamps` helper in `entry-stamps.ts`, pure `verifyChainHashFor` in `entry-hash.ts`. Sign + remote-request mutations invalidate `chainHead` and `entryCloudState`. No schema changes, no `ENTRY_HASH_VERSION` bump.
 - `0de3b33` Polish local sign screen and signature pad — pad height bumped to 240, taken out of its Card so it spans full Screen content width, in-pad "Sign here" baseline hint, proper bordered Clear button (icon + label) only shown once a stroke starts, Keyboard.dismiss on touch-down, `keyboardDismissMode="on-drag"` so scrolling kills the keyboard early. Sign screen dropped `presentation: 'modal'` from `app/_layout.tsx` so the iOS swipe-down-to-dismiss can no longer fight the signature input. Signature and attestation collapsed into one "Signature & attestation" section with a single Ready pill that lights up green only when both are done.
 - `b16e28e` Document stale-request verifier UX in handoff log.
 - `a6071b1` Surface why a remote signing request is closed — new pure helper `src/domain/logbook/remote-signing-status.ts` classifies the closed reason as a discriminated union (`completed` / `expired` / `cancelled` / `pre_empted`), and `app/verify/[code].tsx` renders a tone-coded card hoisted to the top of the verify screen with signer/expiry detail. Submit footer hides when not actionable, and a Close button lets the verifier leave the page. Tests in `__tests__/domain/remote-signing-status.test.ts` cover all four closed reasons plus the actionable-null case. Visually verified on iPhone for the `completed` variant; `expired` / `cancelled` / `pre_empted` covered by tests only.
@@ -322,20 +326,19 @@ Last known good checks:
 ```bash
 .\node_modules\.bin\tsc.cmd --noEmit
 .\node_modules\.bin\jest.cmd --runInBand
+npm run functions:check
 ```
 
-Result: TypeScript passed, Jest passed with 56 tests across 9 suites.
+Result: TypeScript passed, Jest passed with **75 tests across 11 suites**, `functions:check` passed.
 
-Latest code-validation commits were checked with both commands:
+Latest code-validation commits cover all four Phase A clusters:
 
-- `216543e Fix iOS verifier link sharing`
-- `80f0747 Add records exit from signed entries`
+- `d4680e2` Expose chain head, derived stamps, cloud-state hook
+- `8139ce3` Load Tidewater fonts and apply token foundation
+- `2f6dc2d` Add Tidewater document primitives
+- `de56c74` Restructure tabs to 5-slot nav with raised center
 
-Latest local validation in this continuation also passed:
-
-- `.\node_modules\.bin\tsc.cmd --noEmit`
-- `.\node_modules\.bin\jest.cmd --runInBand`
-- `npm run functions:check`
+Phone smoke is still pending — Phase A is plumbing only. Phase B should open with a phone preview to confirm font load + Tidewater palette + 5-tab nav land correctly on iOS and Android.
 
 Last phone preview target:
 
@@ -362,7 +365,18 @@ npm.cmd run start -- --host lan
 
 ## Recommended Next Step
 
-Phase A roadmap (see `docs/redesign-audit.md` §3 for full detail) is the only thing between us and the UI rebuild. No schema, no hash-version bump, no breaking type changes — pure additive plumbing across hooks, derivations, theme tokens, fonts, primitives, and the 5-tab nav swap.
+Phase A is complete (closing scorecard in `docs/redesign-audit.md` §3). Phase B is the UI rebuild on top of the new foundation — see `docs/redesign-audit.md` §4 for the screen-by-screen data-source list.
+
+Suggested approach for Phase B (separate commits per screen, matching the project cadence):
+
+1. **Phone preview smoke** — `npm run start -- --tunnel`. Confirm Tidewater palette + Archivo / Plex Mono / Newsreader fonts render on iOS and Android, confirm 5-tab nav + raised center button look correct, confirm tap on `NEW` pushes to `/entry/new`.
+2. **Today** (`app/(tabs)/today.tsx`) — replace dashboard content with the doc-system home: cumulative rope hours (Archivo display Xl), 30-day delta in mono green/red, advisory card when `useGearItems` overdue or cert expiring, today's actions ladder, chain-head footer via `useChainHead()`.
+3. **Records** (`app/(tabs)/records.tsx`) — `useEntries` + per-row `useEntryStamps`. Range chips (7D/30D/90D/YTD/ALL), `RowDoc` rows with mono date + site/client + hours + tone-coded stamp.
+4. **3-step New modal** — restructure `app/entry/new.tsx` into a wizard reading from existing hooks (`useCreateEntry`, `useEntryTemplates`, `useSupervisorContacts`, `useAttachGearToEntry`, `useSignEntryLocal`). Step 1: hours + job particulars. Step 2: gear + work + conditions + photos. Step 3: supervisor + lock confirmation.
+5. **Record detail** (`app/entry/[id].tsx`) — full doc-style view with `DocBand` chrome, `FormCell` rows, `Stamp` overlay set from `deriveEntryStamps()`, chain-hash footer.
+6. **Gear** (`app/(tabs)/gear.tsx`) — `useGearItems` + `useGearSummary` + `useRecordGearInspection`. `RowDoc` list with due-offset chip + tone-coded `Stamp` for `OVR` / `SOON` items.
+7. **More** (`app/(tabs)/more.tsx`) — operator card, counter-signing officer roster, backup/restore, export buttons, settings sheet (sections A.1–A.5 per `prototype.jsx`).
+8. **PDF audit-export cover** — extend `src/domain/logbook/export.ts` with watermark seal + security-weave cover page. **Spec chrome (`FORM 27-A · REV 4 · EFF 2026.05`) is brand decoration only — it must not leak into the auditor-facing PDF.** See `docs/redesign-audit.md` §5 risk note.
 
 Earlier roadmap items not yet redesign-blocked:
 
