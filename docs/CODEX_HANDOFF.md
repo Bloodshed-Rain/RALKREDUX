@@ -72,6 +72,7 @@ No schema changes, no ENTRY_HASH_VERSION bump.
 
 ## Most recent landings on `main`
 
+- `6755450` Rebuild Today screen on Tidewater foundation — Phase B step 2. Doc-band top (rolling `DAY n / 365`), Archivo-900 hours hero with yellow `.5` decimal, dual SPRAT/IRATA cert dials with progress bar, advisory card derived from gear + cert state (P1 red overdue-gear/expired-cert = not dismissible; P2 due-soon gear with HOLD TO ACK 1.2 s long-press; P3/P4 cert expiry), 3-rung action ladder with ghost rungs when sparse, signed-today banner with rotated Newsreader stamp, doc-band footer with chain head. Pull-to-refresh + focus-invalidation wired. New pure module `src/domain/logbook/today-derivations.ts` + 30 unit tests.
 - `de56c74` Restructure tabs to 5-slot nav with raised center — 5-tab nav (Today / Records / New raised-center / Gear / More); `AppTabBar` renders the new-tab as a yellow circle with ink shadow; tap pushes directly to `/entry/new`. `dashboard.tsx` → `today.tsx`, `profile.tsx` → `more.tsx`. Mono-uppercase labels via IBM Plex Mono 500.
 - `2f6dc2d` Add Tidewater document primitives — six new primitives (`DocBand`, `FormCell`, `Stamp`, `Chip`, `RowDoc`, `SectionH`) under `src/ui/primitives/`, all token-driven, no inline hex. Used by Phase B screens.
 - `8139ce3` Load Tidewater fonts and apply token foundation — Archivo 700/800/900, IBM Plex Mono 400/500/600, Newsreader italic 500/700, Inter 700 loaded in `AppProviders`; `tokens.ts` swapped to Tidewater + new `tidewater` / `hairlines` / `docBand` / `stamp` token groups + display/mono/italic/formNumber typography. Existing screens get an instant facelift via remapped `colors` keys.
@@ -329,16 +330,17 @@ Last known good checks:
 npm run functions:check
 ```
 
-Result: TypeScript passed, Jest passed with **75 tests across 11 suites**, `functions:check` passed.
+Result: TypeScript passed, Jest passed with **105 tests across 12 suites**, `functions:check` passed.
 
-Latest code-validation commits cover all four Phase A clusters:
+Latest code-validation commits cover all of Phase A and Phase B step 2:
 
-- `d4680e2` Expose chain head, derived stamps, cloud-state hook
-- `8139ce3` Load Tidewater fonts and apply token foundation
-- `2f6dc2d` Add Tidewater document primitives
-- `de56c74` Restructure tabs to 5-slot nav with raised center
+- `d4680e2` Expose chain head, derived stamps, cloud-state hook (Phase A Cluster 1)
+- `8139ce3` Load Tidewater fonts and apply token foundation (Phase A Cluster 2)
+- `2f6dc2d` Add Tidewater document primitives (Phase A Cluster 3)
+- `de56c74` Restructure tabs to 5-slot nav with raised center (Phase A Cluster 4)
+- `6755450` Rebuild Today screen on Tidewater foundation (Phase B step 2)
 
-Phone smoke is still pending — Phase A is plumbing only. Phase B should open with a phone preview to confirm font load + Tidewater palette + 5-tab nav land correctly on iOS and Android.
+Phone smoke is still pending. Open Phase B with `npm run start -- --tunnel` to confirm Tidewater palette + Archivo / Plex Mono / Newsreader fonts render + 5-tab nav + raised center button + new Today screen all land correctly on iOS and Android **before** continuing to Records (step 3).
 
 Last phone preview target:
 
@@ -369,8 +371,8 @@ Phase A is complete (closing scorecard in `docs/redesign-audit.md` §3). Phase B
 
 Suggested approach for Phase B (separate commits per screen, matching the project cadence):
 
-1. **Phone preview smoke** — `npm run start -- --tunnel`. Confirm Tidewater palette + Archivo / Plex Mono / Newsreader fonts render on iOS and Android, confirm 5-tab nav + raised center button look correct, confirm tap on `NEW` pushes to `/entry/new`.
-2. **Today** (`app/(tabs)/today.tsx`) — replace dashboard content with the doc-system home: cumulative rope hours (Archivo display Xl), 30-day delta in mono green/red, advisory card when `useGearItems` overdue or cert expiring, today's actions ladder, chain-head footer via `useChainHead()`.
+1. **Phone preview smoke** — `npm run start -- --tunnel`. **Owed: confirm fonts + palette + nav + new Today screen on iOS and Android before shipping step 3.**
+2. **[x] Today** (`app/(tabs)/today.tsx`) — done in `6755450`. UX-locked decisions baked in: rolling `DAY n / 365` from profile creation; P1 advisories (overdue gear / expired cert) are not dismissible; P2+ require HOLD TO ACK (1.2 s long-press, in-memory acknowledge); ladder caps at 3 rungs with `+N more` tail; primary CTA is the tab bar `+` only (no duplicate Today CTA). Open follow-ups: (a) persist advisory acknowledge across launches (currently in-memory); (b) re-surface acknowledged advisories after 24 h or on new-advisory-of-same-kind state change.
 3. **Records** (`app/(tabs)/records.tsx`) — `useEntries` + per-row `useEntryStamps`. Range chips (7D/30D/90D/YTD/ALL), `RowDoc` rows with mono date + site/client + hours + tone-coded stamp.
 4. **3-step New modal** — restructure `app/entry/new.tsx` into a wizard reading from existing hooks (`useCreateEntry`, `useEntryTemplates`, `useSupervisorContacts`, `useAttachGearToEntry`, `useSignEntryLocal`). Step 1: hours + job particulars. Step 2: gear + work + conditions + photos. Step 3: supervisor + lock confirmation.
 5. **Record detail** (`app/entry/[id].tsx`) — full doc-style view with `DocBand` chrome, `FormCell` rows, `Stamp` overlay set from `deriveEntryStamps()`, chain-hash footer.
