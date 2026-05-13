@@ -4,6 +4,10 @@ import { Share, Text, TextInput, View } from 'react-native';
 import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/backup/use-backup';
 import { BackupSnapshot } from '@/src/domain/backup/types';
 import { formatDateOrDash } from '@/src/domain/date-format';
+import { daysFromTodayIso } from '@/src/domain/date-utils';
+import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
+import { useChainHead, useSupervisorContacts } from '@/src/domain/logbook/use-logbook';
+import type { SupervisorContact } from '@/src/domain/logbook/types';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import {
   AnimatedStamp,
@@ -11,6 +15,7 @@ import {
   Chip,
   DocActionButton,
   DocBand,
+  RowDoc,
   Screen,
   SectionH,
 } from '@/src/ui/primitives';
@@ -19,6 +24,8 @@ import { useTheme } from '@/src/ui/theme/theme-provider';
 export default function ProfileScreen() {
   const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
   const profile = useProfile();
+  const supervisors = useSupervisorContacts();
+  const chainHead = useChainHead();
   const createBackup = useCreateBackupSnapshot();
   const restoreBackup = useRestoreBackupSnapshot();
   const [restoreText, setRestoreText] = React.useState('');
@@ -27,6 +34,17 @@ export default function ProfileScreen() {
   const [restoreConfirmed, setRestoreConfirmed] = React.useState(false);
   const [previewSnapshot, setPreviewSnapshot] = React.useState<BackupSnapshot | null>(null);
   const p = profile.data;
+  const sortedSupervisors = React.useMemo(() => {
+    const items = supervisors.data ?? [];
+    return [...items].sort((a, b) => {
+      const aKey = a.last_signed_at ?? a.created_at;
+      const bKey = b.last_signed_at ?? b.created_at;
+      return bKey.localeCompare(aKey);
+    });
+  }, [supervisors.data]);
+  const chainHashTruncated = chainHead.data
+    ? `${chainHead.data.slice(0, 8)}…${chainHead.data.slice(-6)}`.toUpperCase()
+    : null;
   const primaryCertNumber = p?.primary_scheme === 'sprat' ? p.sprat_id : p?.irata_id;
   const primaryLevel = p?.primary_scheme === 'sprat' ? p.sprat_level : p?.irata_level;
   const primaryExpires = p?.primary_scheme === 'sprat' ? p.sprat_expires_on : p?.irata_expires_on;
@@ -90,7 +108,7 @@ export default function ProfileScreen() {
         variant="top"
         formId="CH.10 - PROFILE & BACKUP"
         rev={p ? 'PROFILE ON FILE' : 'NO PROFILE'}
-        effective="ENTRY-HASH v2"
+        effective={`ENTRY-HASH v${ENTRY_HASH_VERSION}`}
         rightLabel={certLabel}
       />
 
@@ -135,12 +153,55 @@ export default function ProfileScreen() {
             <Chip tone={primaryExpires ? 'green' : 'mute'}>
               {primaryExpires ? `EXPIRES ${formatDateOrDash(primaryExpires).toUpperCase()}` : 'EXPIRY NOT SET'}
             </Chip>
+            <Chip tone={chainHashTruncated ? 'green' : 'mute'}>
+              {chainHashTruncated ? `CHAIN ${chainHashTruncated}` : 'NO CHAIN YET'}
+            </Chip>
           </View>
         </View>
 
-        {/* § 33 Backup */}
+        {/* § 01 Linked supervisors */}
         <View>
-          <SectionH n="33" right="LOCAL LEDGER">
+          <SectionH
+            n="01"
+            right={`${sortedSupervisors.length} ON FILE`}
+          >
+            Linked supervisors
+          </SectionH>
+          {sortedSupervisors.length ? (
+            <View
+              style={{
+                borderWidth: hairlines.standard.width,
+                borderColor: hairlines.standard.color,
+                backgroundColor: tidewater.white,
+              }}
+            >
+              {sortedSupervisors.map((sup) => (
+                <SupervisorRow key={sup.id} supervisor={sup} />
+              ))}
+            </View>
+          ) : (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: tidewater.hairSoft,
+                borderStyle: 'dashed',
+                padding: spacing.md,
+                gap: spacing.xs,
+              }}
+            >
+              <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+                NO SUPERVISORS YET
+              </Text>
+              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
+                ADD ONE FROM A SIGN OR REMOTE-REQUEST FLOW
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* § 02 Backup */}
+        <View>
+          <SectionH n="02" right="LOCAL LEDGER">
             Backup and recovery
           </SectionH>
           <View
@@ -178,10 +239,10 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* § 34 Restore (collapsible) */}
+        {/* § 03 Restore (collapsible) */}
         {showRestore ? (
           <View>
-            <SectionH n="34" right="DESTRUCTIVE">
+            <SectionH n="03" right="DESTRUCTIVE">
               Restore from snapshot
             </SectionH>
             <View
@@ -347,9 +408,9 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
-        {/* § 35 About this device */}
+        {/* § 04 About this device */}
         <View>
-          <SectionH n="35">About this device</SectionH>
+          <SectionH n="04">About this device</SectionH>
           <View
             style={{
               borderWidth: 1.5,
@@ -361,6 +422,7 @@ export default function ProfileScreen() {
             <DocRow label="PRIMARY" value={p ? `${p.primary_scheme.toUpperCase()} ${primaryLevel ?? '—'}` : '—'} />
             <DocRow label="CERT NUMBER" value={primaryCertNumber || '—'} />
             <DocRow label="EXPIRES" value={formatDateOrDash(primaryExpires)} />
+            <DocRow label="CHAIN HEAD" value={chainHashTruncated ?? 'NO CHAIN YET'} mono />
             <DocRow label="LEDGER" value="LOCAL · OFFLINE-FIRST" mono last />
           </View>
         </View>
@@ -421,6 +483,71 @@ function DocRow({
         {value}
       </Text>
     </View>
+  );
+}
+
+function SupervisorRow({ supervisor }: { supervisor: SupervisorContact }) {
+  const { spacing, typography, tidewater } = useTheme();
+  const days = daysFromTodayIso(supervisor.last_signed_at);
+  const lastLabel =
+    supervisor.last_signed_at === null
+      ? 'NEVER SIGNED'
+      : days === null
+        ? 'LAST —'
+        : days === 0
+          ? 'LAST TODAY'
+          : days < 0
+            ? `LAST ${Math.abs(days)}D AGO`
+            : `LAST ${days}D AHEAD`;
+  const secondary = [supervisor.role, supervisor.company].filter(Boolean).join(' · ');
+
+  return (
+    <RowDoc
+      cols={[
+        {
+          value: (
+            <View style={{ width: '100%', gap: 2 }}>
+              <Text
+                selectable
+                style={{ ...typography.body, color: tidewater.ink, fontWeight: '600' }}
+                numberOfLines={1}
+              >
+                {supervisor.name}
+              </Text>
+              {secondary ? (
+                <Text
+                  style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}
+                  numberOfLines={1}
+                >
+                  {secondary.toUpperCase()}
+                </Text>
+              ) : null}
+            </View>
+          ),
+          flex: 1,
+        },
+        {
+          value: (
+            <View style={{ width: '100%', alignItems: 'flex-end', gap: 2 }}>
+              <Text
+                style={{ ...typography.monoMd, color: tidewater.ink, letterSpacing: 1 }}
+                numberOfLines={1}
+              >
+                {supervisor.cert_number || '—'}
+              </Text>
+              <Text
+                style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}
+                numberOfLines={1}
+              >
+                {lastLabel}
+              </Text>
+            </View>
+          ),
+          width: 120,
+          align: 'right',
+        },
+      ]}
+    />
   );
 }
 
