@@ -87,6 +87,58 @@ function filenamePart(value: string | null | undefined): string {
     .slice(0, 48) || 'entry';
 }
 
+function coverWeaveSvg(): string {
+  return `<svg width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <pattern id="ralb-cover-weave" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <line x1="-2" y1="22" x2="22" y2="-2" stroke="#0e3a40" stroke-width="0.5" opacity="0.18"/>
+      <line x1="-2" y1="-2" x2="22" y2="22" stroke="#0e3a40" stroke-width="0.5" opacity="0.18"/>
+      <circle cx="10" cy="10" r="0.7" fill="#0e3a40" opacity="0.42"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="100%" height="100%" fill="url(#ralb-cover-weave)"/>
+</svg>`;
+}
+
+function coverWatermarkSealSvg(): string {
+  return `<svg viewBox="0 0 200 200" width="220" height="220" aria-hidden="true">
+  <g opacity="0.18">
+    <circle cx="100" cy="100" r="90" fill="none" stroke="#0e3a40" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="80" fill="none" stroke="#0e3a40" stroke-width="0.8"/>
+    <circle cx="100" cy="100" r="62" fill="none" stroke="#0e3a40" stroke-width="0.5"/>
+    <defs>
+      <path id="ralb-cover-seal-arc" d="M 100 100 m -78 0 a 78 78 0 1 1 156 0 a 78 78 0 1 1 -156 0"/>
+    </defs>
+    <text font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="9" fill="#0e3a40" letter-spacing="5">
+      <textPath href="#ralb-cover-seal-arc">ROPE ACCESS LOGBOOK · CODEX EDITION · ROPE ACCESS LOGBOOK · CODEX EDITION · </textPath>
+    </text>
+    <text x="100" y="110" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="900" font-size="32" fill="#0e3a40" letter-spacing="2">RALB</text>
+    <line x1="55" y1="118" x2="145" y2="118" stroke="#0e3a40" stroke-width="1"/>
+    <text x="100" y="130" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="7" fill="#0e3a40" letter-spacing="2">CODEX EDITION</text>
+    <line x1="100" y1="2" x2="100" y2="12" stroke="#0e3a40" stroke-width="1.5"/>
+    <line x1="100" y1="2" x2="100" y2="12" stroke="#0e3a40" stroke-width="1.5" transform="rotate(90 100 100)"/>
+    <line x1="100" y1="2" x2="100" y2="12" stroke="#0e3a40" stroke-width="1.5" transform="rotate(180 100 100)"/>
+    <line x1="100" y1="2" x2="100" y2="12" stroke="#0e3a40" stroke-width="1.5" transform="rotate(270 100 100)"/>
+  </g>
+</svg>`;
+}
+
+function truncateHashForCover(value: string | null): string {
+  if (!value) return '—';
+  if (value.length <= 24) return value;
+  return `${value.slice(0, 14)}…${value.slice(-8)}`;
+}
+
+function coverStatusLabel(status: string): string {
+  return status.toUpperCase();
+}
+
+function coverStatusColor(status: string): string {
+  if (status === 'amended') return '#0e3a40';
+  if (status === 'signed') return '#2c7256';
+  return '#d4a514';
+}
+
 function signatureMarkup(signaturePath: string | null): string {
   if (!signaturePath) return '<div class="muted">No drawn signature path stored.</div>';
 
@@ -193,6 +245,16 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   const { entry, profile, signature, verification } = packet;
   const dateLabel = formatDateRange(entry.date_from, entry.date_to);
   const signatureSvg = signatureMarkup(signature.signature_path);
+  const operatorLine = [
+    profile?.full_name,
+    profile?.primary_scheme ? profile.primary_scheme.toUpperCase() : null,
+    profile?.primary_scheme === 'sprat' ? profile?.sprat_level : profile?.irata_level,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const operatorCert =
+    (profile?.primary_scheme === 'sprat' ? profile?.sprat_id : profile?.irata_id) ?? null;
+  const statusColor = coverStatusColor(entry.status);
 
   return `<!doctype html>
 <html>
@@ -216,9 +278,55 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
     .muted { color: #3C4556; }
     ul { margin: 6px 0 0; padding-left: 18px; }
     li { margin-bottom: 4px; }
+    .cover { position: relative; page-break-after: always; height: 100vh; padding: 36px 28px; display: flex; flex-direction: column; justify-content: space-between; }
+    .cover-weave { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+    .cover-seal { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .cover-content { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 22px; }
+    .cover-brand { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: 2.2px; color: #0e3a40; text-transform: uppercase; }
+    .cover-title { color: #0e3a40; font-size: 30px; line-height: 1.15; margin: 0; font-weight: 900; letter-spacing: -0.3px; }
+    .cover-dateline { color: #3c4556; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; }
+    .cover-status { display: inline-block; padding: 4px 10px; border: 2px solid currentColor; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; }
+    .cover-meta { display: grid; grid-template-columns: 110px 1fr; row-gap: 6px; column-gap: 14px; }
+    .cover-meta dt { color: #3c4556; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
+    .cover-meta dd { color: #0e3a40; font-size: 12px; margin: 0; }
+    .cover-meta dd.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; word-break: break-all; }
+    .cover-footer { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9.5px; letter-spacing: 1.5px; color: #3c4556; text-transform: uppercase; }
+    .cover-footer-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   </style>
 </head>
 <body>
+  <section class="cover">
+    <div class="cover-weave">${coverWeaveSvg()}</div>
+    <div class="cover-seal">${coverWatermarkSealSvg()}</div>
+    <div class="cover-content">
+      <div class="cover-brand">Rope Access Logbook · Codex Edition</div>
+      <div>
+        <h1 class="cover-title">${display(entry.site)}</h1>
+        <p class="cover-dateline">${html(dateLabel)} · ${html(coverStatusLabel(entry.status))}</p>
+      </div>
+      <div>
+        <span class="cover-status" style="color:${statusColor}">${html(coverStatusLabel(entry.status))}</span>
+      </div>
+      <dl class="cover-meta">
+        <dt>Operator</dt><dd>${display(operatorLine || profile?.full_name)}</dd>
+        ${operatorCert ? `<dt>Cert</dt><dd class="mono">${display(operatorCert)}</dd>` : ''}
+        <dt>Employer</dt><dd>${display(entry.employer)}</dd>
+        <dt>Client</dt><dd>${display(entry.client)}</dd>
+        <dt>Hours</dt><dd class="mono">${html(entry.work_hours.toFixed(1))}</dd>
+        <dt>Signed by</dt><dd>${display(signature.supervisor_name)}</dd>
+        <dt>Method</dt><dd>${html(coverStatusLabel(signature.method))}</dd>
+        <dt>Entry hash</dt><dd class="mono">${html(truncateHashForCover(verification.entry_hash))}</dd>
+        <dt>Chain hash</dt><dd class="mono">${html(truncateHashForCover(verification.chain_hash))}</dd>
+      </dl>
+    </div>
+    <div class="cover-footer">
+      <div class="cover-footer-line">
+        <span>Audit packet exported ${html(formatDate(packet.exported_at))}</span>
+        <span>${html(truncateHashForCover(verification.entry_hash))}</span>
+      </div>
+    </div>
+  </section>
+
   <header>
     <p class="status">${html(entry.status)}</p>
     <h1>${display(entry.site)}</h1>

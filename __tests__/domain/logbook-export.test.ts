@@ -141,4 +141,38 @@ describe('logbook export builders', () => {
     expect(markup).toContain('Inspected &lt;anchors&gt; &amp; edge protection.');
     expect(markup).toContain('sha256:entry');
   });
+
+  it('renders a cover page with truthful chrome only', () => {
+    const packet = buildEntryExportPacket({
+      profile,
+      detail: {
+        entry,
+        signature,
+        remote_request: null,
+        gear_usage: [],
+        attachments: [],
+      },
+      exportedAt: '2026-05-08T12:00:00.000Z',
+    });
+    const markup = buildEntryPdfHtml(packet);
+
+    // Cover is present and renders before the existing body sections.
+    expect(markup).toContain('<section class="cover">');
+    expect(markup.indexOf('<section class="cover">')).toBeLessThan(markup.indexOf('<header>'));
+
+    // Truthful content lands on the cover.
+    expect(markup).toContain('Tower A, North Face');
+    expect(markup).toContain('Mina Carter');
+    expect(markup).toContain('S-12345');
+    expect(markup).toContain('Northwind Rope');
+    expect(markup).toContain('City Works');
+    expect(markup).toContain('Audit packet exported');
+    expect(markup).toContain('ralb-cover-weave');
+    expect(markup).toContain('ralb-cover-seal-arc');
+
+    // Brand decoration must NOT leak into the auditor-facing PDF.
+    expect(markup).not.toMatch(/FORM\s*27-A/i);
+    expect(markup).not.toMatch(/\bREV\s*\d/i);
+    expect(markup).not.toMatch(/\bEFF\s*\d{4}/i);
+  });
 });
