@@ -21,7 +21,10 @@ import {
 } from 'lucide-react-native';
 import { Alert, Image as NativeImage, Platform, Pressable, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
-import { syncHostedRemoteSigningRequest } from '@/src/cloud/supabase/remote-signing';
+import {
+  cancelHostedRemoteSigningRequest,
+  syncHostedRemoteSigningRequest,
+} from '@/src/cloud/supabase/remote-signing';
 import {
   useAutoSyncHostedRemoteSignature,
   useImportHostedRemoteSignatureCompletion,
@@ -126,6 +129,7 @@ export default function EntryDetailScreen() {
   const [isPdfPending, setIsPdfPending] = React.useState(false);
   const [isHostedSharePending, setIsHostedSharePending] = React.useState(false);
   const [hostedImportFailed, setHostedImportFailed] = React.useState(false);
+  const [hostedCancelFailed, setHostedCancelFailed] = React.useState(false);
   const [pdfFailed, setPdfFailed] = React.useState(false);
   const entry = detail.data?.entry;
   const signature = detail.data?.signature;
@@ -372,7 +376,18 @@ export default function EntryDetailScreen() {
                     {
                       text: 'Cancel locally',
                       style: 'destructive',
-                      onPress: () => cancelRemoteRequest.mutate(entry.id),
+                      onPress: async () => {
+                        setHostedCancelFailed(false);
+                        try {
+                          await cancelRemoteRequest.mutateAsync(entry.id);
+                        } catch {
+                          return;
+                        }
+                        const result = await cancelHostedRemoteSigningRequest(remoteRequest);
+                        if (!result.ok && result.reason === 'cancel_failed') {
+                          setHostedCancelFailed(true);
+                        }
+                      },
                     },
                   ],
                 );
@@ -387,6 +402,11 @@ export default function EntryDetailScreen() {
           {hostedImportFailed ? (
             <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
               Hosted signature sync failed. Check the connection and try again.
+            </Text>
+          ) : null}
+          {hostedCancelFailed ? (
+            <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
+              Couldn't reach hosted. The request is cancelled on this device; the verifier link may still appear pending.
             </Text>
           ) : null}
         </View>

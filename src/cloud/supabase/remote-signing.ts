@@ -15,6 +15,10 @@ type HostedRemoteSigningResult =
   | { ok: true; verifierUrl: string }
   | { ok: false; reason: 'not_configured' | 'not_authenticated' | 'missing_request' | 'sync_failed' };
 
+type HostedRemoteCancelResult =
+  | { ok: true }
+  | { ok: false; reason: 'not_configured' | 'not_authenticated' | 'cancel_failed' };
+
 const REMOTE_SIGNING_ORIGIN = process.env.EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN?.trim() ?? '';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? '';
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
@@ -75,6 +79,25 @@ export async function syncHostedRemoteSigningRequest(detail: EntryDetail): Promi
 
   if (error) return { ok: false, reason: 'sync_failed' };
   return { ok: true, verifierUrl };
+}
+
+export async function cancelHostedRemoteSigningRequest(
+  request: RemoteSignatureRequest,
+): Promise<HostedRemoteCancelResult> {
+  if (!isSupabaseConfigured()) return { ok: false, reason: 'not_configured' };
+
+  const client = getSupabaseClient();
+  if (!client) return { ok: false, reason: 'not_configured' };
+
+  const session = await ensureSupabaseSession();
+  if (!session) return { ok: false, reason: 'not_authenticated' };
+
+  const { error } = await client.functions.invoke('remote-signing-cancel', {
+    body: { request_code: request.request_code },
+  });
+
+  if (error) return { ok: false, reason: 'cancel_failed' };
+  return { ok: true };
 }
 
 function functionUrl(name: string, search?: URLSearchParams): string | null {
