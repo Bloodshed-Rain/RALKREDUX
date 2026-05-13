@@ -27,4 +27,5 @@ export { Stamp } from './stamp';
 export type { StampTone, StampRotation } from './stamp';
 export { StatRow } from './stat-row';
 export { SwipeRow } from './swipe-row';
+export { WatermarkSeal } from './watermark-seal';
 export { WeaveBackdrop } from './weave-backdrop';

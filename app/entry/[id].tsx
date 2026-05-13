@@ -18,7 +18,7 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react-native';
-import { Image as NativeImage, Platform, Pressable, Share, Text, View } from 'react-native';
+import { Alert, Image as NativeImage, Platform, Pressable, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import { syncHostedRemoteSigningRequest } from '@/src/cloud/supabase/remote-signing';
 import {
@@ -27,17 +27,30 @@ import {
 } from '@/src/cloud/supabase/use-remote-signing-sync';
 import { formatDate, formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import { useGearItems } from '@/src/domain/gear/use-gear';
+import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
+import { deriveEntryStamps, type StampKind } from '@/src/domain/logbook/entry-stamps';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
 import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/logbook/logbook-service';
 import {
   useAddEntryAttachment,
   useAttachGearToEntry,
+  useEntryChainValid,
   useEntryDetail,
   useExportEntryPacket,
   useRemoveGearFromEntry,
 } from '@/src/domain/logbook/use-logbook';
-import { AnimatedStamp, Chip, DocActionButton, DocBand, Screen, SectionH, SignatureFill } from '@/src/ui/primitives';
+import {
+  AnimatedStamp,
+  Chip,
+  DocActionButton,
+  DocBand,
+  Screen,
+  SectionH,
+  SignatureFill,
+  Stamp,
+} from '@/src/ui/primitives';
+import type { StampTone } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -65,14 +78,34 @@ function buildVerifierLink(request: Parameters<typeof buildRemoteSigningToken>[0
   });
 }
 
-function statusStampTone(status: string): 'green' | 'yellow' | 'red' | 'ink' {
-  if (status === 'signed') return 'green';
-  if (status === 'amended') return 'ink';
-  return 'yellow';
+const STAMP_TONE: Record<StampKind, StampTone> = {
+  DRAFT: 'yellow',
+  PENDING: 'yellow',
+  AMENDED: 'ink',
+  CHAIN_OK: 'green',
+  SYNCED: 'ink',
+};
+
+const STAMP_LABEL: Record<StampKind, string> = {
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  AMENDED: 'AMENDED',
+  CHAIN_OK: 'CHAIN OK',
+  SYNCED: 'SYNCED',
+};
+
+const LEAD_STAMP_PRIORITY: StampKind[] = ['AMENDED', 'DRAFT', 'CHAIN_OK', 'PENDING', 'SYNCED'];
+
+function pickLeadStamp(stamps: StampKind[]): StampKind | null {
+  for (const kind of LEAD_STAMP_PRIORITY) {
+    if (stamps.includes(kind)) return kind;
+  }
+  return null;
 }
 
-function statusLabel(status: string): string {
-  return status.toUpperCase();
+function truncateChainHash(value: string): string {
+  if (value.length <= 14) return value.toUpperCase();
+  return `${value.slice(0, 8)}…${value.slice(-4)}`.toUpperCase();
 }
 
 export default function EntryDetailScreen() {
@@ -101,6 +134,26 @@ export default function EntryDetailScreen() {
     .filter(({ item, status }) => !assignedGearIds.has(item.id) && status !== 'retired')
     .slice(0, 6);
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
+  const chainValid = useEntryChainValid(entry, signature);
+  const stamps = entry
+    ? deriveEntryStamps({
+        entry,
+        signature: signature ?? null,
+        remote_request: remoteRequest ?? null,
+        chain_valid: chainValid.data ?? false,
+      })
+    : [];
+  const leadStamp = pickLeadStamp(stamps);
+  const supportingStamps = leadStamp ? stamps.filter((s) => s !== leadStamp) : stamps;
+  const isSignedWithoutChainOk =
+    Boolean(signature) && chainValid.data === false && stamps.indexOf('CHAIN_OK') === -1;
+  const hashDrift =
+    signature && signature.hash_version !== ENTRY_HASH_VERSION
+      ? { signed: signature.hash_version, running: ENTRY_HASH_VERSION }
+      : null;
+  const chainHashLabel = signature?.chain_hash
+    ? `CHAIN ${truncateChainHash(signature.chain_hash)}`
+    : 'CHAIN PENDING';
 
   if (detail.isLoading) {
     return (
@@ -361,12 +414,12 @@ export default function EntryDetailScreen() {
   );
 
   return (
-    <Screen padded={false} footer={footer}>
+    <Screen padded={false} weave footer={footer}>
       <DocBand
         variant="top"
         formId="CH.7 - ENTRY RECORD"
         rev={entry.status === 'draft' ? 'DRAFT' : entry.status === 'amended' ? 'AMENDED' : 'LOCKED'}
-        effective="ENTRY-HASH v2"
+        effective={`ENTRY-HASH v${ENTRY_HASH_VERSION}`}
         rightLabel={isDraft ? (isReady ? 'READY' : 'PENDING') : 'SEALED'}
       />
 
@@ -401,9 +454,30 @@ export default function EntryDetailScreen() {
                 {employerClient}
               </Text>
             </View>
-            <AnimatedStamp tone={statusStampTone(entry.status)} rotation="light">
-              {statusLabel(entry.status)}
-            </AnimatedStamp>
+            <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              {leadStamp ? (
+                <AnimatedStamp
+                  tone={STAMP_TONE[leadStamp]}
+                  rotation="light"
+                  slamKey={`entry:${entry.id}:${leadStamp}`}
+                >
+                  {STAMP_LABEL[leadStamp]}
+                </AnimatedStamp>
+              ) : isSignedWithoutChainOk ? (
+                <AnimatedStamp tone="red" rotation="light" slamKey={`entry:${entry.id}:UNVERIFIED`}>
+                  UNVERIFIED
+                </AnimatedStamp>
+              ) : null}
+              {supportingStamps.length ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
+                  {supportingStamps.map((kind) => (
+                    <Stamp key={kind} tone={STAMP_TONE[kind]} rotation="heavy">
+                      {STAMP_LABEL[kind]}
+                    </Stamp>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
             <Chip tone="ink">{dateLabel.toUpperCase()}</Chip>
@@ -413,12 +487,15 @@ export default function EntryDetailScreen() {
               <Chip tone="yellow">{`${readiness.missingFields.length} MISSING`}</Chip>
             ) : null}
             {isDraft && isReady ? <Chip tone="green">READY</Chip> : null}
+            {hashDrift ? (
+              <Chip tone="yellow">{`SIGNED UNDER v${hashDrift.signed} · RUNNING v${hashDrift.running}`}</Chip>
+            ) : null}
           </View>
         </View>
 
         {/* Work */}
         <View>
-          <SectionH n="15" right={entry.amends_entry_id ? 'AMENDMENT' : undefined}>
+          <SectionH n="01" right={entry.amends_entry_id ? 'AMENDMENT' : undefined}>
             Work
           </SectionH>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
@@ -449,7 +526,7 @@ export default function EntryDetailScreen() {
 
         {/* Gear */}
         <View>
-          <SectionH n="16" right={`${gearUsage.length} ITEM${gearUsage.length === 1 ? '' : 'S'}`}>
+          <SectionH n="02" right={`${gearUsage.length} ITEM${gearUsage.length === 1 ? '' : 'S'}`}>
             Gear
           </SectionH>
           {gearUsage.length ? (
@@ -478,7 +555,21 @@ export default function EntryDetailScreen() {
                   {isDraft ? (
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => removeGear.mutate({ entry_id: entry.id, gear_id: gear.id })}
+                      onPress={() => {
+                        Alert.alert(
+                          'Detach gear?',
+                          `Remove ${gear.name} from this draft entry. You can re-attach it before signing.`,
+                          [
+                            { text: 'Keep attached', style: 'cancel' },
+                            {
+                              text: 'Detach',
+                              style: 'destructive',
+                              onPress: () =>
+                                removeGear.mutate({ entry_id: entry.id, gear_id: gear.id }),
+                            },
+                          ],
+                        );
+                      }}
                       disabled={removeGear.isPending}
                       style={({ pressed }) => ({
                         padding: spacing.xs,
@@ -531,7 +622,7 @@ export default function EntryDetailScreen() {
 
         {/* Evidence */}
         <View>
-          <SectionH n="17" right={`${attachments.length} FILE${attachments.length === 1 ? '' : 'S'}`}>
+          <SectionH n="03" right={`${attachments.length} FILE${attachments.length === 1 ? '' : 'S'}`}>
             Evidence
           </SectionH>
           {attachments.length ? (
@@ -575,7 +666,7 @@ export default function EntryDetailScreen() {
         {/* Verification */}
         <View>
           <SectionH
-            n="18"
+            n="04"
             right={signature ? 'SIGNED' : remoteRequest ? 'PENDING' : 'UNSIGNED'}
           >
             Verification
@@ -690,7 +781,7 @@ export default function EntryDetailScreen() {
               ? 'AMENDED RECORD - SEALED IN HASH CHAIN'
               : 'SIGNED RECORD - SEALED IN HASH CHAIN'
         }
-        page={entryId ? `ENTRY ${entryId.slice(-6).toUpperCase()}` : 'ENTRY ------'}
+        page={chainHashLabel}
       />
     </Screen>
   );

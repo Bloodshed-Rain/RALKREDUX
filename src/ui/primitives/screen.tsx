@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme-provider';
+import { WatermarkSeal } from './watermark-seal';
 import { WeaveBackdrop } from './weave-backdrop';
 
 interface ScreenProps {
@@ -20,7 +21,11 @@ interface ScreenProps {
   refreshControl?: React.ReactElement<RefreshControlProps>;
   safeTop?: boolean;
   scrollEnabled?: boolean;
-  /** Enable the M.6 security weave backdrop. Off by default — opt in on signing-sensitive screens. */
+  /**
+   * Enable the M.6 security weave backdrop and the stationary watermark seal
+   * underneath it. Off by default — opt in on signing-sensitive screens so
+   * the two motifs together read as "this surface is sealed."
+   */
   weave?: boolean;
 }
 
@@ -45,7 +50,12 @@ export function Screen({
       keyboardVerticalOffset={footer ? 72 : 0}
       style={{ flex: 1, backgroundColor: colors.bgApp }}
     >
-      {weave ? <WeaveBackdrop /> : null}
+      {weave ? (
+        <>
+          <WatermarkSeal />
+          <WeaveBackdrop />
+        </>
+      ) : null}
       {background ? (
         <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject }}>
           {background}

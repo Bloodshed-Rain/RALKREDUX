@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getClient } from '@/src/db/initialize';
+import { verifyChainHashFor } from './entry-hash';
 import { createLogbookService } from './logbook-service';
 import {
   AddEntryAttachmentInput,
@@ -9,6 +10,8 @@ import {
   CreateEntryInput,
   CreateEntryTemplateInput,
   CreateRemoteSignatureRequestInput,
+  EntrySignature,
+  LogbookEntry,
   RemoveGearFromEntryInput,
   SignEntryInput,
   UpdateDraftEntryInput,
@@ -250,6 +253,21 @@ export function useChainHead() {
   return useQuery({
     queryKey: ['chainHead'],
     queryFn: () => createLogbookService(getClient()).getLatestChainHash(),
+  });
+}
+
+export function useEntryChainValid(
+  entry: LogbookEntry | null | undefined,
+  signature: EntrySignature | null | undefined,
+) {
+  const enabled = Boolean(entry && signature && signature.chain_hash);
+  return useQuery<boolean>({
+    enabled,
+    queryKey: ['entryChainValid', entry?.id ?? null, signature?.id ?? null, signature?.hash_version ?? null],
+    queryFn: () => {
+      if (!entry || !signature) throw new Error('entry_and_signature_required');
+      return verifyChainHashFor({ entry, signature });
+    },
   });
 }
 
