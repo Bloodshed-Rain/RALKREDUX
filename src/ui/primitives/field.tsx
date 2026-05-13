@@ -18,7 +18,7 @@ interface FieldProps extends TextInputProps {
 }
 
 export function Field({ label, hint, invalid = false, style, ...props }: FieldProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, hairlines, spacing, tidewater, typography } = useTheme();
   const accessoryId = React.useId().replace(/:/g, '');
   const inputAccessoryViewID = Platform.OS === 'ios'
     ? props.inputAccessoryViewID ?? `field-done-${accessoryId}`
@@ -39,10 +39,10 @@ export function Field({ label, hint, invalid = false, style, ...props }: FieldPr
         style={[
           {
             minHeight: 48,
-            borderRadius: radii.sm,
-            borderWidth: 1,
-            borderColor: invalid ? colors.statusWarn : colors.border,
-            backgroundColor: invalid ? colors.statusWarnTint : colors.bgSurface,
+            borderRadius: 0,
+            borderWidth: hairlines.standard.width + 0.5,
+            borderColor: invalid ? colors.statusWarn : hairlines.standard.color,
+            backgroundColor: invalid ? colors.statusWarnTint : tidewater.white,
             color: colors.textPrimary,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm,

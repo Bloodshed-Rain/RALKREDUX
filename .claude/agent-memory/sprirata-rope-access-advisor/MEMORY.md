@@ -1,0 +1,8 @@
+- [Entry-shape changes that need hash v3](hash-version-bump-candidates.md) — Bundled list of pending v3 fields so future advice stays consistent
+- [Gear inventory gaps vs real PPE register](gear-inventory-gaps.md) — Inspector identity, manufacture/in-service dates, lot/batch, quarantine state
+- [Cert-gate logic ruling](cert-required-gate-supervisor-not-tech.md) — Supervisor scheme governs the cert-number requirement, not tech's IRATA level
+- [Compliance-language watch list](compliance-language-watchlist.md) — Specific phrases flagged in user-facing copy and where they live
+- [Hours-bucket ruling](hours-bucket-breakdown.md) — Work / training / assessment / rescue-drill must be distinguishable in exports
+- [Remote signing — verifier information parity](remote-signing-verifier-parity.md) — Remote portal must show what local signer would see
+- [Verifier identity must be reconciled](verifier-identity-must-reconcile.md) — Requested-verifier vs actual-signer ruling
+- [Restore-vs-chain-continuity ruling](restore-vs-chain-continuity.md) — Snapshot restore breaks chain continuity; must be surfaced honestly

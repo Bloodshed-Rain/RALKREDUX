@@ -264,18 +264,31 @@ export default function RecordsScreen() {
                       },
                       {
                         value: (
-                          <Text
-                            style={{
-                              ...typography.monoSm,
-                              color: tone,
-                              fontWeight: '600',
-                              letterSpacing: 1.5,
-                            }}
-                          >
-                            {shortStatus(status)}
-                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Text
+                              style={{
+                                ...typography.monoSm,
+                                color: tone,
+                                fontWeight: '600',
+                                letterSpacing: 1.5,
+                              }}
+                            >
+                              {shortStatus(status)}
+                            </Text>
+                            {isDeletableDraft ? (
+                              <Text
+                                style={{
+                                  ...typography.monoSm,
+                                  color: tidewater.ink3,
+                                  letterSpacing: 1.5,
+                                }}
+                              >
+                                ‹
+                              </Text>
+                            ) : null}
+                          </View>
                         ),
-                        width: 44,
+                        width: 56,
                         align: 'right',
                       },
                     ]}
@@ -356,6 +369,7 @@ function Kpi({ value, unit, label }: { value: string; unit: string; label: strin
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
         <AnimatedCounter
+          cacheKey={`records-kpi-${label}`}
           text={value}
           fontFamily="Archivo_900Black"
           fontSize={26}

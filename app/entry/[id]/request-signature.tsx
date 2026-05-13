@@ -213,7 +213,6 @@ export default function RemoteSignatureRequestScreen() {
               onChangeText={setRecipientName}
               placeholder="Jordan Lee"
               invalid={!hasVerifierName}
-              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
             <Field
               label="Verifier contact"
@@ -223,7 +222,6 @@ export default function RemoteSignatureRequestScreen() {
               hint="Optional. Add it if you want it saved for next time."
               keyboardType="email-address"
               autoCapitalize="none"
-              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
             <Pressable
               accessibilityRole="button"
@@ -260,15 +258,13 @@ export default function RemoteSignatureRequestScreen() {
                   value={verifierRole}
                   onChangeText={setVerifierRole}
                   placeholder="IRATA L3 / Rope Access Manager"
-                  style={{ borderRadius: 0, borderWidth: 1.5 }}
-                />
+                    />
                 <Field
                   label="Company"
                   value={verifierCompany}
                   onChangeText={setVerifierCompany}
                   placeholder="Optional"
-                  style={{ borderRadius: 0, borderWidth: 1.5 }}
-                />
+                    />
               </>
             ) : null}
           </View>

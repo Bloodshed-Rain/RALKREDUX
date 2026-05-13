@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, RefreshControl, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ShieldAlert } from 'lucide-react-native';
@@ -155,6 +155,7 @@ export default function TodayScreen() {
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 }}>
               <AnimatedCounter
+                cacheKey="today-hours-whole"
                 text={String(hoursParts.whole)}
                 fontFamily="Archivo_900Black"
                 fontSize={64}
@@ -166,6 +167,7 @@ export default function TodayScreen() {
               />
               <View style={{ marginLeft: 4, paddingBottom: 4 }}>
                 <AnimatedCounter
+                  cacheKey="today-hours-decimal"
                   text={`.${hoursParts.decimal}`}
                   fontFamily="Archivo_900Black"
                   fontSize={30}
@@ -357,6 +359,7 @@ function CertDial({ progress }: { progress: CertProgress }) {
         <View style={{ flex: 1, gap: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
             <AnimatedCounter
+              cacheKey={`today-cert-pct-${progress.scheme}`}
               text={String(pct)}
               fontFamily="Archivo_900Black"
               fontSize={32}
@@ -438,22 +441,7 @@ function AdvisoryCard({
             </Text>
           </Pressable>
           {advisory.dismissible ? (
-            <Pressable
-              onLongPress={() => onAcknowledge(advisory.id)}
-              delayLongPress={1200}
-              style={{
-                flex: 1,
-                borderWidth: 1.5,
-                borderColor: tidewater.ink3,
-                paddingVertical: 8,
-                paddingHorizontal: spacing.sm,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ ...typography.displaySm, color: tidewater.ink2, letterSpacing: 1.5 }}>
-                HOLD TO ACK
-              </Text>
-            </Pressable>
+            <HoldToAckButton onComplete={() => onAcknowledge(advisory.id)} />
           ) : null}
         </View>
         {behindCount > 0 ? (
@@ -463,6 +451,82 @@ function AdvisoryCard({
         ) : null}
       </View>
     </View>
+  );
+}
+
+function HoldToAckButton({ onComplete }: { onComplete: () => void }) {
+  const { tidewater, typography, spacing } = useTheme();
+  const progress = React.useRef(new Animated.Value(0)).current;
+  const completedRef = React.useRef(false);
+  const animationRef = React.useRef<Animated.CompositeAnimation | null>(null);
+  const [pressing, setPressing] = React.useState(false);
+
+  function start() {
+    completedRef.current = false;
+    setPressing(true);
+    progress.setValue(0);
+    const anim = Animated.timing(progress, {
+      toValue: 1,
+      duration: 1200,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    animationRef.current = anim;
+    anim.start(({ finished }) => {
+      if (finished) {
+        completedRef.current = true;
+        onComplete();
+      }
+    });
+  }
+
+  function cancel() {
+    setPressing(false);
+    animationRef.current?.stop();
+    animationRef.current = null;
+    if (!completedRef.current) {
+      Animated.timing(progress, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    }
+  }
+
+  const fillWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <Pressable
+      onPressIn={start}
+      onPressOut={cancel}
+      style={{
+        flex: 1,
+        minHeight: 40,
+        borderWidth: 1.5,
+        borderColor: tidewater.ink,
+        paddingVertical: 8,
+        paddingHorizontal: spacing.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        backgroundColor: tidewater.white,
+      }}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFillObject,
+          { width: fillWidth, backgroundColor: tidewater.accent },
+        ]}
+      />
+      <Text style={{ ...typography.displaySm, color: pressing ? tidewater.paper : tidewater.ink, letterSpacing: 1.5 }}>
+        {pressing ? 'HOLD…' : 'HOLD TO ACK'}
+      </Text>
+    </Pressable>
   );
 }
 

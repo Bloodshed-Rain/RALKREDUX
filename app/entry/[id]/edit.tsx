@@ -246,7 +246,6 @@ export default function EditDraftScreen() {
               onChangeText={setSite}
               placeholder="Tower / plant / bridge"
               invalid={isMissing('site')}
-              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
             <View style={{ gap: spacing.xs }}>
               <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
@@ -259,8 +258,7 @@ export default function EditDraftScreen() {
                 onChangeText={setWorkTask}
                 placeholder="Inspection / maintenance / rescue cover"
                 invalid={isMissing('task')}
-                style={{ borderRadius: 0, borderWidth: 1.5 }}
-              />
+                />
             </View>
             <View style={{ gap: spacing.xs }}>
               <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
@@ -275,7 +273,6 @@ export default function EditDraftScreen() {
               keyboardType="decimal-pad"
               placeholder="8"
               invalid={isMissing('hours')}
-              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
           </View>
         </View>
@@ -333,16 +330,14 @@ export default function EditDraftScreen() {
                   onChangeText={setEmployer}
                   placeholder="Company"
                   invalid={isMissing('employer')}
-                  style={{ borderRadius: 0, borderWidth: 1.5 }}
-                />
+                    />
                 <Field
                   label="Client"
                   value={client}
                   onChangeText={setClient}
                   placeholder="Customer / contractor"
                   invalid={isMissing('client')}
-                  style={{ borderRadius: 0, borderWidth: 1.5 }}
-                />
+                    />
               </View>
             </View>
 
@@ -363,8 +358,7 @@ export default function EditDraftScreen() {
                     onChangeText={setStructureType}
                     placeholder="Bridge / tower / wind turbine"
                     invalid={isMissing('structure')}
-                    style={{ borderRadius: 0, borderWidth: 1.5 }}
-                  />
+                        />
                 </View>
                 <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end' }}>
                   <View style={{ flex: 2 }}>
@@ -375,8 +369,7 @@ export default function EditDraftScreen() {
                       keyboardType="decimal-pad"
                       placeholder="120"
                       invalid={isMissing('height')}
-                      style={{ borderRadius: 0, borderWidth: 1.5 }}
-                    />
+                            />
                   </View>
                   <View
                     style={{

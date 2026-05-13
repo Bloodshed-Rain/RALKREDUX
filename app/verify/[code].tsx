@@ -464,7 +464,6 @@ export default function RemoteVerifyScreen() {
                 onChangeText={setSupervisorName}
                 placeholder="Jordan Lee"
                 invalid={!hasName}
-                style={{ borderRadius: 0, borderWidth: 1.5 }}
               />
               <View style={{ gap: spacing.xs }}>
                 <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
@@ -506,7 +505,6 @@ export default function RemoteVerifyScreen() {
                 keyboardType="number-pad"
                 maxLength={requiresCertNumber ? 5 : 12}
                 invalid={requiresCertNumber && !certReady}
-                style={{ borderRadius: 0, borderWidth: 1.5 }}
                 hint={
                   requiresCertNumber
                     ? `Required for IRATA verifiers. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`

@@ -131,7 +131,6 @@ export default function SetupScreen() {
               onChangeText={setFullName}
               placeholder="Alex Morgan"
               invalid={!canContinue && fullName.length > 0}
-              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
           </View>
 
@@ -237,8 +236,7 @@ export default function SetupScreen() {
                         ? `Required digits saved as ${certLevelToDigit(level)}/12345.`
                         : 'Optional for SPRAT.'
                     }
-                    style={{ borderRadius: 0, borderWidth: 1.5 }}
-                  />
+                        />
                   <DateField
                     label="Expires on"
                     value={expiresOn}

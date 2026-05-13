@@ -167,6 +167,7 @@ export default function NewEntryWizard() {
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [draft, setDraft] = React.useState<DraftState>(initialDraft);
   const [busy, setBusy] = React.useState<null | 'draft' | 'sign' | 'request'>(null);
+  const [duplicatedFromDate, setDuplicatedFromDate] = React.useState<string | null>(null);
   const prefilledCertLevels = React.useRef(false);
 
   const update = React.useCallback((patch: Partial<DraftState>) => {
@@ -319,6 +320,7 @@ export default function NewEntryWizard() {
   function duplicateLast() {
     const latest = entries.data?.[0];
     if (!latest) return;
+    setDuplicatedFromDate(latest.date_to);
     update({
       employer: latest.employer,
       site: latest.site,
@@ -425,6 +427,8 @@ export default function NewEntryWizard() {
               hasLast={Boolean(entries.data?.length)}
               onApplyTemplate={applyTemplate}
               onDuplicateLast={duplicateLast}
+              duplicatedFromDate={duplicatedFromDate}
+              onAcknowledgeDuplicate={() => setDuplicatedFromDate(null)}
             />
           ) : null}
           {step === 2 ? <Step2 draft={draft} update={update} /> : null}
@@ -516,6 +520,8 @@ function Step1({
   hasLast,
   onApplyTemplate,
   onDuplicateLast,
+  duplicatedFromDate,
+  onAcknowledgeDuplicate,
 }: {
   draft: DraftState;
   update: (patch: Partial<DraftState>) => void;
@@ -523,11 +529,58 @@ function Step1({
   hasLast: boolean;
   onApplyTemplate: (t: EntryTemplate) => void;
   onDuplicateLast: () => void;
+  duplicatedFromDate: string | null;
+  onAcknowledgeDuplicate: () => void;
 }) {
   const { tidewater, typography, spacing } = useTheme();
 
   return (
     <View style={{ gap: spacing.md }}>
+      {duplicatedFromDate ? (
+        <View
+          style={{
+            borderWidth: 1.5,
+            borderColor: tidewater.yellowDeep,
+            backgroundColor: tidewater.yellowSoft,
+            padding: spacing.md,
+            gap: spacing.xs,
+          }}
+        >
+          <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+            COPIED FROM {duplicatedFromDate.toUpperCase()}
+          </Text>
+          <Text style={{ ...typography.monoSm, color: tidewater.ink2 }}>
+            Dates were reset to today. Verify the site, hours, and any other particulars before
+            signing — copies are a starting point, not a record of today's work.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onAcknowledgeDuplicate}
+            hitSlop={6}
+            style={({ pressed }) => ({
+              alignSelf: 'flex-start',
+              borderWidth: 1.5,
+              borderColor: tidewater.ink,
+              backgroundColor: pressed ? tidewater.ink : tidewater.white,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 6,
+              marginTop: spacing.xs,
+            })}
+          >
+            {({ pressed }) => (
+              <Text
+                style={{
+                  ...typography.displaySm,
+                  color: pressed ? tidewater.paper : tidewater.ink,
+                  letterSpacing: 1.2,
+                }}
+              >
+                I'LL VERIFY
+              </Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
       {templates.length > 0 || hasLast ? (
         <View style={{ gap: spacing.xs }}>
           <SectionLabel n="01" label="QUICK START" />
@@ -925,10 +978,12 @@ function Step3({
   onSaveDraft: () => void;
 }) {
   const { tidewater, typography, spacing } = useTheme();
-  const summaryRows: { label: string; value: string }[] = [
+  // mono renders numbers/codes/dates well; prose values stay in Inter.
+  const summaryRows: { label: string; value: string; mono?: boolean }[] = [
     {
       label: 'DATE',
       value: draft.dateFrom === draft.dateTo ? draft.dateFrom : `${draft.dateFrom} → ${draft.dateTo}`,
+      mono: true,
     },
     { label: 'EMPLOYER', value: draft.employer || '—' },
     { label: 'SITE', value: draft.site || '—' },
@@ -939,8 +994,9 @@ function Step3({
     {
       label: 'HEIGHT',
       value: draft.maxHeight ? `${draft.maxHeight} ${draft.heightUnit}` : '—',
+      mono: true,
     },
-    { label: 'HOURS', value: Number(draft.hours).toFixed(1) },
+    { label: 'HOURS', value: Number(draft.hours).toFixed(1), mono: true },
   ];
 
   return (
@@ -988,7 +1044,11 @@ function Step3({
               {row.label}
             </Text>
             <Text
-              style={{ flex: 1, ...typography.monoMd, color: tidewater.ink }}
+              style={{
+                flex: 1,
+                ...(row.mono ? typography.monoMd : typography.bodyMed),
+                color: tidewater.ink,
+              }}
               numberOfLines={2}
             >
               {row.value}

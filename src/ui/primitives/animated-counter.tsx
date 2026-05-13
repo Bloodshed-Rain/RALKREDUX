@@ -18,9 +18,22 @@ interface AnimatedCounterProps {
   duration?: number;
   /** Stagger between adjacent digit starts. Default 120ms. */
   stagger?: number;
+  /**
+   * Optional cache key. When provided, the counter only rolls when its value
+   * has changed since the last time this key was rendered. Same value →
+   * settle directly (no roll-from-0 on screen focus). New value → roll.
+   */
+  cacheKey?: string;
 }
 
 const ROLL_EASING = Easing.bezier(0.5, 0.1, 0.5, 1);
+
+/**
+ * Module-level cache of last-seen text per cacheKey. Lives for the app
+ * session. Used so navigating back to a screen with stable numeric values
+ * doesn't roll the digits from zero on every focus.
+ */
+const lastSeenByCacheKey = new Map<string, string>();
 
 /**
  * M.3 Ledger counter — rolling slot digits.
@@ -39,10 +52,22 @@ export function AnimatedCounter({
   width,
   duration = 1800,
   stagger = 120,
+  cacheKey,
 }: AnimatedCounterProps) {
   const slotHeight = height ?? Math.round(fontSize * 1.15);
   const slotWidth = width ?? Math.round(fontSize * 0.7);
   const reduced = useReducedMotion();
+
+  // If a cacheKey is supplied and we've seen this exact text under that key
+  // already this session, render the digits settled. Update the cache as soon
+  // as we commit to rolling so a re-mount mid-animation still settles.
+  const skipRollOnMount = React.useRef(
+    Boolean(cacheKey) && lastSeenByCacheKey.get(cacheKey!) === text,
+  ).current;
+
+  React.useEffect(() => {
+    if (cacheKey) lastSeenByCacheKey.set(cacheKey, text);
+  }, [cacheKey, text]);
 
   const chars = React.useMemo(() => text.split(''), [text]);
   const digitIndices = React.useMemo(
@@ -69,6 +94,7 @@ export function AnimatedCounter({
               color={color}
               letterSpacing={letterSpacing}
               reduced={reduced}
+              skipInitialRoll={skipRollOnMount}
             />
           );
         }
@@ -106,6 +132,8 @@ interface DigitSlotProps {
   color: string;
   letterSpacing?: number;
   reduced: boolean;
+  /** When true, the very first mount settles directly; subsequent digit changes still roll. */
+  skipInitialRoll: boolean;
 }
 
 function DigitSlot({
@@ -120,13 +148,23 @@ function DigitSlot({
   color,
   letterSpacing,
   reduced,
+  skipInitialRoll,
 }: DigitSlotProps) {
-  const offset = React.useRef(new Animated.Value(reduced ? digit : 0)).current;
+  const isFirstRunRef = React.useRef(true);
+  const settledOnMount = reduced || skipInitialRoll;
+  const offset = React.useRef(new Animated.Value(settledOnMount ? digit : 0)).current;
 
   React.useEffect(() => {
     if (reduced) {
       offset.setValue(digit);
       return;
+    }
+    if (isFirstRunRef.current) {
+      isFirstRunRef.current = false;
+      if (skipInitialRoll) {
+        offset.setValue(digit);
+        return;
+      }
     }
     offset.setValue(0);
     const animation = Animated.timing(offset, {
@@ -140,7 +178,7 @@ function DigitSlot({
     return () => {
       animation.stop();
     };
-  }, [delay, digit, duration, offset, reduced]);
+  }, [delay, digit, duration, offset, reduced, skipInitialRoll]);
 
   const translateY = offset.interpolate({
     inputRange: [0, 9],

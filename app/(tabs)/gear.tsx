@@ -328,7 +328,6 @@ export default function GearScreen() {
                 placeholder="Petzl Avao"
                 autoCapitalize="words"
                 autoCorrect={false}
-                style={{ borderRadius: 0, borderWidth: 1.5 }}
               />
               {showCatalogSuggestions ? (
                 <View style={{ borderWidth: 1.5, borderColor: tidewater.hairSoft }}>
@@ -365,14 +364,12 @@ export default function GearScreen() {
                 value={customName}
                 onChangeText={setCustomName}
                 placeholder="Optional display name"
-                style={{ borderRadius: 0, borderWidth: 1.5 }}
               />
               <Field
                 label="Serial"
                 value={serialNumber}
                 onChangeText={setSerialNumber}
                 placeholder="Optional"
-                style={{ borderRadius: 0, borderWidth: 1.5 }}
               />
               <DateField
                 label="Next due"
@@ -762,6 +759,7 @@ function KpiTile({
     >
       <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>{label}</Text>
       <AnimatedCounter
+        cacheKey={`gear-tile-${label}`}
         text={String(value)}
         fontFamily="Archivo_900Black"
         fontSize={28}

@@ -1,0 +1,10 @@
+- [Project: Tidewater redesign phase](project_tidewater_redesign.md) — RALB is in Phase B redesigning to a doc-system UI; primitives landed, Today screen first
+- [Project: 2026-05 full-app audit punch list](project_audit_punch_list_2026_05.md) — first post-redesign audit; 3 P0s on destructive-action safety
+- [Feedback: don't dismiss safety advisories with one tap](feedback_advisory_dismiss.md) — destructive-risk pattern; long-press acknowledge + audit trail preferred
+- [Feedback: every irreversible write needs Alert.alert confirmation](feedback_destructive_confirmation_audit.md) — banners are signage, not confirmations; gear-fail audit gap
+- [Feedback: Cancel after a commit must never silently leave a draft](feedback_cancel_after_commit.md) — wizard Step 1 auto-commits; Cancel UX must branch on commit state
+- [Feedback: typed numeric inputs alongside steppers](feedback_typed_numeric_inputs.md) — stepper-only forces rounding; never make create-path worse than edit-path
+- [Feedback: primary CTA on Today is the tab-bar +, not a top-of-screen button](feedback_primary_cta.md) — duplicating CTAs splits attention in glove conditions
+- [Reference: Today screen spec lives in prototype.jsx lines 100-166](reference_today_spec_location.md) — ScreenBrief function; numbered-form metaphor
+- [Reference: data hooks for Today](reference_today_data_hooks.md) — dashboard summary, chain head, gear, profile, entries, career stats
+- [Project: handoff boundaries with UI and SPRAT/IRATA agents](project_agent_handoffs.md) — who owns what on Today

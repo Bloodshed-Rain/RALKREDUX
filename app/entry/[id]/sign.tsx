@@ -240,7 +240,6 @@ export default function LocalSignScreen() {
               onChangeText={setSupervisorName}
               placeholder="Jordan Lee"
               invalid={supervisorName.trim().length <= 1}
-              style={{ borderRadius: 0, borderWidth: 1.5 }}
             />
             <View style={{ gap: spacing.xs }}>
               <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
@@ -276,7 +275,6 @@ export default function LocalSignScreen() {
               keyboardType="number-pad"
               maxLength={requiresCertNumber ? 5 : 12}
               invalid={requiresCertNumber && irataNumberDigits(supervisorCertNumber).length !== 5}
-              style={{ borderRadius: 0, borderWidth: 1.5 }}
               hint={requiresCertNumber
                 ? `Required for IRATA supervisors. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
                 : 'Optional for SPRAT supervisors. Add it if the signer has a SPRAT card number.'}
