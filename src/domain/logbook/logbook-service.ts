@@ -650,6 +650,34 @@ export function createLogbookService(db: DbClient) {
       return detail;
     },
 
+    async cancelRemoteSignatureRequest(entryId: string): Promise<EntryDetail> {
+      const now = new Date().toISOString();
+      const entry = await getEntryById(entryId);
+      if (!entry) throw new Error('entry_not_found');
+      const pending = await getPendingRemoteRequestForEntry(entryId);
+      if (!pending) throw new Error('no_pending_request_to_cancel');
+
+      await db.exec('BEGIN');
+      try {
+        await db.run(
+          "UPDATE remote_signature_requests SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'pending'",
+          [now, pending.id],
+        );
+        await db.run(
+          'UPDATE entries SET pending_signature_id = NULL, updated_at = ? WHERE id = ?',
+          [now, entry.id],
+        );
+        await db.exec('COMMIT');
+      } catch (error) {
+        await db.exec('ROLLBACK');
+        throw error;
+      }
+
+      const detail = await getEntryDetail(entry.id);
+      if (!detail) throw new Error('cancel_remote_signature_request_failed');
+      return detail;
+    },
+
     async signEntryLocal(input: SignEntryInput): Promise<EntryDetail> {
       const now = new Date().toISOString();
       const signaturePath = input.signature_path.trim();

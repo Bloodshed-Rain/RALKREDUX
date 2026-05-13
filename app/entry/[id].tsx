@@ -17,6 +17,7 @@ import {
   Send,
   Share2,
   Trash2,
+  XCircle,
 } from 'lucide-react-native';
 import { Alert, Image as NativeImage, Platform, Pressable, Share, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
@@ -35,6 +36,7 @@ import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/log
 import {
   useAddEntryAttachment,
   useAttachGearToEntry,
+  useCancelRemoteSignatureRequest,
   useEntryChainValid,
   useEntryDetail,
   useExportEntryPacket,
@@ -118,6 +120,7 @@ export default function EntryDetailScreen() {
   const attachGear = useAttachGearToEntry();
   const removeGear = useRemoveGearFromEntry();
   const addAttachment = useAddEntryAttachment();
+  const cancelRemoteRequest = useCancelRemoteSignatureRequest();
   const importHostedCompletion = useImportHostedRemoteSignatureCompletion();
   useAutoSyncHostedRemoteSignature(detail.data);
   const [isPdfPending, setIsPdfPending] = React.useState(false);
@@ -355,6 +358,32 @@ export default function EntryDetailScreen() {
               style={{ flex: 1 }}
             />
           </View>
+          {remoteRequest.status === 'pending' ? (
+            <DocActionButton
+              title={cancelRemoteRequest.isPending ? 'CANCELLING' : 'CANCEL REQUEST'}
+              icon={XCircle}
+              variant="ghost"
+              onPress={() => {
+                Alert.alert(
+                  'Cancel this request?',
+                  "The pending request will be marked cancelled on this device. If you've already shared the verifier link, the link will still appear pending to the verifier until you tell them not to sign.",
+                  [
+                    { text: 'Keep request', style: 'cancel' },
+                    {
+                      text: 'Cancel locally',
+                      style: 'destructive',
+                      onPress: () => cancelRemoteRequest.mutate(entry.id),
+                    },
+                  ],
+                );
+              }}
+              disabled={
+                cancelRemoteRequest.isPending ||
+                isHostedSharePending ||
+                importHostedCompletion.isPending
+              }
+            />
+          ) : null}
           {hostedImportFailed ? (
             <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
               Hosted signature sync failed. Check the connection and try again.

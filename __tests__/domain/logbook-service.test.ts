@@ -450,6 +450,27 @@ describe('logbook service', () => {
     expect(detail.entry.pending_signature_id).toBe(detail.remote_request?.id);
   });
 
+  it('cancels a pending remote signature request locally without touching entry status', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Inspected anchors.', work_hours: 4 }));
+    const created = await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'Jordan Lee',
+    });
+    expect(created.entry.pending_signature_id).toBe(created.remote_request?.id);
+
+    const cancelled = await service.cancelRemoteSignatureRequest(entry.id);
+
+    expect(cancelled.remote_request).toBeNull();
+    expect(cancelled.entry.pending_signature_id).toBeNull();
+    expect(cancelled.entry.status).toBe('draft');
+
+    await expect(service.cancelRemoteSignatureRequest(entry.id)).rejects.toThrow(
+      'no_pending_request_to_cancel',
+    );
+  });
+
   it('requires named supervisors and remote recipients at the service layer', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);

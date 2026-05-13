@@ -176,6 +176,20 @@ export function useCreateRemoteSignatureRequest() {
   });
 }
 
+export function useCancelRemoteSignatureRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (entryId: string) =>
+      createLogbookService(getClient()).cancelRemoteSignatureRequest(entryId),
+    onSuccess: (detail) => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['entryCloudState', detail.entry.id] });
+    },
+  });
+}
+
 export function useCompleteRemoteSignatureRequest() {
   const queryClient = useQueryClient();
   return useMutation({
