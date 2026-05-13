@@ -797,6 +797,7 @@ function Step2({
   update: (patch: Partial<DraftState>) => void;
 }) {
   const { tidewater, typography, spacing } = useTheme();
+  const [showKeypad, setShowKeypad] = React.useState(false);
   const hoursNum = Number(draft.hours);
   const hoursFloat = Number.isFinite(hoursNum) ? hoursNum : 0;
   const whole = Math.floor(hoursFloat);
@@ -805,6 +806,27 @@ function Step2({
   function bumpHours(delta: number) {
     const next = Math.max(0, Math.round((hoursFloat + delta) * 10) / 10);
     update({ hours: String(next) });
+  }
+
+  function pressKey(key: string) {
+    const current = draft.hours;
+    if (key === 'BACK') {
+      const next = current.length > 1 ? current.slice(0, -1) : '0';
+      update({ hours: next });
+      return;
+    }
+    if (key === '.') {
+      if (current.includes('.')) return;
+      update({ hours: current.length === 0 ? '0.' : `${current}.` });
+      return;
+    }
+    // digit
+    if (current === '0') {
+      update({ hours: key });
+      return;
+    }
+    if (current.length >= 5) return; // cap at "999.9" length
+    update({ hours: `${current}${key}` });
   }
 
   return (
@@ -855,7 +877,21 @@ function Step2({
           >
             <Minus color={tidewater.ink} size={28} strokeWidth={2.4} />
           </Pressable>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+          <Pressable
+            onPress={() => setShowKeypad((value) => !value)}
+            accessibilityRole="button"
+            accessibilityLabel="Type hours on a keypad"
+            accessibilityState={{ expanded: showKeypad }}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              paddingHorizontal: spacing.xs,
+              paddingBottom: 2,
+              borderBottomWidth: 1.5,
+              borderBottomColor: showKeypad ? tidewater.accent : tidewater.hair,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
             <Text
               style={{
                 fontFamily: 'Archivo_900Black',
@@ -881,7 +917,7 @@ function Step2({
             >
               .{dec}
             </Text>
-          </View>
+          </Pressable>
           <Pressable
             onPress={() => bumpHours(0.5)}
             accessibilityRole="button"
@@ -908,8 +944,76 @@ function Step2({
             textAlign: 'center',
           }}
         >
-          TAP ± · 0.5 HR INCREMENT
+          TAP ± · 0.5 HR · TAP NUMBER TO TYPE
         </Text>
+        {showKeypad ? (
+          <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
+            {[
+              ['7', '8', '9'],
+              ['4', '5', '6'],
+              ['1', '2', '3'],
+              ['.', '0', 'BACK'],
+            ].map((row, rowIndex) => (
+              <View key={rowIndex} style={{ flexDirection: 'row', gap: spacing.xs }}>
+                {row.map((key) => (
+                  <Pressable
+                    key={key}
+                    onPress={() => pressKey(key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={key === 'BACK' ? 'Backspace' : `Type ${key}`}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      minHeight: 64,
+                      borderWidth: 1.5,
+                      borderColor: tidewater.ink,
+                      backgroundColor: pressed ? tidewater.accentSoft : tidewater.white,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: 'Archivo_900Black',
+                        fontSize: 28,
+                        lineHeight: 30,
+                        color: tidewater.ink,
+                        fontWeight: '900',
+                      }}
+                    >
+                      {key === 'BACK' ? '⌫' : key}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
+            <Pressable
+              onPress={() => setShowKeypad(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close keypad"
+              style={({ pressed }) => ({
+                marginTop: spacing.xs,
+                minHeight: 44,
+                borderWidth: 1.5,
+                borderColor: tidewater.ink,
+                backgroundColor: pressed ? tidewater.ink : tidewater.accent,
+                alignItems: 'center',
+                justifyContent: 'center',
+              })}
+            >
+              {({ pressed }) => (
+                <Text
+                  style={{
+                    ...typography.displaySm,
+                    color: pressed ? tidewater.paper : tidewater.ink,
+                    letterSpacing: 1.5,
+                  }}
+                >
+                  DONE
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View style={{ gap: spacing.xs }}>
