@@ -37,3 +37,17 @@ export function isValidIsoDateRange(dateFrom: string | null | undefined, dateTo:
   const comparison = compareIsoDates(dateFrom, dateTo);
   return comparison !== null && comparison <= 0;
 }
+
+/**
+ * Days between today (local) and an ISO date. Negative = past, 0 = today,
+ * positive = future. Returns null for missing or unparseable input.
+ */
+export function daysFromTodayIso(value: string | null | undefined, now = new Date()): number | null {
+  if (!value || !ISO_DATE_PATTERN.test(value)) return null;
+  const match = ISO_DATE_PATTERN.exec(value);
+  if (!match) return null;
+  const target = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msPerDay = 86_400_000;
+  return Math.round((target.getTime() - today.getTime()) / msPerDay);
+}
