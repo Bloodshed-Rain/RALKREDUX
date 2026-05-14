@@ -223,13 +223,13 @@ export default function TodayScreen() {
           <AdvisoryCard
             advisory={headAdvisory}
             behindCount={advisoriesBehind}
-            onAcknowledge={(id) =>
-              setAckMap((s) => {
-                const next = withAck(s, id, new Date());
-                writePref(PrefKeys.advisoryAcks, next);
-                return next;
-              })
-            }
+            onAcknowledge={(id) => {
+              // Keep the persist side effect out of the state updater — strict
+              // mode can run the updater twice.
+              const next = withAck(ackMap, id, new Date());
+              setAckMap(next);
+              writePref(PrefKeys.advisoryAcks, next);
+            }}
           />
         ) : (
           <View
