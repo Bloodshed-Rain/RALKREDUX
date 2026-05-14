@@ -28,6 +28,13 @@ import {
 } from '@/src/domain/logbook/today-derivations';
 import { AnimatedCounter, AnimatedStamp, DocBand, LoadGauge, Screen } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import {
+  acknowledgedIdSet,
+  pruneAcks,
+  withAck,
+  type AdvisoryAckMap,
+} from '@/src/storage/advisory-acks';
+import { PrefKeys, readPref, writePref } from '@/src/storage/local-prefs';
 
 function formatEffective(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -56,8 +63,26 @@ export default function TodayScreen() {
   const gear = useGearItems();
   const { tidewater, typography, spacing, hairlines } = useTheme();
 
-  const [acknowledgedIds, setAcknowledgedIds] = React.useState<Set<string>>(new Set());
+  // Persisted across launches; expired entries (>24h) are pruned on load so a
+  // still-unresolved advisory re-surfaces rather than staying silently hidden.
+  const [ackMap, setAckMap] = React.useState<AdvisoryAckMap>({});
   const [refreshing, setRefreshing] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    readPref<AdvisoryAckMap>(PrefKeys.advisoryAcks, {}).then((stored) => {
+      if (cancelled) return;
+      const pruned = pruneAcks(stored, new Date());
+      setAckMap(pruned);
+      // Write the pruned map back so stale entries don't accumulate on disk.
+      if (Object.keys(pruned).length !== Object.keys(stored).length) {
+        writePref(PrefKeys.advisoryAcks, pruned);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -101,6 +126,7 @@ export default function TodayScreen() {
     expiringCerts: summary.data?.expiringCerts ?? [],
     today,
   });
+  const acknowledgedIds = acknowledgedIdSet(ackMap, today);
   const visibleAdvisories = allAdvisories.filter((adv) => !acknowledgedIds.has(adv.id));
   const headAdvisory = visibleAdvisories[0] ?? null;
   const advisoriesBehind = Math.max(0, visibleAdvisories.length - 1);
@@ -198,9 +224,9 @@ export default function TodayScreen() {
             advisory={headAdvisory}
             behindCount={advisoriesBehind}
             onAcknowledge={(id) =>
-              setAcknowledgedIds((s) => {
-                const next = new Set(s);
-                next.add(id);
+              setAckMap((s) => {
+                const next = withAck(s, id, new Date());
+                writePref(PrefKeys.advisoryAcks, next);
                 return next;
               })
             }

@@ -21,6 +21,7 @@ import {
 } from '@/src/domain/logbook/records-derivations';
 import { AnimatedCounter, DocBand, RowDoc, Screen, SwipeRow } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { PrefKeys, readPref, writePref } from '@/src/storage/local-prefs';
 
 function formatRowDate(iso: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
@@ -48,6 +49,22 @@ export default function RecordsScreen() {
   const [range, setRange] = React.useState<RangeKey>('30D');
   const [refreshing, setRefreshing] = React.useState(false);
   const [openSwipeId, setOpenSwipeId] = React.useState<string | null>(null);
+
+  // Last-used range persists across launches. A manual tap wins over a slow
+  // load so the stored value can never clobber a fresh selection.
+  const rangeTouched = React.useRef(false);
+  React.useEffect(() => {
+    readPref<RangeKey>(PrefKeys.recordsRange, '30D').then((stored) => {
+      if (rangeTouched.current) return;
+      if (RANGE_OPTIONS.some((o) => o.key === stored)) setRange(stored);
+    });
+  }, []);
+
+  const selectRange = React.useCallback((key: RangeKey) => {
+    rangeTouched.current = true;
+    setRange(key);
+    writePref(PrefKeys.recordsRange, key);
+  }, []);
   const entries = useEntries();
   const profile = useProfile();
   const exportLogbook = useExportLogbook();
@@ -127,7 +144,7 @@ export default function RecordsScreen() {
             return (
               <Pressable
                 key={opt.key}
-                onPress={() => setRange(opt.key)}
+                onPress={() => selectRange(opt.key)}
                 accessibilityRole="button"
                 accessibilityState={selected ? { selected: true } : {}}
                 style={{

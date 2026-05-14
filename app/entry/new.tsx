@@ -34,6 +34,13 @@ import {
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { DateField } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import {
+  DEFAULT_TERMINAL_ACTION,
+  PrefKeys,
+  isTerminalActionPref,
+  readPref,
+  type TerminalActionPref,
+} from '@/src/storage/local-prefs';
 
 const WORK_TASK_PRESETS = ['Inspection', 'Maintenance', 'Rescue standby', 'Training'];
 const ACCESS_METHOD_PRESETS = ['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'];
@@ -201,7 +208,17 @@ export default function NewEntryWizard() {
   const [draft, setDraft] = React.useState<DraftState>(initialDraft);
   const [busy, setBusy] = React.useState<null | 'draft' | 'sign' | 'request' | 'template'>(null);
   const [duplicatedFromDate, setDuplicatedFromDate] = React.useState<string | null>(null);
+  const [defaultTerminalAction, setDefaultTerminalAction] =
+    React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const prefilledCertLevels = React.useRef(false);
+
+  React.useEffect(() => {
+    readPref<TerminalActionPref>(PrefKeys.defaultTerminalAction, DEFAULT_TERMINAL_ACTION).then(
+      (stored) => {
+        if (isTerminalActionPref(stored)) setDefaultTerminalAction(stored);
+      },
+    );
+  }, []);
 
   const update = React.useCallback((patch: Partial<DraftState>) => {
     setDraft((s) => ({ ...s, ...patch }));
@@ -490,6 +507,7 @@ export default function NewEntryWizard() {
               onSaveDraft={handleSaveDraft}
               templateMissingFields={templateMissing(draft)}
               onSaveTemplate={handleSaveTemplate}
+              defaultTerminalAction={defaultTerminalAction}
             />
           ) : null}
         </ScrollView>
@@ -1119,6 +1137,7 @@ function Step3({
   onSaveDraft,
   templateMissingFields,
   onSaveTemplate,
+  defaultTerminalAction,
 }: {
   draft: DraftState;
   update: (patch: Partial<DraftState>) => void;
@@ -1131,6 +1150,7 @@ function Step3({
   onSaveDraft: () => void;
   templateMissingFields: string[];
   onSaveTemplate: (name: string) => Promise<void>;
+  defaultTerminalAction: TerminalActionPref;
 }) {
   const { tidewater, typography, spacing } = useTheme();
   // mono renders numbers/codes/dates well; prose values stay in Inter.
@@ -1331,88 +1351,21 @@ function Step3({
       )}
 
       <View style={{ gap: spacing.sm }}>
-        <Pressable
-          onPress={onSignNow}
-          disabled={!signReady || busy !== null}
-          style={({ pressed }) => ({
-            height: 56,
-            borderWidth: 1.5,
-            borderColor: tidewater.ink,
-            backgroundColor: !signReady ? tidewater.paper2 : tidewater.accent,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: spacing.xs,
-            opacity: pressed && signReady ? 0.85 : 1,
-          })}
-        >
-          <PenLine
-            color={!signReady ? tidewater.ink3 : tidewater.paper}
-            size={20}
-            strokeWidth={2.2}
+        {/* Order + emphasis follow the operator's default-action preference
+            (More → Preferences). All three stay reachable; the preferred one
+            just takes the primary slot. */}
+        {orderTerminalActions(defaultTerminalAction).map((action, tier) => (
+          <TerminalActionButton
+            key={action}
+            tier={tier}
+            action={action}
+            signReady={signReady}
+            busy={busy}
+            onSignNow={onSignNow}
+            onRequestRemote={onRequestRemote}
+            onSaveDraft={onSaveDraft}
           />
-          <Text
-            style={{
-              ...typography.displaySm,
-              color: !signReady ? tidewater.ink3 : tidewater.paper,
-              letterSpacing: 1.5,
-            }}
-          >
-            {busy === 'sign' ? 'OPENING SIGN…' : 'SIGN NOW'}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onRequestRemote}
-          disabled={!signReady || busy !== null}
-          style={({ pressed }) => ({
-            height: 52,
-            borderWidth: 1.5,
-            borderColor: tidewater.ink,
-            backgroundColor: tidewater.white,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: spacing.xs,
-            opacity: pressed && signReady ? 0.85 : signReady ? 1 : 0.5,
-          })}
-        >
-          <Send
-            color={signReady ? tidewater.ink : tidewater.ink3}
-            size={18}
-            strokeWidth={2.2}
-          />
-          <Text
-            style={{
-              ...typography.displaySm,
-              color: signReady ? tidewater.ink : tidewater.ink3,
-              letterSpacing: 1.5,
-            }}
-          >
-            {busy === 'request' ? 'OPENING REQUEST…' : 'REQUEST REMOTE SIGNATURE'}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onSaveDraft}
-          disabled={busy !== null}
-          style={({ pressed }) => ({
-            height: 44,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.5 : 1,
-          })}
-        >
-          <Text
-            style={{
-              ...typography.monoMd,
-              color: tidewater.ink3,
-              letterSpacing: 1.4,
-            }}
-          >
-            {busy === 'draft' ? 'SAVING…' : 'SAVE AS DRAFT'}
-          </Text>
-        </Pressable>
+        ))}
 
         <SaveTemplateRow
           missingFields={templateMissingFields}
@@ -1421,6 +1374,124 @@ function Step3({
         />
       </View>
     </View>
+  );
+}
+
+// Canonical order of the three Step 3 terminal actions. The operator's
+// preferred action is hoisted to the front; the rest keep this sequence.
+const TERMINAL_ACTION_SEQUENCE: TerminalActionPref[] = ['sign', 'request', 'draft'];
+
+function orderTerminalActions(pref: TerminalActionPref): TerminalActionPref[] {
+  return [pref, ...TERMINAL_ACTION_SEQUENCE.filter((a) => a !== pref)];
+}
+
+const TERMINAL_ACTION_META: Record<
+  TerminalActionPref,
+  {
+    label: string;
+    busyLabel: string;
+    busyKey: 'sign' | 'request' | 'draft';
+    Icon: typeof PenLine | null;
+    // Gated actions need the entry to be sign-ready; SAVE AS DRAFT never is.
+    gated: boolean;
+  }
+> = {
+  sign: { label: 'SIGN NOW', busyLabel: 'OPENING SIGN…', busyKey: 'sign', Icon: PenLine, gated: true },
+  request: {
+    label: 'REQUEST REMOTE SIGNATURE',
+    busyLabel: 'OPENING REQUEST…',
+    busyKey: 'request',
+    Icon: Send,
+    gated: true,
+  },
+  draft: { label: 'SAVE AS DRAFT', busyLabel: 'SAVING…', busyKey: 'draft', Icon: null, gated: false },
+};
+
+// One Step 3 terminal action, styled by tier: 0 = primary (filled accent),
+// 1 = secondary (outlined), 2 = quiet text link. Tier is assigned by the
+// operator's default-action preference, not the action's identity.
+function TerminalActionButton({
+  tier,
+  action,
+  signReady,
+  busy,
+  onSignNow,
+  onRequestRemote,
+  onSaveDraft,
+}: {
+  tier: number;
+  action: TerminalActionPref;
+  signReady: boolean;
+  busy: null | 'draft' | 'sign' | 'request' | 'template';
+  onSignNow: () => void;
+  onRequestRemote: () => void;
+  onSaveDraft: () => void;
+}) {
+  const { tidewater, typography, spacing } = useTheme();
+  const meta = TERMINAL_ACTION_META[action];
+  const onPress =
+    action === 'sign' ? onSignNow : action === 'request' ? onRequestRemote : onSaveDraft;
+  const blockedByReady = meta.gated && !signReady;
+  const disabled = blockedByReady || busy !== null;
+  const label = busy === meta.busyKey ? meta.busyLabel : meta.label;
+
+  if (tier === 2) {
+    return (
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        style={({ pressed }) => ({
+          height: 44,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing.xs,
+          opacity: pressed && !disabled ? 0.5 : blockedByReady ? 0.5 : 1,
+        })}
+      >
+        <Text style={{ ...typography.monoMd, color: tidewater.ink3, letterSpacing: 1.4 }}>
+          {label}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  const primary = tier === 0;
+  const fill = primary
+    ? blockedByReady
+      ? tidewater.paper2
+      : tidewater.accent
+    : tidewater.white;
+  const foreground = primary
+    ? blockedByReady
+      ? tidewater.ink3
+      : tidewater.paper
+    : blockedByReady
+      ? tidewater.ink3
+      : tidewater.ink;
+  const Icon = meta.Icon;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => ({
+        height: primary ? 56 : 52,
+        borderWidth: 1.5,
+        borderColor: tidewater.ink,
+        backgroundColor: fill,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        opacity: pressed && !disabled ? 0.85 : blockedByReady && !primary ? 0.5 : 1,
+      })}
+    >
+      {Icon ? <Icon color={foreground} size={primary ? 20 : 18} strokeWidth={2.2} /> : null}
+      <Text style={{ ...typography.displaySm, color: foreground, letterSpacing: 1.5 }}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 

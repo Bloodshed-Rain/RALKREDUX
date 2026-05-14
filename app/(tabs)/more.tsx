@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronUp, RotateCcw, Share2 } from 'lucide-react-native';
-import { Share, Text, TextInput, View } from 'react-native';
+import { Pressable, Share, Text, TextInput, View } from 'react-native';
 import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/backup/use-backup';
 import { BackupSnapshot } from '@/src/domain/backup/types';
 import { formatDateOrDash } from '@/src/domain/date-format';
@@ -20,6 +20,20 @@ import {
   SectionH,
 } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import {
+  DEFAULT_TERMINAL_ACTION,
+  PrefKeys,
+  isTerminalActionPref,
+  readPref,
+  writePref,
+  type TerminalActionPref,
+} from '@/src/storage/local-prefs';
+
+const TERMINAL_ACTION_LABELS: Record<TerminalActionPref, string> = {
+  sign: 'SIGN NOW',
+  request: 'REMOTE',
+  draft: 'DRAFT',
+};
 
 export default function ProfileScreen() {
   const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
@@ -33,7 +47,21 @@ export default function ProfileScreen() {
   const [showRestore, setShowRestore] = React.useState(false);
   const [restoreConfirmed, setRestoreConfirmed] = React.useState(false);
   const [previewSnapshot, setPreviewSnapshot] = React.useState<BackupSnapshot | null>(null);
+  const [terminalAction, setTerminalAction] = React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const p = profile.data;
+
+  React.useEffect(() => {
+    readPref<TerminalActionPref>(PrefKeys.defaultTerminalAction, DEFAULT_TERMINAL_ACTION).then(
+      (stored) => {
+        if (isTerminalActionPref(stored)) setTerminalAction(stored);
+      },
+    );
+  }, []);
+
+  function selectTerminalAction(value: TerminalActionPref) {
+    setTerminalAction(value);
+    writePref(PrefKeys.defaultTerminalAction, value);
+  }
   const sortedSupervisors = React.useMemo(() => {
     const items = supervisors.data ?? [];
     return [...items].sort((a, b) => {
@@ -408,9 +436,67 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
-        {/* § 04 About this device */}
+        {/* § 04 Preferences */}
         <View>
-          <SectionH n="04">About this device</SectionH>
+          <SectionH n="04" right="THIS DEVICE">
+            Preferences
+          </SectionH>
+          <View
+            style={{
+              borderWidth: hairlines.standard.width,
+              borderColor: hairlines.standard.color,
+              backgroundColor: tidewater.white,
+              padding: spacing.md,
+              gap: spacing.sm,
+            }}
+          >
+            <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+              DEFAULT NEW-RECORD ACTION
+            </Text>
+            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
+              Which action the new-record wizard surfaces first on its final step. The other two
+              stay available — this never skips the review step.
+            </Text>
+            <View style={{ flexDirection: 'row', borderWidth: 1.5, borderColor: tidewater.hair }}>
+              {(Object.keys(TERMINAL_ACTION_LABELS) as TerminalActionPref[]).map((key, i) => {
+                const selected = key === terminalAction;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => selectTerminalAction(key)}
+                    accessibilityRole="button"
+                    accessibilityState={selected ? { selected: true } : {}}
+                    style={{
+                      flex: 1,
+                      minHeight: touchTarget.min,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: spacing.xs,
+                      backgroundColor: selected ? tidewater.accent : tidewater.white,
+                      borderLeftWidth: i === 0 ? 0 : 1.5,
+                      borderLeftColor: tidewater.hair,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        ...typography.monoSm,
+                        color: selected ? tidewater.paper : tidewater.ink2,
+                        letterSpacing: 1.4,
+                        fontWeight: selected ? '600' : '400',
+                      }}
+                    >
+                      {TERMINAL_ACTION_LABELS[key]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        {/* § 05 About this device */}
+        <View>
+          <SectionH n="05">About this device</SectionH>
           <View
             style={{
               borderWidth: 1.5,
