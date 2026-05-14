@@ -10,8 +10,9 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Copy, Minus, PenLine, Plus, Send } from 'lucide-react-native';
+import { Camera, Check, Copy, Minus, PenLine, Plus, Send } from 'lucide-react-native';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type { CertLevel } from '@/src/domain/profile/types';
 import type {
@@ -23,14 +24,19 @@ import type {
   UpdateDraftEntryInput,
 } from '@/src/domain/logbook/types';
 import {
+  useAddEntryAttachment,
+  useAttachGearToEntry,
   useCreateEntry,
   useCreateEntryTemplate,
   useDeleteDraftEntry,
   useEntries,
+  useEntryDetail,
   useEntryTemplates,
+  useRemoveGearFromEntry,
   useSupervisorContacts,
   useUpdateDraftEntry,
 } from '@/src/domain/logbook/use-logbook';
+import { useGearItems } from '@/src/domain/gear/use-gear';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { DateField } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
@@ -863,6 +869,48 @@ function Step2({
 }) {
   const { tidewater, typography, spacing } = useTheme();
   const [showKeypad, setShowKeypad] = React.useState(false);
+
+  // Gear + evidence read/write off the already-committed draft. The draft is
+  // persisted on the Step 1 -> 2 transition, so draft.entryId is normally set
+  // here; the null guards below are defensive in case Step 2 is reached early.
+  const gearItems = useGearItems();
+  const detail = useEntryDetail(draft.entryId);
+  const attachGear = useAttachGearToEntry();
+  const removeGear = useRemoveGearFromEntry();
+  const addAttachment = useAddEntryAttachment();
+
+  const attachedGearIds = new Set(
+    (detail.data?.gear_usage ?? []).map(({ gear }) => gear.id),
+  );
+  const selectableGear = (gearItems.data ?? []).filter(({ status }) => status !== 'retired');
+  const attachments = detail.data?.attachments ?? [];
+  const gearBusy = attachGear.isPending || removeGear.isPending;
+
+  function toggleGear(gearId: string, category: string) {
+    if (!draft.entryId || gearBusy) return;
+    if (attachedGearIds.has(gearId)) {
+      removeGear.mutate({ entry_id: draft.entryId, gear_id: gearId });
+    } else {
+      attachGear.mutate({ entry_id: draft.entryId, gear_id: gearId, role: category });
+    }
+  }
+
+  async function addPhoto() {
+    if (!draft.entryId || addAttachment.isPending) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.75,
+    });
+    if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
+    addAttachment.mutate({
+      entry_id: draft.entryId,
+      label: asset.fileName || 'Evidence photo',
+      uri: asset.uri,
+      mime_type: asset.mimeType ?? 'image/jpeg',
+    });
+  }
+
   const hoursNum = Number(draft.hours);
   const hoursFloat = Number.isFinite(hoursNum) ? hoursNum : 0;
   const whole = Math.floor(hoursFloat);
@@ -1121,6 +1169,121 @@ function Step2({
           />
         </View>
       </View>
+
+      {/* § 13 Gear — toggle chips; writes straight through to the committed
+          draft so the signed record preserves the equipment history. */}
+      <View style={{ gap: spacing.xs }}>
+        <SectionLabel n="13" label="GEAR" right="tap to attach equipment used" />
+        {!draft.entryId ? (
+          <View style={{ borderWidth: 1, borderColor: tidewater.hairSoft, padding: spacing.md }}>
+            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
+              Gear attaches once the draft is saved — continue past Step 1 first.
+            </Text>
+          </View>
+        ) : selectableGear.length === 0 ? (
+          <View style={{ borderWidth: 1, borderColor: tidewater.hairSoft, padding: spacing.md }}>
+            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
+              No active gear in your inventory yet. Add items from the Gear tab.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+            {selectableGear.map(({ item }) => {
+              const attached = attachedGearIds.has(item.id);
+              return (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: attached }}
+                  onPress={() => toggleGear(item.id, item.category)}
+                  disabled={gearBusy}
+                  style={({ pressed }) => ({
+                    borderWidth: 1.5,
+                    borderColor: attached ? tidewater.accent : tidewater.hair,
+                    backgroundColor: attached ? tidewater.accentSoft : tidewater.white,
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: 6,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  {attached ? (
+                    <Check size={14} color={tidewater.accent} strokeWidth={2.6} />
+                  ) : (
+                    <Plus size={14} color={tidewater.ink} strokeWidth={2.2} />
+                  )}
+                  <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
+                    {item.name.toUpperCase()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* § 14 Evidence — photo attachments off the committed draft. */}
+      <View style={{ gap: spacing.xs }}>
+        <SectionLabel
+          n="14"
+          label="EVIDENCE"
+          right={attachments.length ? `${attachments.length} on file` : 'optional'}
+        />
+        {attachments.length ? (
+          <View
+            style={{
+              borderWidth: 1.5,
+              borderColor: tidewater.hairSoft,
+              backgroundColor: tidewater.white,
+            }}
+          >
+            {attachments.map((att, i) => (
+              <View
+                key={att.id}
+                style={{
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: 8,
+                  borderBottomWidth: i < attachments.length - 1 ? 1 : 0,
+                  borderBottomColor: tidewater.hairFaint,
+                }}
+              >
+                <Text
+                  style={{ ...typography.bodyMed, color: tidewater.ink }}
+                  numberOfLines={1}
+                >
+                  {att.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        <Pressable
+          onPress={addPhoto}
+          disabled={!draft.entryId || addAttachment.isPending}
+          style={({ pressed }) => ({
+            height: 48,
+            borderWidth: 1.5,
+            borderColor: tidewater.ink,
+            backgroundColor: tidewater.white,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing.xs,
+            opacity: pressed || !draft.entryId ? 0.6 : 1,
+          })}
+        >
+          <Camera size={18} color={tidewater.ink} strokeWidth={2.2} />
+          <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.4 }}>
+            {addAttachment.isPending
+              ? 'ATTACHING…'
+              : !draft.entryId
+                ? 'EVIDENCE ATTACHES AFTER STEP 1'
+                : 'ATTACH FROM PHOTOS'}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -1192,7 +1355,7 @@ function Step3({
           }}
         >
           <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-            § 13 · RECORD SUMMARY
+            § 15 · RECORD SUMMARY
           </Text>
         </View>
         {summaryRows.map((row, i) => (
@@ -1250,7 +1413,7 @@ function Step3({
 
       <View style={{ gap: spacing.xs }}>
         <SectionLabel
-          n="14"
+          n="16"
           label="SUPERVISOR"
           right="select if signing or requesting"
         />
@@ -1567,7 +1730,7 @@ function SaveTemplateRow({
         gap: spacing.xs,
       }}
     >
-      <SectionLabel n="15" label="SAVE AS TEMPLATE" right="reuse on a future record" />
+      <SectionLabel n="17" label="SAVE AS TEMPLATE" right="reuse on a future record" />
       {blocked ? (
         <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
           Add {missingFields.join(', ')} first — a template needs the full activity shape.
