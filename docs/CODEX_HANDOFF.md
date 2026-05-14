@@ -1,6 +1,6 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-11
+Last updated: 2026-05-14
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
@@ -69,6 +69,21 @@ Phase A Cluster 1 of the redesign back-end shore-up:
 
 No schema changes, no ENTRY_HASH_VERSION bump.
 ```
+
+## Backend wiring audit — 2026-05-14
+
+Full pass over the backend piping to confirm nothing is halfway finished. Validation gates all green: `tsc --noEmit` clean, Jest **127 tests / 14 suites** pass, `npm run functions:check` clean on all three Edge Functions.
+
+**Hosted remote-signing — fully wired, no dead ends.** All three Edge Functions have live callers:
+
+- `remote-signing-request` ← `syncHostedRemoteSigningRequest` (entry detail Share) + `fetchHostedRemoteSigningRequest` (verifier portal).
+- `remote-signing-complete` ← `completeHostedRemoteSignatureRequest` (verifier submit) + the auto-sync hook.
+- `remote-signing-cancel` ← `cancelHostedRemoteSigningRequest`. Two-stage cancel confirmed: local SQLite cancel runs first and always succeeds, hosted push is best-effort with graceful error UI.
+- All six exports in `src/cloud/supabase/remote-signing.ts` are consumed. Graceful degradation when `EXPO_PUBLIC_SUPABASE_*` is unset (`isSupabaseConfigured()` gate → local-only verifier link, no crash). `useAutoSyncHostedRemoteSignature` is wired into `app/entry/[id].tsx` and properly gated.
+
+**Local domain layer — strict layering intact.** All four features (logbook, gear, profile, backup) connect screens → hooks → services → `DbClient`. 33 of 34 hooks are consumed by screens; all seven pure modules (`entry-stamps`, `entry-readiness`, `entry-hash`, `today-derivations`, `records-derivations`, `remote-signing-status`, `export`) are consumed. Every mutation invalidates the correct query keys (sign / amend / complete / cancel chains verified). The 8 migrations match `__tests__/db/migrations.test.ts`.
+
+**Loose thread closed — `useCreateEntryTemplate` is now wired.** The hook had zero consumers; `app/entry/new.tsx` Step 3 now has a collapsed `SaveTemplateRow` affordance below `SAVE AS DRAFT`. It expands to a name input + `SAVE TEMPLATE` button, gates on the activity shape being complete (`templateMissing` — task / access / structure / notes / hours), calls `useCreateEntryTemplate` via `handleSaveTemplate`, and shows a `✓ TEMPLATE SAVED` confirmation. `busy` union extended with `'template'`. The saved template flows straight back into the Step 1 template picker (`useEntryTemplates` → `applyTemplate`). Nothing else in the codebase is half-finished. TypeScript clean, 127 tests pass.
 
 ## Most recent landings on `main`
 
@@ -378,7 +393,7 @@ Suggested approach for Phase B (separate commits per screen, matching the projec
 1. **Phone preview smoke** — `npm run start -- --tunnel`. **Owed: confirm fonts + palette + nav + new Today screen on iOS and Android before shipping step 3.**
 2. **[x] Today** (`app/(tabs)/today.tsx`) — done in `6755450`. UX-locked decisions baked in: rolling `DAY n / 365` from profile creation; P1 advisories (overdue gear / expired cert) are not dismissible; P2+ require HOLD TO ACK (1.2 s long-press, in-memory acknowledge); ladder caps at 3 rungs with `+N more` tail; primary CTA is the tab bar `+` only (no duplicate Today CTA). Open follow-ups: (a) persist advisory acknowledge across launches (currently in-memory); (b) re-surface acknowledged advisories after 24 h or on new-advisory-of-same-kind state change.
 3. **[x] Records** (`app/(tabs)/records.tsx`) — done in `f025f13`. Range chip strip persists range state to component memory (no AsyncStorage yet — resets on launch). KPIs are hours-in-range + distinct op-days. Table rows derive status via `getEntryListStatus`: `SIGNED` (entry.status='signed'), `AMENDED` (entry.status='amended'), `PENDING` (draft + pending_signature_id), `DRAFT` (vanilla draft). Tone-coded 3-letter chip in last column. Export footer keeps JSON/CSV (full-logbook PDF still owed; per-entry PDF stays on detail). Open follow-ups: persist last range across launches, full-logbook PDF export.
-4. **[x] 3-step New modal** — done in `9e835c0`. Wizard scope shipped is **phase 1**: existing field set rewired into 3 steps with auto-save on Step 1→2 transition. Step 2's gear-chip toggle + photo attachments are deferred to phase 2 (currently still captured on entry detail post-creation). Terminal actions kick to `/entry/[id]/sign` and `/entry/[id]/request-signature` rather than subsuming them (preserves the existing signature pad + attestation flow). Open follow-ups: (a) Step 2 gear chips reading from `useGearItems()` filtered to non-retired; (b) Step 2 photo attach via `useAddEntryAttachment`; (c) pass `selectedSupervisorId` forward to `/sign` and `/request-signature` so the picker pre-fills; (d) Settings preference for default terminal action; (e) "save current as template" affordance from Step 3.
+4. **[x] 3-step New modal** — done in `9e835c0`. Wizard scope shipped is **phase 1**: existing field set rewired into 3 steps with auto-save on Step 1→2 transition. Step 2's gear-chip toggle + photo attachments are deferred to phase 2 (currently still captured on entry detail post-creation). Terminal actions kick to `/entry/[id]/sign` and `/entry/[id]/request-signature` rather than subsuming them (preserves the existing signature pad + attestation flow). Open follow-ups: (a) Step 2 gear chips reading from `useGearItems()` filtered to non-retired; (b) Step 2 photo attach via `useAddEntryAttachment`; (c) pass `selectedSupervisorId` forward to `/sign` and `/request-signature` so the picker pre-fills; (d) Settings preference for default terminal action; ~~(e) "save current as template" affordance from Step 3~~ — **done 2026-05-14, `SaveTemplateRow` in Step 3**.
 5. **Record detail** (`app/entry/[id].tsx`) — full doc-style view with `DocBand` chrome, `FormCell` rows, `Stamp` overlay set from `deriveEntryStamps()`, chain-hash footer.
 6. **Gear** (`app/(tabs)/gear.tsx`) — `useGearItems` + `useGearSummary` + `useRecordGearInspection`. `RowDoc` list with due-offset chip + tone-coded `Stamp` for `OVR` / `SOON` items.
 7. **More** (`app/(tabs)/more.tsx`) — operator card, counter-signing officer roster, backup/restore, export buttons, settings sheet (sections A.1–A.5 per `prototype.jsx`).

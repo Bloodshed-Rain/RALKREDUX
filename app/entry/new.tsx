@@ -16,6 +16,7 @@ import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils'
 import type { CertLevel } from '@/src/domain/profile/types';
 import type {
   CreateEntryInput,
+  CreateEntryTemplateInput,
   EntryTemplate,
   HeightUnit,
   SupervisorContact,
@@ -23,6 +24,7 @@ import type {
 } from '@/src/domain/logbook/types';
 import {
   useCreateEntry,
+  useCreateEntryTemplate,
   useDeleteDraftEntry,
   useEntries,
   useEntryTemplates,
@@ -149,6 +151,36 @@ function buildUpdateInput(draft: DraftState, entryId: string): UpdateDraftEntryI
   return { ...buildCreateInput(draft), entry_id: entryId };
 }
 
+// A template only carries the reusable activity shape — not dates, site, or
+// supervisor. These are the fields it must have before it is worth saving.
+function templateMissing(draft: DraftState): string[] {
+  const missing: string[] = [];
+  if (!draft.workTask.trim()) missing.push('work task');
+  if (!draft.accessMethod.trim()) missing.push('access method');
+  if (!draft.structureType.trim()) missing.push('structure type');
+  if (!draft.description.trim()) missing.push('work description');
+  const hours = Number(draft.hours);
+  if (!Number.isFinite(hours) || hours <= 0) missing.push('hours');
+  return missing;
+}
+
+function buildTemplateInput(draft: DraftState, name: string): CreateEntryTemplateInput {
+  const hours = Number(draft.hours);
+  const height = Number(draft.maxHeight);
+  return {
+    name,
+    employer: draft.employer,
+    client: draft.client,
+    work_task: draft.workTask,
+    access_method: draft.accessMethod,
+    structure_type: draft.structureType,
+    description: draft.description,
+    work_hours: Number.isFinite(hours) ? hours : 0,
+    max_height: Number.isFinite(height) && height > 0 ? height : null,
+    height_unit: draft.heightUnit,
+  };
+}
+
 function withSupervisor(path: string, supervisorId: string | null): string {
   return supervisorId ? `${path}?supervisorId=${encodeURIComponent(supervisorId)}` : path;
 }
@@ -163,10 +195,11 @@ export default function NewEntryWizard() {
   const createEntry = useCreateEntry();
   const updateDraft = useUpdateDraftEntry();
   const deleteDraft = useDeleteDraftEntry();
+  const createTemplate = useCreateEntryTemplate();
 
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [draft, setDraft] = React.useState<DraftState>(initialDraft);
-  const [busy, setBusy] = React.useState<null | 'draft' | 'sign' | 'request'>(null);
+  const [busy, setBusy] = React.useState<null | 'draft' | 'sign' | 'request' | 'template'>(null);
   const [duplicatedFromDate, setDuplicatedFromDate] = React.useState<string | null>(null);
   const prefilledCertLevels = React.useRef(false);
 
@@ -298,6 +331,18 @@ export default function NewEntryWizard() {
       else router.back();
     } catch (err) {
       Alert.alert('Could not save draft', err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSaveTemplate(name: string) {
+    setBusy('template');
+    try {
+      await createTemplate.mutateAsync(buildTemplateInput(draft, name));
+    } catch (err) {
+      Alert.alert('Could not save template', err instanceof Error ? err.message : String(err));
+      throw err;
     } finally {
       setBusy(null);
     }
@@ -443,6 +488,8 @@ export default function NewEntryWizard() {
               onSignNow={handleSignNow}
               onRequestRemote={handleRequestRemote}
               onSaveDraft={handleSaveDraft}
+              templateMissingFields={templateMissing(draft)}
+              onSaveTemplate={handleSaveTemplate}
             />
           ) : null}
         </ScrollView>
@@ -1070,16 +1117,20 @@ function Step3({
   onSignNow,
   onRequestRemote,
   onSaveDraft,
+  templateMissingFields,
+  onSaveTemplate,
 }: {
   draft: DraftState;
   update: (patch: Partial<DraftState>) => void;
   supervisors: SupervisorContact[];
   missingFields: string[];
   signReady: boolean;
-  busy: null | 'draft' | 'sign' | 'request';
+  busy: null | 'draft' | 'sign' | 'request' | 'template';
   onSignNow: () => void;
   onRequestRemote: () => void;
   onSaveDraft: () => void;
+  templateMissingFields: string[];
+  onSaveTemplate: (name: string) => Promise<void>;
 }) {
   const { tidewater, typography, spacing } = useTheme();
   // mono renders numbers/codes/dates well; prose values stay in Inter.
@@ -1360,6 +1411,142 @@ function Step3({
             }}
           >
             {busy === 'draft' ? 'SAVING…' : 'SAVE AS DRAFT'}
+          </Text>
+        </Pressable>
+
+        <SaveTemplateRow
+          missingFields={templateMissingFields}
+          busy={busy}
+          onSaveTemplate={onSaveTemplate}
+        />
+      </View>
+    </View>
+  );
+}
+
+// Persists the current activity shape (task / access / structure / notes /
+// hours / height) as a reusable template the wizard's Step 1 picker can apply.
+// Collapsed by default so it never competes with the terminal actions.
+function SaveTemplateRow({
+  missingFields,
+  busy,
+  onSaveTemplate,
+}: {
+  missingFields: string[];
+  busy: null | 'draft' | 'sign' | 'request' | 'template';
+  onSaveTemplate: (name: string) => Promise<void>;
+}) {
+  const { tidewater, typography, spacing } = useTheme();
+  const [open, setOpen] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const [saved, setSaved] = React.useState(false);
+
+  const blocked = missingFields.length > 0;
+  const trimmed = name.trim();
+  const canSave = !blocked && trimmed.length > 0 && busy === null;
+
+  async function save() {
+    if (!canSave) return;
+    try {
+      await onSaveTemplate(trimmed);
+      setName('');
+      setOpen(false);
+      setSaved(true);
+    } catch {
+      // onSaveTemplate already surfaced the error; keep the row open to retry.
+    }
+  }
+
+  if (saved) {
+    return (
+      <View style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ ...typography.monoMd, color: tidewater.green, letterSpacing: 1.4 }}>
+          ✓ TEMPLATE SAVED
+        </Text>
+      </View>
+    );
+  }
+
+  if (!open) {
+    return (
+      <Pressable
+        onPress={() => setOpen(true)}
+        disabled={busy !== null}
+        style={({ pressed }) => ({
+          height: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: pressed ? 0.5 : 1,
+        })}
+      >
+        <Text style={{ ...typography.monoMd, color: tidewater.ink3, letterSpacing: 1.4 }}>
+          SAVE CURRENT AS TEMPLATE
+        </Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        borderWidth: 1.5,
+        borderColor: tidewater.hair,
+        backgroundColor: tidewater.white,
+        padding: spacing.sm,
+        gap: spacing.xs,
+      }}
+    >
+      <SectionLabel n="15" label="SAVE AS TEMPLATE" right="reuse on a future record" />
+      {blocked ? (
+        <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
+          Add {missingFields.join(', ')} first — a template needs the full activity shape.
+        </Text>
+      ) : (
+        <PlainInput value={name} onChangeText={setName} placeholder="Template name" />
+      )}
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4 }}>
+        <Pressable
+          onPress={() => {
+            setOpen(false);
+            setName('');
+          }}
+          style={({ pressed }) => ({
+            flex: 1,
+            height: 44,
+            borderWidth: 1.5,
+            borderColor: tidewater.hair,
+            backgroundColor: tidewater.white,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Text style={{ ...typography.monoMd, color: tidewater.ink3, letterSpacing: 1.4 }}>
+            CANCEL
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={save}
+          disabled={!canSave}
+          style={({ pressed }) => ({
+            flex: 1.4,
+            height: 44,
+            borderWidth: 1.5,
+            borderColor: tidewater.ink,
+            backgroundColor: canSave ? tidewater.accent : tidewater.paper2,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: pressed && canSave ? 0.85 : 1,
+          })}
+        >
+          <Text
+            style={{
+              ...typography.monoMd,
+              color: canSave ? tidewater.paper : tidewater.ink3,
+              letterSpacing: 1.4,
+            }}
+          >
+            {busy === 'template' ? 'SAVING…' : 'SAVE TEMPLATE'}
           </Text>
         </Pressable>
       </View>
