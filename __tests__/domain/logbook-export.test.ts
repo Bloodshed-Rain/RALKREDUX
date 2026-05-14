@@ -4,6 +4,8 @@ import {
   buildEntryPdfHtml,
   buildLogbookCsv,
   buildLogbookExportBundle,
+  buildLogbookExportFileName,
+  buildLogbookPdfHtml,
 } from '@/src/domain/logbook/export';
 import { EntryDetail, EntrySignature, LogbookEntry } from '@/src/domain/logbook/types';
 import { Profile } from '@/src/domain/profile/types';
@@ -169,6 +171,56 @@ describe('logbook export builders', () => {
     expect(markup).toContain('Audit packet exported');
     expect(markup).toContain('ralb-cover-weave');
     expect(markup).toContain('ralb-cover-seal-arc');
+
+    // Brand decoration must NOT leak into the auditor-facing PDF.
+    expect(markup).not.toMatch(/FORM\s*27-A/i);
+    expect(markup).not.toMatch(/\bREV\s*\d/i);
+    expect(markup).not.toMatch(/\bEFF\s*\d{4}/i);
+  });
+
+  it('builds a full-logbook PDF with a cover and one section per record', () => {
+    const second: LogbookEntry = {
+      ...entry,
+      id: 'entry_2',
+      date_from: '2026-05-05',
+      date_to: '2026-05-06',
+      site: 'Bridge <B> & "South"',
+      status: 'amended',
+    };
+    const secondSignature: EntrySignature = {
+      ...signature,
+      id: 'sig_2',
+      entry_id: second.id,
+      signed_at: '2026-05-09T10:00:00.000Z',
+      chain_hash: 'sha256:chain-2',
+    };
+    const bundle = buildLogbookExportBundle({
+      profile,
+      exportedAt: '2026-05-09T12:00:00.000Z',
+      entries: [
+        { entry, signature, gear_usage: [], attachments: [] },
+        { entry: second, signature: secondSignature, gear_usage: [], attachments: [] },
+      ],
+    });
+    const markup = buildLogbookPdfHtml(bundle);
+
+    expect(buildLogbookExportFileName(bundle, 'pdf')).toBe('ralb-logbook-2026-05-09-mina-carter.pdf');
+
+    // Cover renders before the ledger, with truthful summary content.
+    expect(markup).toContain('<section class="cover">');
+    expect(markup).toContain('Audit Logbook');
+    expect(markup.indexOf('<section class="cover">')).toBeLessThan(markup.indexOf('Record Ledger'));
+    expect(markup).toContain('Mina Carter');
+    expect(markup).toContain('ralb-cover-weave');
+
+    // One section per record, status-labelled, with reviewer fields escaped.
+    expect(markup).toContain('No. 1');
+    expect(markup).toContain('No. 2');
+    expect(markup).toContain('Bridge &lt;B&gt; &amp; &quot;South&quot;');
+    expect(markup).toContain('sha256:chain-2');
+
+    // Latest chain hash on the cover is the most recently signed record's.
+    expect(markup).toContain('sha256:chain-2');
 
     // Brand decoration must NOT leak into the auditor-facing PDF.
     expect(markup).not.toMatch(/FORM\s*27-A/i);

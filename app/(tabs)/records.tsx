@@ -1,8 +1,12 @@
 import React from 'react';
 import { Alert, Pressable, RefreshControl, Share, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react-native';
+import { buildLogbookExportFileName, buildLogbookPdfHtml } from '@/src/domain/logbook/export';
 import {
   useDeleteDraftEntry,
   useEntries,
@@ -49,6 +53,7 @@ export default function RecordsScreen() {
   const [range, setRange] = React.useState<RangeKey>('30D');
   const [refreshing, setRefreshing] = React.useState(false);
   const [openSwipeId, setOpenSwipeId] = React.useState<string | null>(null);
+  const [pdfPending, setPdfPending] = React.useState(false);
 
   // Last-used range persists across launches. A manual tap wins over a slow
   // load so the stored value can never clobber a fresh selection.
@@ -119,6 +124,38 @@ export default function RecordsScreen() {
   async function shareCsv() {
     const csv = await exportLogbookCsv.mutateAsync();
     await Share.share({ title: 'RALB logbook CSV', message: csv });
+  }
+
+  // Full-logbook PDF: signed + amended records (drafts excluded by the
+  // service) on a weave + watermark-seal cover, mirroring the per-entry
+  // share path in entry detail.
+  async function sharePdf() {
+    setPdfPending(true);
+    try {
+      const bundle = await exportLogbook.mutateAsync();
+      const { uri } = await Print.printToFileAsync({ html: buildLogbookPdfHtml(bundle) });
+      const fileName = buildLogbookExportFileName(bundle, 'pdf');
+      const namedUri = FileSystem.cacheDirectory ? `${FileSystem.cacheDirectory}${fileName}` : uri;
+
+      if (namedUri !== uri) {
+        await FileSystem.deleteAsync(namedUri, { idempotent: true });
+        await FileSystem.copyAsync({ from: uri, to: namedUri });
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(namedUri, {
+          dialogTitle: 'Share RALB audit logbook PDF',
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        await Share.share({ title: 'RALB audit logbook PDF', message: namedUri });
+      }
+    } catch {
+      Alert.alert('Could not build PDF', 'The audit logbook PDF could not be generated.');
+    } finally {
+      setPdfPending(false);
+    }
   }
 
   const operatorTag = profile.data?.full_name?.split(' ').filter(Boolean).slice(-1)[0]?.toUpperCase() ?? '';
@@ -356,16 +393,17 @@ export default function RecordsScreen() {
             </Text>
           </Pressable>
           <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>·</Text>
-          <Text
-            style={{
-              ...typography.displaySm,
-              color: tidewater.ink3,
-              letterSpacing: 1.5,
-              flexShrink: 1,
-            }}
-          >
-            PDF (per entry, see detail)
-          </Text>
+          <Pressable onPress={sharePdf} disabled={pdfPending} hitSlop={6}>
+            <Text
+              style={{
+                ...typography.displaySm,
+                color: pdfPending ? tidewater.ink3 : tidewater.accent,
+                letterSpacing: 1.5,
+              }}
+            >
+              {pdfPending ? 'BUILDING PDF…' : 'PDF'}
+            </Text>
+          </Pressable>
         </View>
       </View>
 

@@ -1,5 +1,6 @@
 import {
   EntryDetail,
+  EntrySignature,
   LogbookExportBundle,
   LogbookExportEntry,
   LogbookExportPacket,
@@ -239,6 +240,155 @@ export function buildLogbookCsv(bundle: LogbookExportBundle): string {
 export function buildEntryExportFileName(packet: LogbookExportPacket, extension: 'json' | 'pdf'): string {
   const date = packet.entry.date_from || packet.signature.signed_at.slice(0, 10);
   return `ralb-entry-${date}-${filenamePart(packet.entry.site)}.${extension}`;
+}
+
+export function buildLogbookExportFileName(
+  bundle: LogbookExportBundle,
+  extension: 'json' | 'pdf',
+): string {
+  const date = (bundle.exported_at || nowIso()).slice(0, 10);
+  return `ralb-logbook-${date}-${filenamePart(bundle.profile?.full_name)}.${extension}`;
+}
+
+// One compact record block in the full-logbook PDF. Lighter than the per-entry
+// audit packet — no full-bleed signature image — but carries the same hashes
+// so the chain is auditable end to end.
+function buildLogbookEntrySection(item: LogbookExportEntry, n: number): string {
+  const { entry, signature, gear_usage, attachments } = item;
+  const dateLabel = formatDateRange(entry.date_from, entry.date_to);
+  const statusColor = coverStatusColor(entry.status);
+  const gearLabel = gear_usage.length
+    ? gear_usage
+      .map(({ gear }) => `${gear.name}${gear.serial_number ? ` (${gear.serial_number})` : ''}`)
+      .join(', ')
+    : null;
+
+  return `<section class="entry">
+    <div class="entry-head">
+      <span class="entry-n">No. ${n}</span>
+      <span class="entry-status" style="color:${statusColor}">${html(coverStatusLabel(entry.status))}</span>
+    </div>
+    <h2 class="entry-title">${display(entry.site)}</h2>
+    <p class="entry-dateline">${html(dateLabel)}</p>
+    <table>
+      ${row('Employer', entry.employer)}
+      ${row('Client', entry.client)}
+      ${row('Work task', entry.work_task)}
+      ${row('Access method', entry.access_method)}
+      ${row('Structure type', entry.structure_type)}
+      ${row('Rope access hours', entry.work_hours.toFixed(1))}
+      ${row('Maximum height', !entry.max_height || entry.max_height <= 0 ? null : `${entry.max_height} ${entry.height_unit}`)}
+      ${row('Description', entry.description)}
+      ${entry.amends_entry_id ? row('Amends entry', entry.amends_entry_id) : ''}
+      ${row('Supervisor', signature?.supervisor_name)}
+      ${row('Certification number', signature?.supervisor_cert_number)}
+      ${row('Signed at', signature ? displayDate(signature.signed_at) : null)}
+      ${row('Signature method', signature?.method)}
+      ${row('Entry hash', signature?.entry_hash)}
+      ${row('Chain hash', signature?.chain_hash)}
+      ${row('Gear used', gearLabel)}
+      ${row('Evidence files', attachments.length || null)}
+    </table>
+  </section>`;
+}
+
+export function buildLogbookPdfHtml(bundle: LogbookExportBundle): string {
+  const { profile, summary, entries } = bundle;
+  const operatorLine = [
+    profile?.full_name,
+    profile?.primary_scheme ? profile.primary_scheme.toUpperCase() : null,
+    profile?.primary_scheme === 'sprat' ? profile?.sprat_level : profile?.irata_level,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const operatorCert =
+    (profile?.primary_scheme === 'sprat' ? profile?.sprat_id : profile?.irata_id) ?? null;
+
+  const firstDate = entries[0]?.entry.date_from ?? null;
+  const lastDate = entries.length ? entries[entries.length - 1].entry.date_to : null;
+  const spanLabel = firstDate && lastDate ? formatDateRange(firstDate, lastDate) : '—';
+
+  // Latest chain hash = chain_hash of the most recently signed record on file.
+  const latestSigned = entries
+    .map(({ signature }) => signature)
+    .filter((s): s is EntrySignature => Boolean(s))
+    .sort((a, b) => a.signed_at.localeCompare(b.signed_at))
+    .pop();
+  const chainHash = latestSigned?.chain_hash ?? null;
+
+  const entrySections = entries.length
+    ? entries.map((item, index) => buildLogbookEntrySection(item, index + 1)).join('\n')
+    : '<p class="muted">No signed or amended records on file.</p>';
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>RALB Audit Logbook</title>
+  <style>
+    @page { margin: 32px; }
+    * { box-sizing: border-box; }
+    body { color: #222121; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; line-height: 1.45; }
+    h2 { font-size: 14px; margin: 0; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #CACCC5; padding: 6px 5px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    th { color: #3C4556; font-weight: 600; width: 31%; }
+    .muted { color: #3C4556; }
+    .cover { position: relative; page-break-after: always; height: 100vh; padding: 36px 28px; display: flex; flex-direction: column; justify-content: space-between; }
+    .cover-weave { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+    .cover-seal { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .cover-content { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 22px; }
+    .cover-brand { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: 2.2px; color: #0e3a40; text-transform: uppercase; }
+    .cover-title { color: #0e3a40; font-size: 30px; line-height: 1.15; margin: 0; font-weight: 900; letter-spacing: -0.3px; }
+    .cover-dateline { color: #3c4556; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; }
+    .cover-meta { display: grid; grid-template-columns: 130px 1fr; row-gap: 6px; column-gap: 14px; }
+    .cover-meta dt { color: #3c4556; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
+    .cover-meta dd { color: #0e3a40; font-size: 12px; margin: 0; }
+    .cover-meta dd.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; word-break: break-all; }
+    .cover-footer { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9.5px; letter-spacing: 1.5px; color: #3c4556; text-transform: uppercase; }
+    .cover-footer-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .ledger-head { border-bottom: 1px solid #AEB3A9; font-size: 14px; margin: 0 0 14px; padding-bottom: 5px; text-transform: uppercase; }
+    .entry { page-break-inside: avoid; margin: 0 0 20px; padding: 0 0 14px; border-bottom: 2px solid #AEB3A9; }
+    .entry:last-child { border-bottom: none; }
+    .entry-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .entry-n { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: 1.5px; color: #3c4556; text-transform: uppercase; }
+    .entry-status { display: inline-block; padding: 2px 8px; border: 2px solid currentColor; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9.5px; letter-spacing: 1.6px; font-weight: 700; text-transform: uppercase; }
+    .entry-title { color: #0e3a40; font-size: 17px; margin: 6px 0 2px; font-weight: 900; }
+    .entry-dateline { color: #3c4556; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; margin: 0 0 8px; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="cover-weave">${coverWeaveSvg()}</div>
+    <div class="cover-seal">${coverWatermarkSealSvg()}</div>
+    <div class="cover-content">
+      <div class="cover-brand">Rope Access Logbook · Codex Edition</div>
+      <div>
+        <h1 class="cover-title">Audit Logbook</h1>
+        <p class="cover-dateline">${html(spanLabel)}</p>
+      </div>
+      <dl class="cover-meta">
+        <dt>Operator</dt><dd>${display(operatorLine || profile?.full_name)}</dd>
+        ${operatorCert ? `<dt>Cert</dt><dd class="mono">${display(operatorCert)}</dd>` : ''}
+        <dt>Records on file</dt><dd class="mono">${html(summary.entry_count)}</dd>
+        <dt>Signed</dt><dd class="mono">${html(summary.signed_entry_count)}</dd>
+        <dt>Amended</dt><dd class="mono">${html(summary.amended_entry_count)}</dd>
+        <dt>Signed hours</dt><dd class="mono">${html(summary.signed_hours.toFixed(1))}</dd>
+        <dt>Latest chain hash</dt><dd class="mono">${html(truncateHashForCover(chainHash))}</dd>
+      </dl>
+    </div>
+    <div class="cover-footer">
+      <div class="cover-footer-line">
+        <span>Audit logbook exported ${html(formatDate(bundle.exported_at))}</span>
+        <span>${html(truncateHashForCover(chainHash))}</span>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="ledger-head">Record Ledger — ${html(summary.entry_count)} ${summary.entry_count === 1 ? 'Entry' : 'Entries'}</h2>
+  ${entrySections}
+</body>
+</html>`;
 }
 
 export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
