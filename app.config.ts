@@ -41,7 +41,7 @@ export default (): ExpoConfig => ({
   extra: {
     appFlavor: 'codex-edition',
     eas: {
-      projectId: '86367272-4f69-486f-9baf-27583a16ea70',
+      projectId: '33d8a7e1-907a-4e57-b61e-3c9a818c6c1f',
     },
   },
 });
