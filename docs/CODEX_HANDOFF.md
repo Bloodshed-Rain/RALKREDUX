@@ -87,8 +87,9 @@ Full pass over the backend piping to confirm nothing is halfway finished. Valida
 
 ## Polish tail — 2026-05-14
 
-Worked the redesign follow-up tail in three isolated commits (tsc + jest green after each). The on-device two-device smoke is still owed and is the next real gate — none of this is on-device validated yet.
+Worked the redesign follow-up tail in isolated commits (tsc + jest green after each). The user ran the on-device single-device + two-device smoke and reported everything working; the haptics below landed after that and are **not** yet on-device validated.
 
+- `19a79e2` **Haptics wired across the app** — `5fd2bb8` added `src/ui/haptics.ts` (best-effort wrapper over `expo-haptics`, cached enabled flag, never throws) + a HAPTIC FEEDBACK on/off toggle in More → Preferences (persisted via local-prefs, loaded in `AppProviders`). `19a79e2` applied it at the "key moments + selection" scope: selection ticks on tabs/chips/segmented controls, success on sign/request/completion/amendment/gear/backup/profile/ack/template, warning before destructive-confirm Alerts, error on failed mutations. Plain draft saves + keypad digits intentionally stay silent.
 - `f9a569c` **Full-logbook PDF export** — `buildLogbookPdfHtml` + `buildLogbookExportFileName` in `export.ts` (weave + seal cover, one compact section per signed/amended record, hashes carried through). Records footer's "PDF (per entry, see detail)" placeholder is now a live PDF action via expo-print/expo-sharing.
 - `34f9991` **Wizard Step 2 gear + evidence** — § 13 Gear toggle chips (`useAttachGearToEntry` / `useRemoveGearFromEntry`) and § 14 Evidence photo attach (`useAddEntryAttachment` + expo-image-picker), both writing through the draft committed on Step 1→2. Step 3 sections renumbered 13/14/15 → 15/16/17.
 - `2d4cb3c` **Local UI preference persistence** — new `src/storage/` (`local-prefs.ts` AsyncStorage wrapper + pure `advisory-acks.ts` with 24h TTL). Today advisory acknowledgements persist with 24h TTL re-surface; Records range chip persists; More gained a Preferences section (§ 04) with a default new-record-action selector that Step 3 reads to order/emphasize its terminal actions.
