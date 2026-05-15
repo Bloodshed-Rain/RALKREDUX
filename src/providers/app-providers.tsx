@@ -23,6 +23,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from '@/src/db/initialize';
+import { loadHapticsPref } from '@/src/ui/haptics';
 import { SplashScreen } from '@/src/ui/primitives';
 import { ThemeProvider } from '@/src/ui/theme/theme-provider';
 
@@ -52,6 +53,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : String(caught));
       });
+    // Non-blocking: haptics default to on until the stored pref resolves.
+    void loadHapticsPref();
   }, []);
 
   const booting = !fontsLoaded || !dbReady;

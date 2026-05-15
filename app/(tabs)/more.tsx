@@ -28,6 +28,7 @@ import {
   writePref,
   type TerminalActionPref,
 } from '@/src/storage/local-prefs';
+import { haptics, setHapticsEnabled } from '@/src/ui/haptics';
 
 const TERMINAL_ACTION_LABELS: Record<TerminalActionPref, string> = {
   sign: 'SIGN NOW',
@@ -48,6 +49,7 @@ export default function ProfileScreen() {
   const [restoreConfirmed, setRestoreConfirmed] = React.useState(false);
   const [previewSnapshot, setPreviewSnapshot] = React.useState<BackupSnapshot | null>(null);
   const [terminalAction, setTerminalAction] = React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
+  const [hapticsOn, setHapticsOn] = React.useState(true);
   const p = profile.data;
 
   React.useEffect(() => {
@@ -56,11 +58,21 @@ export default function ProfileScreen() {
         if (isTerminalActionPref(stored)) setTerminalAction(stored);
       },
     );
+    readPref<boolean>(PrefKeys.hapticsEnabled, true).then(setHapticsOn);
   }, []);
 
   function selectTerminalAction(value: TerminalActionPref) {
     setTerminalAction(value);
     writePref(PrefKeys.defaultTerminalAction, value);
+    haptics.selection();
+  }
+
+  function selectHaptics(value: boolean) {
+    setHapticsOn(value);
+    // Persist + sync the wrapper's cached flag in one call.
+    setHapticsEnabled(value);
+    // Confirm the change tactilely — only lands when turning haptics on.
+    haptics.selection();
   }
   const sortedSupervisors = React.useMemo(() => {
     const items = supervisors.data ?? [];
@@ -486,6 +498,55 @@ export default function ProfileScreen() {
                       }}
                     >
                       {TERMINAL_ACTION_LABELS[key]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: tidewater.hairFaint,
+                marginVertical: spacing.xs,
+              }}
+            />
+            <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+              HAPTIC FEEDBACK
+            </Text>
+            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
+              Light taps on selections and confirmations. Turn off for gloved or
+              cold-weather work.
+            </Text>
+            <View style={{ flexDirection: 'row', borderWidth: 1.5, borderColor: tidewater.hair }}>
+              {([true, false] as const).map((value, i) => {
+                const selected = value === hapticsOn;
+                return (
+                  <Pressable
+                    key={value ? 'on' : 'off'}
+                    onPress={() => selectHaptics(value)}
+                    accessibilityRole="button"
+                    accessibilityState={selected ? { selected: true } : {}}
+                    style={{
+                      flex: 1,
+                      minHeight: touchTarget.min,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: spacing.xs,
+                      backgroundColor: selected ? tidewater.accent : tidewater.white,
+                      borderLeftWidth: i === 0 ? 0 : 1.5,
+                      borderLeftColor: tidewater.hair,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        ...typography.monoSm,
+                        color: selected ? tidewater.paper : tidewater.ink2,
+                        letterSpacing: 1.4,
+                        fontWeight: selected ? '600' : '400',
+                      }}
+                    >
+                      {value ? 'ON' : 'OFF'}
                     </Text>
                   </Pressable>
                 );

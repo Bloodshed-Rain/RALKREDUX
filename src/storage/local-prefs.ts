@@ -14,6 +14,7 @@ export const PrefKeys = {
   advisoryAcks: 'advisory-acks',
   recordsRange: 'records-range',
   defaultTerminalAction: 'default-terminal-action',
+  hapticsEnabled: 'haptics-enabled',
 } as const;
 
 export type PrefKey = (typeof PrefKeys)[keyof typeof PrefKeys];
