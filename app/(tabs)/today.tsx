@@ -35,6 +35,7 @@ import {
   type AdvisoryAckMap,
 } from '@/src/storage/advisory-acks';
 import { PrefKeys, readPref, writePref } from '@/src/storage/local-prefs';
+import { haptics } from '@/src/ui/haptics';
 
 function formatEffective(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -229,6 +230,7 @@ export default function TodayScreen() {
               const next = withAck(ackMap, id, new Date());
               setAckMap(next);
               writePref(PrefKeys.advisoryAcks, next);
+              haptics.success();
             }}
           />
         ) : (

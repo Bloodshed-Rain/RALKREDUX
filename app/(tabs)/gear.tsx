@@ -25,6 +25,7 @@ import {
 } from '@/src/ui/primitives';
 import type { ChipTone, StampTone } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { haptics } from '@/src/ui/haptics';
 
 type GearFilter = 'all' | GearStatus;
 
@@ -174,6 +175,7 @@ export default function GearScreen() {
       },
       {
         onSuccess: (item) => {
+          haptics.success();
           setMakeModel('');
           setSelectedCatalogEntry(null);
           setCustomName('');
@@ -183,6 +185,7 @@ export default function GearScreen() {
           setShowAddGear(false);
           setShowInspection(true);
         },
+        onError: () => haptics.error(),
       },
     );
   }
@@ -199,12 +202,14 @@ export default function GearScreen() {
       },
       {
         onSuccess: () => {
+          haptics.success();
           setInspectionResult('pass');
           setInspectionNotes('');
           setInspectionNextDue('');
           setInspectedOn(todayLocalIsoDate());
           setShowInspection(false);
         },
+        onError: () => haptics.error(),
       },
     );
   }
@@ -213,6 +218,7 @@ export default function GearScreen() {
     if (!canInspect || !selectedGearId) return;
     if (inspectionResult === 'fail') {
       const gearName = activeItems.find(({ item }) => item.id === selectedGearId)?.item.name ?? 'this gear';
+      haptics.warning();
       Alert.alert(
         'Retire gear?',
         `Saving a failed inspection retires ${gearName} from active use. This cannot be undone from the app — re-add the item if it's later restored to service.`,

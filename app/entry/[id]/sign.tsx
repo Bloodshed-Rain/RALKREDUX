@@ -15,6 +15,7 @@ import { useEntryDetail, useSignEntryLocal, useSupervisorContacts } from '@/src/
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
 import { AnimatedStamp, CheckboxRow, Chip, DocActionButton, DocBand, Field, Screen, SectionH, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -94,7 +95,13 @@ export default function LocalSignScreen() {
         attestation_accepted: attestationAccepted,
         signer_attestation: ATTESTATION_TEXT,
       },
-      { onSuccess: (signed) => router.replace(`/entry/${signed.entry.id}`) },
+      {
+        onSuccess: (signed) => {
+          haptics.success();
+          router.replace(`/entry/${signed.entry.id}`);
+        },
+        onError: () => haptics.error(),
+      },
     );
   }
 

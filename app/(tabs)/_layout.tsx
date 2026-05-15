@@ -4,6 +4,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, tidewater } from '@/src/ui/theme/tokens';
+import { haptics } from '@/src/ui/haptics';
 
 const RAISED_BUTTON_SIZE = 56;
 const RAISED_BUTTON_LIFT = 18;
@@ -45,7 +46,10 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               key={route.key}
               accessibilityRole="button"
               accessibilityLabel="Create new entry"
-              onPress={() => router.push('/entry/new')}
+              onPress={() => {
+                haptics.selection();
+                router.push('/entry/new');
+              }}
               style={{
                 flex: 1,
                 alignItems: 'center',
@@ -101,6 +105,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           });
 
           if (!isFocused && !event.defaultPrevented) {
+            haptics.selection();
             navigation.navigate(route.name, route.params);
           }
         };

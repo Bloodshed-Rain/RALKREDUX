@@ -6,6 +6,7 @@ import type { HeightUnit } from '@/src/domain/logbook/types';
 import { useCreateAmendment, useEntryDetail } from '@/src/domain/logbook/use-logbook';
 import { AnimatedStamp, Chip, DocActionButton, DocBand, Field, Screen, SectionH } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -87,7 +88,13 @@ export default function AmendEntryScreen() {
         sprat_level_snapshot: entry.sprat_level_snapshot,
         irata_level_snapshot: entry.irata_level_snapshot,
       },
-      { onSuccess: (draft) => router.replace(`/entry/${draft.id}`) },
+      {
+        onSuccess: (draft) => {
+          haptics.success();
+          router.replace(`/entry/${draft.id}`);
+        },
+        onError: () => haptics.error(),
+      },
     );
   }
 

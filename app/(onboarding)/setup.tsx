@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react-
 import { certLevelToDigit, formatIrataNumber, irataNumberDigits, normalizeSpratNumber } from '@/src/domain/cert-number';
 import { useCreateProfile } from '@/src/domain/profile/use-profile';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
+import { haptics } from '@/src/ui/haptics';
 import {
   AnimatedStamp,
   Chip,
@@ -50,7 +51,13 @@ export default function SetupScreen() {
         irata_level: scheme === 'irata' ? level : null,
         irata_expires_on: scheme === 'irata' ? expiresOn || null : null,
       },
-      { onSuccess: () => router.replace('/today') },
+      {
+        onSuccess: () => {
+          haptics.success();
+          router.replace('/today');
+        },
+        onError: () => haptics.error(),
+      },
     );
   }
 
@@ -300,7 +307,10 @@ function SegmentButton({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      onPress={onPress}
+      onPress={() => {
+        haptics.selection();
+        onPress();
+      }}
       style={({ pressed }) => ({
         flex: 1,
         minHeight: touchTarget.min,

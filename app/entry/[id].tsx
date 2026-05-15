@@ -57,6 +57,7 @@ import {
 } from '@/src/ui/primitives';
 import type { StampTone } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -368,6 +369,7 @@ export default function EntryDetailScreen() {
               icon={XCircle}
               variant="ghost"
               onPress={() => {
+                haptics.warning();
                 Alert.alert(
                   'Cancel this request?',
                   "The pending request will be marked cancelled on this device. If you've already shared the verifier link, the link will still appear pending to the verifier until you tell them not to sign.",
@@ -380,7 +382,9 @@ export default function EntryDetailScreen() {
                         setHostedCancelFailed(false);
                         try {
                           await cancelRemoteRequest.mutateAsync(entry.id);
+                          haptics.success();
                         } catch {
+                          haptics.error();
                           return;
                         }
                         const result = await cancelHostedRemoteSigningRequest(remoteRequest);
@@ -605,6 +609,7 @@ export default function EntryDetailScreen() {
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => {
+                        haptics.warning();
                         Alert.alert(
                           'Detach gear?',
                           `Remove ${gear.name} from this draft entry. You can re-attach it before signing.`,
@@ -644,7 +649,10 @@ export default function EntryDetailScreen() {
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
-                    onPress={() => attachGear.mutate({ entry_id: entry.id, gear_id: item.id, role: item.category })}
+                    onPress={() => {
+                      haptics.selection();
+                      attachGear.mutate({ entry_id: entry.id, gear_id: item.id, role: item.category });
+                    }}
                     disabled={attachGear.isPending}
                     style={({ pressed }) => ({
                       borderWidth: 1.5,

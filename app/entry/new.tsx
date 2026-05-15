@@ -47,6 +47,7 @@ import {
   readPref,
   type TerminalActionPref,
 } from '@/src/storage/local-prefs';
+import { haptics } from '@/src/ui/haptics';
 
 const WORK_TASK_PRESETS = ['Inspection', 'Maintenance', 'Rescue standby', 'Training'];
 const ACCESS_METHOD_PRESETS = ['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'];
@@ -286,6 +287,7 @@ export default function NewEntryWizard() {
       // A draft has already been persisted (committed on Step 1 → 2 transition).
       // Be explicit: keep it (route to detail), or delete it.
       const committedId = draft.entryId;
+      haptics.warning();
       Alert.alert(
         'Cancel new entry?',
         'Step 1 already saved a draft on this device. Keep it for later or delete it now?',
@@ -309,6 +311,7 @@ export default function NewEntryWizard() {
       return;
     }
     if (hasAnyContent(draft)) {
+      haptics.warning();
       Alert.alert(
         'Discard new entry?',
         "You haven't saved anything yet. Discard or keep editing?",
@@ -830,7 +833,10 @@ function Step1({
                   key={unit}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  onPress={() => update({ heightUnit: unit })}
+                  onPress={() => {
+                    haptics.selection();
+                    update({ heightUnit: unit });
+                  }}
                   style={({ pressed }) => ({
                     flex: 1,
                     paddingVertical: 12,
@@ -888,6 +894,7 @@ function Step2({
 
   function toggleGear(gearId: string, category: string) {
     if (!draft.entryId || gearBusy) return;
+    haptics.selection();
     if (attachedGearIds.has(gearId)) {
       removeGear.mutate({ entry_id: draft.entryId, gear_id: gearId });
     } else {
@@ -918,6 +925,7 @@ function Step2({
 
   function bumpHours(delta: number) {
     const next = Math.max(0, Math.round((hoursFloat + delta) * 10) / 10);
+    haptics.selection();
     update({ hours: String(next) });
   }
 
@@ -1436,9 +1444,10 @@ function Step3({
               return (
                 <Pressable
                   key={sup.id}
-                  onPress={() =>
-                    update({ selectedSupervisorId: active ? null : sup.id })
-                  }
+                  onPress={() => {
+                    haptics.selection();
+                    update({ selectedSupervisorId: active ? null : sup.id });
+                  }}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -1686,6 +1695,7 @@ function SaveTemplateRow({
       setName('');
       setOpen(false);
       setSaved(true);
+      haptics.success();
     } catch {
       // onSaveTemplate already surfaced the error; keep the row open to retry.
     }
@@ -1906,7 +1916,10 @@ function ChipRow({
             key={opt}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            onPress={() => onSelect(opt)}
+            onPress={() => {
+              haptics.selection();
+              onSelect(opt);
+            }}
             hitSlop={6}
             style={({ pressed }) => ({
               minHeight: 36,
@@ -1967,7 +1980,10 @@ function CertLevelRow({
         }}
       >
         <Pressable
-          onPress={() => onChange(null)}
+          onPress={() => {
+            haptics.selection();
+            onChange(null);
+          }}
           style={{
             flex: 1,
             paddingVertical: 8,
@@ -1992,7 +2008,10 @@ function CertLevelRow({
           return (
             <Pressable
               key={lvl}
-              onPress={() => onChange(lvl)}
+              onPress={() => {
+                haptics.selection();
+                onChange(lvl);
+              }}
               style={{
                 flex: 1,
                 paddingVertical: 8,

@@ -10,6 +10,7 @@ import {
 } from '@/src/domain/logbook/use-logbook';
 import { AnimatedStamp, Chip, DocActionButton, DocBand, Field, Screen, SectionH } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -79,7 +80,13 @@ export default function RemoteSignatureRequestScreen() {
         verifier_role: verifierRole || null,
         verifier_company: verifierCompany || null,
       },
-      { onSuccess: (updated) => router.replace(`/entry/${updated.entry.id}`) },
+      {
+        onSuccess: (updated) => {
+          haptics.success();
+          router.replace(`/entry/${updated.entry.id}`);
+        },
+        onError: () => haptics.error(),
+      },
     );
   }
 

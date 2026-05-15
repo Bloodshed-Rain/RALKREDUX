@@ -25,6 +25,7 @@ import {
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
 import { AnimatedStamp, CheckboxRow, Chip, DocActionButton, DocBand, Field, Screen, SectionH, SignatureFill, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -138,8 +139,10 @@ export default function RemoteVerifyScreen() {
       try {
         setCompletedDetail(await completeHostedRemoteSignatureRequest(detail, input));
         setCompletedFromHosted(true);
+        haptics.success();
       } catch {
         setHostedCompleteFailed(true);
+        haptics.error();
       } finally {
         setHostedCompletePending(false);
       }
@@ -150,7 +153,9 @@ export default function RemoteVerifyScreen() {
       onSuccess: (signed) => {
         setCompletedFromHosted(false);
         setCompletedDetail(signed);
+        haptics.success();
       },
+      onError: () => haptics.error(),
     });
   }
 

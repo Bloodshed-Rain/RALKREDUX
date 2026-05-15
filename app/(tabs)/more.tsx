@@ -94,6 +94,7 @@ export default function ProfileScreen() {
 
   async function shareBackupSnapshot() {
     const snapshot = await createBackup.mutateAsync();
+    haptics.success();
     await Share.share({
       title: 'RALB recovery snapshot',
       message: JSON.stringify(snapshot, null, 2),
@@ -131,8 +132,10 @@ export default function ProfileScreen() {
       setRestoreConfirmed(false);
       setPreviewSnapshot(null);
       setShowRestore(false);
+      haptics.success();
     } catch {
       setRestoreError('Restore failed. The local ledger is unchanged.');
+      haptics.error();
     }
   }
 

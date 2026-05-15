@@ -7,6 +7,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react-native';
 import { buildLogbookExportFileName, buildLogbookPdfHtml } from '@/src/domain/logbook/export';
+import { haptics } from '@/src/ui/haptics';
 import {
   useDeleteDraftEntry,
   useEntries,
@@ -69,6 +70,7 @@ export default function RecordsScreen() {
     rangeTouched.current = true;
     setRange(key);
     writePref(PrefKeys.recordsRange, key);
+    haptics.selection();
   }, []);
   const entries = useEntries();
   const profile = useProfile();
@@ -78,6 +80,7 @@ export default function RecordsScreen() {
   const { tidewater, typography, spacing } = useTheme();
 
   function confirmDeleteDraft(id: string, label: string) {
+    haptics.warning();
     Alert.alert(
       'Delete draft?',
       `Permanently remove the draft for ${label}. This cannot be undone.`,
