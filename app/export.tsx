@@ -263,13 +263,31 @@ export default function ExportScreen() {
             value={includeAttachments}
             onChange={setIncludeAttachments}
           />
-          <ToggleRow
-            label="Embed chain proof"
-            sub="Signature + chain hashes — always on"
-            value
-            onChange={() => {}}
-            disabled
-          />
+          {/* Embed chain proof is a property of the export, not a toggleable
+              option — render as state (icon + label + pill) rather than a
+              disabled switch so it doesn't read as "you could turn this off." */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              paddingVertical: 14,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: tokens.surface,
+              borderWidth: 1,
+              borderColor: tokens.lineSoft,
+            }}
+          >
+            <IconChain size={18} color={tokens.accent} fill={tokens.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...type.cardTitle, color: tokens.text }}>Chain proof embedded</Text>
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }}>
+                Signature + chain hashes are always included.
+              </Text>
+            </View>
+            <Pill tone="ok" size="sm">Always</Pill>
+          </View>
         </View>
 
         <SectionH kicker="FORMAT" title="How to export" />

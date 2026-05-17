@@ -134,7 +134,11 @@ export default function RecordsScreen() {
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <TopBar
         title="Records"
-        subtitle={`${entriesData.length} ${entriesData.length === 1 ? 'entry' : 'entries'} · sealed in the chain`}
+        subtitle={
+          entriesData.length === 0
+            ? 'No entries yet'
+            : `${counts.signed + counts.amended} sealed · ${counts.drafts} ${counts.drafts === 1 ? 'draft' : 'drafts'}`
+        }
         large
         trailing={
           <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -174,7 +178,7 @@ export default function RecordsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {filteredEntries.length === 0 ? (
+        {!entries.data ? null : filteredEntries.length === 0 ? (
           <View style={{ paddingTop: 16 }}>
             <EmptyState
               icon={IconSearch}

@@ -226,7 +226,7 @@ export default function TodayScreen() {
           }
         />
         <View style={{ paddingHorizontal: 20, gap: 8 }}>
-          {recentEntries.length === 0 ? (
+          {!entries.data ? null : recentEntries.length === 0 ? (
             <Card>
               <Text style={{ ...type.cardTitle, color: tokens.text }}>No entries yet</Text>
               <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
