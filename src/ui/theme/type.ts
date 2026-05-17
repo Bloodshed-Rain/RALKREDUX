@@ -5,9 +5,7 @@
 // Letter-spacing values are converted from the handoff's CSS em values to RN
 // points (em × fontSize).
 //
-// Theme-independent: palette swaps don't affect type. Imported statically by
-// new primitives; the legacy Inter/Archivo/IBM Plex Mono scale in
-// `compat.ts` stays available for paper-form primitives until they're deleted.
+// Theme-independent: palette swaps don't affect type.
 
 import type { TextStyle } from 'react-native';
 

@@ -3,21 +3,21 @@ import { AppProviders } from '@/src/providers/app-providers';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function ThemedStack() {
-  const { colors, typography } = useTheme();
+  const { tokens } = useTheme();
   return (
     <Stack
       screenOptions={{
         headerBackTitle: 'Back',
         headerBackButtonDisplayMode: 'minimal',
-        headerStyle: { backgroundColor: colors.bgSurface },
+        headerStyle: { backgroundColor: tokens.surface },
         headerShadowVisible: false,
-        headerTintColor: colors.textPrimary,
+        headerTintColor: tokens.text,
         headerTitleStyle: {
-          fontFamily: typography.title2.fontFamily,
-          fontSize: typography.title2.fontSize,
-          fontWeight: typography.title2.fontWeight,
+          fontFamily: 'Manrope_700Bold',
+          fontSize: 17,
+          fontWeight: '700',
         },
-        contentStyle: { backgroundColor: colors.bgApp },
+        contentStyle: { backgroundColor: tokens.bg },
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false, title: 'RALB' }} />

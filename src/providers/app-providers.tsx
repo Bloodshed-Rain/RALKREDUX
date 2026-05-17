@@ -1,25 +1,8 @@
 import React from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  useFonts,
-} from '@expo-google-fonts/inter';
-import {
-  Archivo_700Bold,
-  Archivo_800ExtraBold,
-  Archivo_900Black,
-} from '@expo-google-fonts/archivo';
-import {
-  IBMPlexMono_400Regular,
-  IBMPlexMono_500Medium,
-  IBMPlexMono_600SemiBold,
-} from '@expo-google-fonts/ibm-plex-mono';
-import {
-  Newsreader_500Medium_Italic,
   Newsreader_600SemiBold_Italic,
-  Newsreader_700Bold_Italic,
+  useFonts,
 } from '@expo-google-fonts/newsreader';
 import {
   Manrope_400Regular,
@@ -38,15 +21,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from '@/src/db/initialize';
 import { loadHapticsPref } from '@/src/ui/haptics';
-import { SplashScreen } from '@/src/ui/primitives';
-import { ThemeProvider } from '@/src/ui/theme/theme-provider';
+import { IconBrand } from '@/src/ui/icons';
+import { ThemeProvider, useTheme } from '@/src/ui/theme/theme-provider';
 
 const queryClient = new QueryClient();
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [fontsLoaded] = useFonts({
-    // v2 redesign families — Manrope (display/body), JetBrains Mono
-    // (numbers/hashes/kickers), Newsreader 600 italic (signature scrawl).
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
@@ -57,21 +38,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     JetBrainsMono_600SemiBold,
     JetBrainsMono_700Bold,
     Newsreader_600SemiBold_Italic,
-
-    // Legacy paper-form families — kept loaded until the last legacy
-    // primitive is deleted in the final-sweep task.
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Archivo_700Bold,
-    Archivo_800ExtraBold,
-    Archivo_900Black,
-    IBMPlexMono_400Regular,
-    IBMPlexMono_500Medium,
-    IBMPlexMono_600SemiBold,
-    Newsreader_500Medium_Italic,
-    Newsreader_700Bold_Italic,
   });
   const [dbReady, setDbReady] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -82,13 +48,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : String(caught));
       });
-    // Non-blocking: haptics default to on until the stored pref resolves.
     void loadHapticsPref();
   }, []);
 
   const booting = !fontsLoaded || !dbReady;
-  const splashLabel = error
-    ? `Database setup failed - ${error}`
+  const status = error
+    ? `Database setup failed — ${error}`
     : !fontsLoaded
       ? 'Loading typeface'
       : !dbReady
@@ -99,11 +64,70 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <SafeAreaProvider>
       <ThemeProvider>
         {error || booting ? (
-          <SplashScreen label={splashLabel} ready={!booting && !error} />
+          <BootSplash label={status} failed={Boolean(error)} fontsLoaded={fontsLoaded} />
         ) : (
           <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         )}
       </ThemeProvider>
     </SafeAreaProvider>
+  );
+}
+
+interface BootSplashProps {
+  label: string;
+  failed: boolean;
+  fontsLoaded: boolean;
+}
+
+function BootSplash({ label, failed, fontsLoaded }: BootSplashProps) {
+  const { tokens } = useTheme();
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: tokens.bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+      }}
+    >
+      <IconBrand size={64} color={tokens.text} fill={tokens.accent} />
+      <Text
+        style={
+          fontsLoaded
+            ? {
+                fontFamily: 'Manrope_800ExtraBold',
+                fontWeight: '800',
+                fontSize: 18,
+                letterSpacing: -0.4,
+                color: tokens.text,
+              }
+            : { fontSize: 18, fontWeight: '800', color: tokens.text }
+        }
+      >
+        RALB
+      </Text>
+      <ActivityIndicator color={tokens.accent} />
+      <Text
+        style={
+          fontsLoaded
+            ? {
+                fontFamily: 'JetBrainsMono_500Medium',
+                fontSize: 11,
+                letterSpacing: 1.8,
+                textTransform: 'uppercase',
+                color: failed ? tokens.danger : tokens.textDim,
+              }
+            : {
+                fontSize: 11,
+                letterSpacing: 1.8,
+                textTransform: 'uppercase',
+                color: failed ? tokens.danger : tokens.textDim,
+              }
+        }
+      >
+        {label}
+      </Text>
+    </View>
   );
 }

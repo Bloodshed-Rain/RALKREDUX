@@ -1,11 +1,31 @@
 import React from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
-import { Save } from 'lucide-react-native';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { HeightUnit } from '@/src/domain/logbook/types';
 import { useCreateAmendment, useEntryDetail } from '@/src/domain/logbook/use-logbook';
-import { AnimatedStamp, Chip, DocActionButton, DocBand, Field, Screen, SectionH } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  Field,
+  IconBtn,
+  Pill,
+  SectionH,
+  TopBar,
+} from '@/src/ui/primitives/v2';
+import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -13,16 +33,35 @@ function firstParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const TASK_PRESETS = ['Inspection', 'Maintenance', 'Rescue standby', 'Training'];
-const ACCESS_PRESETS = ['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'];
-const STRUCTURE_PRESETS = ['Bridge', 'Tower', 'Wind turbine', 'Facade'];
+const TASK_OPTIONS = [
+  { value: 'Inspection', label: 'Inspection' },
+  { value: 'Maintenance', label: 'Maintenance' },
+  { value: 'Rescue standby', label: 'Rescue' },
+  { value: 'Training', label: 'Training' },
+];
+
+const ACCESS_OPTIONS = [
+  { value: 'Two-rope access', label: 'Two-rope' },
+  { value: 'Aid climb', label: 'Aid climb' },
+  { value: 'Rescue cover', label: 'Rescue cover' },
+  { value: 'Fall restraint', label: 'Restraint' },
+];
+
+const STRUCTURE_OPTIONS = [
+  { value: 'Bridge', label: 'Bridge' },
+  { value: 'Tower', label: 'Tower' },
+  { value: 'Wind turbine', label: 'Turbine' },
+  { value: 'Facade', label: 'Facade' },
+];
 
 export default function AmendEntryScreen() {
-  const { spacing, typography, tidewater, hairlines } = useTheme();
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
   const createAmendment = useCreateAmendment();
+
   const [loadedId, setLoadedId] = React.useState<string | null>(null);
   const [employer, setEmployer] = React.useState('');
   const [site, setSite] = React.useState('');
@@ -65,8 +104,8 @@ export default function AmendEntryScreen() {
     height: !Number.isFinite(parsedHeight) || parsedHeight <= 0,
   };
   const missingCount = Object.values(isMissing).filter(Boolean).length;
-
   const canSave = Boolean(entryId) && entry?.status === 'signed' && missingCount === 0;
+  const sourceLocked = entry?.status && entry.status !== 'signed';
 
   function save() {
     if (!canSave || !entryId || !entry) return;
@@ -98,298 +137,213 @@ export default function AmendEntryScreen() {
     );
   }
 
-  const sourceLocked = entry?.status && entry.status !== 'signed';
+  const heroKickerStyle: TextStyle = { ...type.monoKicker, color: tokens.textFaint };
+  const heroTitleStyle: TextStyle = {
+    fontFamily: 'Manrope_800ExtraBold',
+    fontWeight: '800',
+    fontSize: 26,
+    letterSpacing: -0.7,
+    lineHeight: 30,
+    color: tokens.text,
+    marginTop: 4,
+  };
 
   return (
-    <Screen
-      padded={false}
-      weave
-      footer={
-        <DocActionButton
-          title={canSave ? 'CREATE AMENDMENT DRAFT' : 'FINISH AMENDMENT'}
-          icon={Save}
-          onPress={save}
-          disabled={!canSave}
-          loading={createAmendment.isPending}
-        />
-      }
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
     >
-      <DocBand
-        variant="top"
-        formId="CH.9 - AMENDMENT"
-        rev={entry?.status === 'signed' ? 'SIGNED SOURCE' : 'UNAVAILABLE'}
-        effective="ENTRY-HASH v2"
-        rightLabel={canSave ? 'READY' : 'HOLD'}
+      <Stack.Screen options={{ headerShown: false }} />
+      <TopBar
+        title="Amend entry"
+        leading={
+          <IconBtn icon={IconArrowLeft} label="Back" size="sm" onPress={() => router.back()} />
+        }
       />
-
-      <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.lg }}>
-        {/* Header card */}
-        <View
-          style={{
-            borderWidth: hairlines.standard.width,
-            borderColor: hairlines.standard.color,
-            backgroundColor: tidewater.white,
-          }}
-        >
-          <View
-            style={{
-              padding: spacing.md,
-              borderBottomWidth: 1.5,
-              borderBottomColor: tidewater.hair,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: spacing.sm,
-              alignItems: 'flex-start',
-            }}
-          >
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                AMENDMENT DRAFT
-              </Text>
-              <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
-                {entry?.site || 'Loading entry'}
-              </Text>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
-                AMENDS ENTRY {entryId ? entryId.slice(-6).toUpperCase() : '------'}
-              </Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <Card padding={18}>
+            <Text style={heroKickerStyle}>
+              AMENDS {entryId ? entryId.slice(-6).toUpperCase() : '------'}
+            </Text>
+            <Text style={heroTitleStyle} numberOfLines={2}>
+              {entry?.site || 'Loading entry'}
+            </Text>
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
+              Creates a new draft pointing back to the signed source.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+              <Pill tone="chip">{entry ? `${entry.work_hours.toFixed(1)} hr on file` : '—'}</Pill>
+              <Pill tone={missingCount === 0 ? 'ok' : 'warn'}>
+                {missingCount === 0 ? 'Complete' : `${missingCount} missing`}
+              </Pill>
             </View>
-            <AnimatedStamp tone={entry?.status === 'signed' ? 'green' : 'yellow'} rotation="light">
-              {entry?.status === 'signed' ? 'SIGNED SOURCE' : 'LOCKED'}
-            </AnimatedStamp>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
-            <Chip tone="mute">{entry ? `${entry.work_hours.toFixed(1)} HR ON FILE` : '—'}</Chip>
-            <Chip tone={missingCount === 0 ? 'green' : 'yellow'}>
-              {missingCount === 0 ? 'COMPLETE' : `${missingCount} MISSING`}
-            </Chip>
-          </View>
-          {sourceLocked ? (
-            <View
-              style={{
-                borderTopWidth: 1,
-                borderTopColor: tidewater.hairFaint,
-                backgroundColor: tidewater.yellowSoft,
-                padding: spacing.md,
-              }}
-            >
-              <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                AMENDMENTS REQUIRE A SIGNED SOURCE
-              </Text>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
-                Only signed entries can be amended. Drafts should be edited instead.
-              </Text>
-            </View>
-          ) : null}
+            {sourceLocked ? (
+              <View
+                style={{
+                  marginTop: 14,
+                  padding: 12,
+                  borderRadius: 10,
+                  backgroundColor: tokens.warnSoft,
+                  flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <IconWarn size={18} color={tokens.warn} fill={tokens.warn} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ ...type.cardTitle, color: tokens.text }}>
+                    Amendments need a signed source
+                  </Text>
+                  <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }}>
+                    Drafts should be edited directly instead.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </Card>
         </View>
 
-        {/* § 26 Site & parties */}
-        <View>
-          <SectionH n="26" right={isMissing.employer || isMissing.site || isMissing.client ? 'REQUIRED' : 'OK'}>
-            Site and parties
-          </SectionH>
-          <View style={{ gap: spacing.md }}>
-            <Field
-              label="Site"
-              value={site}
-              onChangeText={setSite}
-              placeholder="Tower / plant / bridge"
-              invalid={isMissing.site}
-            />
-            <Field
-              label="Employer"
-              value={employer}
-              onChangeText={setEmployer}
-              placeholder="Company"
-              invalid={isMissing.employer}
-            />
-            <Field
-              label="Client"
-              value={client}
-              onChangeText={setClient}
-              placeholder="Customer / contractor"
-              invalid={isMissing.client}
-            />
-          </View>
+        <SectionH kicker="01 SITE & PARTIES" title="Site and parties" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          <Field label="Site" value={site} onChangeText={setSite} placeholder="Tower / plant / bridge" />
+          <Field label="Employer" value={employer} onChangeText={setEmployer} placeholder="Company" autoCapitalize="words" />
+          <Field label="Client" value={client} onChangeText={setClient} placeholder="Customer / contractor" autoCapitalize="words" />
         </View>
 
-        {/* § 27 Task & method */}
-        <View>
-          <SectionH n="27" right={isMissing.task || isMissing.access || isMissing.structure ? 'REQUIRED' : 'OK'}>
-            Task and method
-          </SectionH>
-          <View style={{ gap: spacing.md }}>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>TASK</Text>
-              <ChipRow options={TASK_PRESETS} value={workTask} onChange={setWorkTask} />
-              <Field
-                label="Work task"
-                value={workTask}
-                onChangeText={setWorkTask}
-                placeholder="Inspection / maintenance / rescue cover"
-                invalid={isMissing.task}
-                />
+        <SectionH kicker="02 TASK & METHOD" title="Task and method" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>TASK</Text>
+            <ChipSelect value={workTask} options={TASK_OPTIONS} onChange={setWorkTask} />
+            <View style={{ marginTop: 8 }}>
+              <Field label="Or write your own" value={workTask} onChangeText={setWorkTask} placeholder="Custom task" />
             </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>ACCESS METHOD</Text>
-              <ChipRow options={ACCESS_PRESETS} value={accessMethod} onChange={setAccessMethod} />
+          </View>
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>ACCESS</Text>
+            <ChipSelect value={accessMethod} options={ACCESS_OPTIONS} onChange={setAccessMethod} />
+          </View>
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>STRUCTURE</Text>
+            <ChipSelect value={structureType} options={STRUCTURE_OPTIONS} onChange={setStructureType} />
+            <View style={{ marginTop: 8 }}>
               <Field
-                label="Access method"
-                value={accessMethod}
-                onChangeText={setAccessMethod}
-                placeholder="Two-rope access"
-                invalid={isMissing.access}
-                />
-            </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>STRUCTURE</Text>
-              <ChipRow options={STRUCTURE_PRESETS} value={structureType} onChange={setStructureType} />
-              <Field
-                label="Structure type"
+                label="Or write your own"
                 value={structureType}
                 onChangeText={setStructureType}
                 placeholder="Bridge / tower / wind turbine"
-                invalid={isMissing.structure}
-                />
+              />
             </View>
           </View>
         </View>
 
-        {/* § 28 Time and height */}
-        <View>
-          <SectionH n="28" right={isMissing.hours || isMissing.height ? 'REQUIRED' : 'OK'}>
-            Time and height
-          </SectionH>
-          <View style={{ gap: spacing.md }}>
-            <Field
-              label="Rope access hours"
-              value={hours}
-              onChangeText={setHours}
-              keyboardType="decimal-pad"
-              placeholder="8"
-              invalid={isMissing.hours}
-            />
-            <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end' }}>
-              <View style={{ flex: 2 }}>
-                <Field
-                  label="Maximum height"
-                  value={maxHeight}
-                  onChangeText={(v) => setMaxHeight(v.replace(/[^\d.]/g, ''))}
-                  keyboardType="decimal-pad"
-                  placeholder="120"
-                  invalid={isMissing.height}
-                    />
-              </View>
-              <View
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  borderWidth: 1.5,
-                  borderColor: tidewater.hair,
-                  height: 48,
-                }}
-              >
-                {(['ft', 'm'] as const).map((unit, i) => {
-                  const active = heightUnit === unit;
-                  return (
-                    <Pressable
-                      key={unit}
-                      onPress={() => setHeightUnit(unit)}
-                      style={{
-                        flex: 1,
-                        backgroundColor: active ? tidewater.ink : 'transparent',
-                        borderRightWidth: i === 0 ? 1 : 0,
-                        borderRightColor: tidewater.hairSoft,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Text
-                        style={{
-                          ...typography.displaySm,
-                          color: active ? tidewater.paper : tidewater.ink2,
-                          letterSpacing: 1.5,
-                        }}
-                      >
-                        {unit.toUpperCase()}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+        <SectionH kicker="03 HOURS & HEIGHT" title="Time and height" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          <Field
+            label="Rope access hours"
+            value={hours}
+            onChangeText={setHours}
+            keyboardType="decimal-pad"
+            placeholder="8"
+          />
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-end' }}>
+            <View style={{ flex: 2 }}>
+              <Field
+                label="Maximum height"
+                value={maxHeight}
+                onChangeText={(v) => setMaxHeight(v.replace(/[^\d.]/g, ''))}
+                keyboardType="decimal-pad"
+                placeholder="120"
+              />
             </View>
+            <UnitToggle value={heightUnit} onChange={setHeightUnit} />
           </View>
         </View>
 
-        {/* § 29 Notes */}
-        <View>
-          <SectionH n="29" right={isMissing.notes ? 'REQUIRED' : 'OK'}>
-            Work notes
-          </SectionH>
-          <TextInput
+        <SectionH kicker="04 NOTES" title="What changed" />
+        <View style={{ paddingHorizontal: 20 }}>
+          <Field
             value={description}
             onChangeText={setDescription}
             multiline
             placeholder="Describe the correction or addition."
-            placeholderTextColor={tidewater.ink3}
-            style={{
-              borderWidth: 1.5,
-              borderColor: isMissing.notes ? tidewater.yellowDeep : tidewater.hair,
-              backgroundColor: isMissing.notes ? tidewater.yellowSoft : tidewater.white,
-              padding: spacing.sm,
-              ...typography.body,
-              color: tidewater.ink,
-              minHeight: 120,
-              textAlignVertical: 'top',
-            }}
           />
         </View>
-      </View>
+      </ScrollView>
 
-      <DocBand
-        variant="footer"
-        text={
-          canSave
-            ? 'AMENDMENT DRAFT WILL BE A NEW ENTRY POINTING BACK TO THE SIGNED SOURCE'
-            : 'AMENDMENT HOLD - COMPLETE REQUIRED FIELDS BEFORE SAVING'
-        }
-        page={entryId ? `AMENDS ${entryId.slice(-6).toUpperCase()}` : 'AMENDS ------'}
-      />
-    </Screen>
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 12,
+          backgroundColor: tokens.bg,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+        }}
+      >
+        <Button
+          variant="primary"
+          size="lg"
+          full
+          onPress={save}
+          disabled={!canSave || createAmendment.isPending}
+        >
+          {createAmendment.isPending
+            ? 'Creating amendment…'
+            : canSave
+              ? 'Create amendment draft'
+              : 'Finish amendment'}
+        </Button>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
-function ChipRow({
-  options,
-  value,
-  onChange,
-}: {
-  options: string[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const { tidewater, typography, spacing } = useTheme();
-
+function UnitToggle({ value, onChange }: { value: HeightUnit; onChange: (next: HeightUnit) => void }) {
+  const { tokens } = useTheme();
+  const trackStyle: ViewStyle = {
+    flexDirection: 'row',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: tokens.lineSoft,
+    height: 44,
+  };
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-      {options.map((option) => {
-        const selected = option === value;
+    <View style={trackStyle}>
+      {(['ft', 'm'] as const).map((unit) => {
+        const active = unit === value;
         return (
           <Pressable
-            key={option}
+            key={unit}
             accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => onChange(option)}
-            style={({ pressed }) => ({
-              borderWidth: 1.5,
-              borderColor: selected ? tidewater.accent : tidewater.hair,
-              backgroundColor: selected ? tidewater.accentSoft : 'transparent',
-              paddingHorizontal: spacing.sm,
-              paddingVertical: 6,
-              opacity: pressed ? 0.8 : 1,
-            })}
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(unit)}
+            style={{
+              width: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: active ? tokens.accent : tokens.surface,
+            }}
           >
-            <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-              {option.toUpperCase()}
+            <Text
+              style={{
+                fontFamily: 'Manrope_600SemiBold',
+                fontWeight: '600',
+                fontSize: 13,
+                color: active ? tokens.accentInk : tokens.text,
+              }}
+            >
+              {unit}
             </Text>
           </Pressable>
         );
@@ -397,4 +351,3 @@ function ChipRow({
     </View>
   );
 }
-

@@ -1,6 +1,6 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-17 (step 14)
+Last updated: 2026-05-17 (step 15 — v2 redesign complete)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
@@ -53,6 +53,29 @@ Dual-cert SPRAT+IRATA support at setup landed in step 14 (2026-05-17). The new `
   - **PullToRefresh** (`v2/pull-to-refresh.tsx`) — bespoke chain-icon-in-ring indicator, 72 px threshold, 3-stage label ("Pull to refresh" → "Release to sync" → "Syncing chain…"). Built on `PanResponder` + `Animated` (no reanimated/gesture-handler dependency — those are explicit non-installs; if motion polish is needed, swap in step 15). Supports both internal cycle (`onRefresh` returns a promise) and externally-driven `refreshing` prop.
 
   Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
+
+- **Step 15 — Final sweep: 4 screens migrated, all legacy primitives + fonts + compat deleted.** Shipped 2026-05-17. The remaining four screens that were still on the paper-form chrome were rewritten on v2 primitives, then every v1 surface was deleted:
+
+  - Screens rewritten on v2 primitives:
+    - `app/entry/[id]/edit.tsx` — Edit-draft form (~494 → ~390 lines). v2 chrome: small `TopBar` (back leading), hero `Card` (DRAFT kicker · echoed site title · `Pill` row: Audit-ready / hours / height · inline `IconWarn` callout if the entry is no longer editable). Four `SectionH` groupings (Site & task · Dates & parties · Structure & height · Notes) with `Field`s + `ChipSelect`s for task/access/structure presets. Pinned-footer primary `Button` ("Save audit-ready draft" / "Save draft" / "Saving…"). Custom 88-px `UnitToggle` for ft/m.
+    - `app/entry/[id]/request-signature.tsx` — Remote-request form (~317 → ~270 lines). Hero `Card` with readiness `Pill`s + an `IconWarn` callout for blocking states (non-draft entry · already-open request · missing required fields). SectionH "01 VERIFIER" with a saved-contacts chip row (sourced from `useSupervisorContacts`) + name/contact `Field`s + a tap-to-reveal Role/Company expander. Pinned-footer primary button cycles "Add verifier name" → "Finish entry first" → "Create remote request" → "Creating request…".
+    - `app/entry/[id]/amend.tsx` — Amend-from-signed form (~400 → ~340 lines). Same v2 chrome pattern as edit; hero `Card` shows `AMENDS XXXXXX` kicker + on-file hours + missing-count `Pill` + locked-source `IconWarn` callout when the source isn't signed. Four sections (Site & parties · Task & method · Hours & height · Notes). Pinned footer primary "Create amendment draft".
+    - `app/verify/[code].tsx` — Verifier portal (~775 → ~545 lines). Multi-state screen: completed (post-signature) shows `SigFill` of the signer's name + `Row` list of method/signed/chain-hash; no-token, loading, not-found render minimal `Card` states; the actionable state has a Request-readiness hero `Card` plus three info `Card`s (Request · Work record · Record change check) followed by an Authorization section with verifier `Field`s, scheme `ChipSelect`, IRATA-level `ChipSelect`, `SigPad` (with a header "Clear" pressable that drives the new `SigPadHandle.clear()`), and a custom `AttestationRow` (square check + `ATTESTATION_TEXT`, turns `okSoft` when accepted). Closed-state `ClosedStateCard` colors by reason kind (completed/expired/cancelled/closed). Pinned-footer primary "Submit remote signature" or fallback "Close".
+
+  - Bootstrap splash (`src/providers/app-providers.tsx`) rewritten — no longer references v1 `SplashScreen`/`MarkPlate`. Renders the centered `IconBrand`, "RALB" wordmark, `ActivityIndicator`, and a status caption directly inside the `ThemeProvider` while fonts/DB load. Falls back to platform-default font rendering during the brief `Loading typeface` phase.
+
+  - Layouts ported off the compat layer:
+    - `app/(tabs)/_layout.tsx` — custom `AppTabBar` now uses v2 icons (`IconToday` / `IconRecords` / `IconGear` / `IconProfile` / `IconPlus`), v2 tokens (`bg`/`lineSoft`/`text`/`textDim`/`textFaint`/`accent`/`accentInk`), and Manrope. Raised-center "+" disk preserves the v2 spec's accent-shadow on most palettes + Heliotype's hard-block shadow branch.
+    - `app/_layout.tsx` — stack `screenOptions` migrated to `tokens.surface` / `tokens.text` / `tokens.bg` + Manrope 700 for header titles.
+
+  - Deletions (final sweep):
+    - `src/ui/primitives/*.tsx` (28 v1 files): `action-tile`, `animated-counter`, `animated-stamp`, `button`, `card`, `checkbox-row`, `chip`, `date-field`, `doc-action-button`, `doc-band`, `field`, `form-cell`, `index.ts`, `load-gauge`, `mark-plate`, `marquee-text`, `pulley-spinner`, `row-doc`, `screen`, `section-h`, `signature-fill`, `signature-pad`, `splash-screen`, `stamp`, `stat-row`, `swipe-row`, `watermark-seal`, `weave-backdrop`. Only `src/ui/primitives/v2/` remains.
+    - `src/ui/theme/compat.ts` — gone. `src/ui/theme/tokens.ts` — gone.
+    - `ThemeContextValue` slimmed to `{ theme, tokens, setTheme }`. No more `colors`/`tidewater`/`hairlines`/`docBand`/`stamp`/`typography`/`spacing`/`radii`/`touchTarget` exits.
+    - Legacy font packages removed from `package.json` via `npm uninstall`: `@expo-google-fonts/inter`, `@expo-google-fonts/archivo`, `@expo-google-fonts/ibm-plex-mono`. Only Manrope, JetBrains Mono, and Newsreader 600 italic remain. `AppProviders` `useFonts` call is down to those three.
+    - `lucide-react-native` survives — `verify/[code].tsx` still uses `BadgeCheck` / `CalendarClock` / `ShieldOff` for the closed-state callouts (no clean equivalents in the v2 icon set).
+
+  Typecheck clean. Jest 137/137 still green. The v2 redesign program is now complete; the hard-gate cross-palette visual sweep remains an open follow-up but isn't gated on code.
 
 - **Step 14 — Splash + 3-card Onboarding intro + dual-cert Setup rewrite.** Shipped 2026-05-17. Three pieces:
 

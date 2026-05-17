@@ -1,15 +1,33 @@
 import React from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronDown, ChevronUp, Mail, Send } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type TextStyle,
+} from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import {
   useCreateRemoteSignatureRequest,
   useEntryDetail,
   useSupervisorContacts,
 } from '@/src/domain/logbook/use-logbook';
-import { AnimatedStamp, Chip, DocActionButton, DocBand, Field, Screen, SectionH } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  Field,
+  IconBtn,
+  Pill,
+  SectionH,
+  TopBar,
+} from '@/src/ui/primitives/v2';
+import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -18,7 +36,8 @@ function firstParam(value: string | string[] | undefined): string | null {
 }
 
 export default function RemoteSignatureRequestScreen() {
-  const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const { id, supervisorId } = useLocalSearchParams<{
     id?: string | string[];
     supervisorId?: string | string[];
@@ -28,12 +47,14 @@ export default function RemoteSignatureRequestScreen() {
   const detail = useEntryDetail(entryId);
   const createRequest = useCreateRemoteSignatureRequest();
   const supervisors = useSupervisorContacts();
+
   const [recipientName, setRecipientName] = React.useState('');
   const [recipientContact, setRecipientContact] = React.useState('');
   const [verifierRole, setVerifierRole] = React.useState('');
   const [verifierCompany, setVerifierCompany] = React.useState('');
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const didPrefillSupervisor = React.useRef(false);
+
   const entry = detail.data?.entry;
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
 
@@ -51,9 +72,7 @@ export default function RemoteSignatureRequestScreen() {
   }, [supervisorIdParam, supervisors.data]);
 
   const selectedKnownSupervisor = supervisors.data?.find(
-    (supervisor) =>
-      supervisor.name === recipientName &&
-      (supervisor.contact ?? '') === recipientContact,
+    (s) => s.name === recipientName && (s.contact ?? '') === recipientContact,
   );
   const hasVerifierName = recipientName.trim().length > 1;
 
@@ -63,12 +82,6 @@ export default function RemoteSignatureRequestScreen() {
     readiness?.ready === true &&
     !detail.data?.remote_request &&
     hasVerifierName;
-
-  const footerTitle = canCreate
-    ? 'CREATE REMOTE REQUEST'
-    : hasVerifierName
-      ? 'FINISH ENTRY FIRST'
-      : 'ADD VERIFIER NAME';
 
   function submit() {
     if (!canCreate || !entryId) return;
@@ -90,228 +103,213 @@ export default function RemoteSignatureRequestScreen() {
     );
   }
 
+  const heroKickerStyle: TextStyle = { ...type.monoKicker, color: tokens.textFaint };
+  const heroTitleStyle: TextStyle = {
+    fontFamily: 'Manrope_800ExtraBold',
+    fontWeight: '800',
+    fontSize: 26,
+    letterSpacing: -0.7,
+    lineHeight: 30,
+    color: tokens.text,
+    marginTop: 4,
+  };
+
+  const blockingMessage = entry
+    ? entry.status !== 'draft'
+      ? 'Remote requests can only be created for draft entries.'
+      : detail.data?.remote_request
+        ? 'A remote request is already open. Use the entry detail screen, or close it before creating another.'
+        : readiness && !readiness.ready
+          ? `Finish the entry first: add ${readiness.missingFields.join(', ')}.`
+          : null
+    : null;
+
   return (
-    <Screen
-      padded={false}
-      weave
-      footer={
-        <DocActionButton
-          title={footerTitle}
-          icon={Send}
-          onPress={submit}
-          disabled={!canCreate}
-          loading={createRequest.isPending}
-        />
-      }
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
     >
-      <DocBand
-        variant="top"
-        formId="CH.6 - REMOTE REQUEST"
-        rev={detail.data?.remote_request ? 'REQUEST EXISTS' : 'TOKEN LINK'}
-        effective="HOSTED FALLBACK"
-        rightLabel={canCreate ? 'READY' : 'HOLD'}
+      <Stack.Screen options={{ headerShown: false }} />
+      <TopBar
+        title="Remote request"
+        leading={
+          <IconBtn icon={IconArrowLeft} label="Back" size="sm" onPress={() => router.back()} />
+        }
       />
-
-      <View style={{ paddingHorizontal: spacing.base, gap: spacing.lg }}>
-        <View
-          style={{
-            borderWidth: hairlines.standard.width,
-            borderColor: hairlines.standard.color,
-            backgroundColor: tidewater.white,
-          }}
-        >
-          <View
-            style={{
-              padding: spacing.md,
-              borderBottomWidth: 1.5,
-              borderBottomColor: tidewater.hair,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: spacing.sm,
-              alignItems: 'flex-start',
-            }}
-          >
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                REQUEST READINESS
-              </Text>
-              <Text style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
-                {entry?.site || 'Loading entry'}
-              </Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <Card padding={18}>
+            <Text style={heroKickerStyle}>REQUEST READINESS</Text>
+            <Text style={heroTitleStyle} numberOfLines={2}>
+              {entry?.site || 'Loading entry'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+              <Pill tone="chip">{entry ? `${entry.work_hours.toFixed(1)} hr` : '— hr'}</Pill>
+              <Pill tone={readiness?.ready ? 'ok' : 'warn'}>
+                {readiness?.ready ? 'Entry ready' : `${readiness?.missingFields.length ?? 0} missing`}
+              </Pill>
+              {detail.data?.remote_request ? <Pill tone="warn">Request pending</Pill> : null}
             </View>
-            <AnimatedStamp tone={readiness?.ready && !detail.data?.remote_request ? 'green' : 'yellow'} rotation="light">
-              {readiness?.ready && !detail.data?.remote_request ? 'READY' : 'HOLD'}
-            </AnimatedStamp>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
-            <Chip tone="ink">{entry?.site || 'LOADING'}</Chip>
-            <Chip tone="mute">{entry ? `${entry.work_hours.toFixed(1)} HR` : '0.0 HR'}</Chip>
-            <Chip tone={readiness?.ready ? 'green' : 'yellow'}>
-              {readiness?.ready ? 'ENTRY READY' : `${readiness?.missingFields.length ?? 0} MISSING`}
-            </Chip>
-            {detail.data?.remote_request ? <Chip tone="yellow">REQUEST PENDING</Chip> : null}
-          </View>
-          {entry?.status === 'draft' && readiness && !readiness.ready ? (
-            <DocNotice title="Finish the entry first" body={`Add ${readiness.missingFields.join(', ')}`} />
-          ) : null}
-          {detail.data?.remote_request ? (
-            <DocNotice
-              title="Remote request already open"
-              body="Use the existing request on the entry detail screen, or close it before creating another."
-            />
-          ) : null}
-        </View>
-
-        <View>
-          <SectionH n="17" right={selectedKnownSupervisor ? 'KNOWN' : hasVerifierName ? 'NEW' : 'REQUIRED'}>
-            Verifier
-          </SectionH>
-          <Text selectable style={{ ...typography.monoSm, color: tidewater.ink3, marginBottom: spacing.sm }}>
-            Choose a saved supervisor or type the verifier who will receive the secure signing link.
-          </Text>
-          {supervisors.data?.length ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
-              {supervisors.data.map((supervisor) => {
-                const selected = supervisor.id === selectedKnownSupervisor?.id;
-
-                return (
-                  <Pressable
-                    key={supervisor.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      setRecipientName(supervisor.name);
-                      setRecipientContact(supervisor.contact ?? '');
-                      setVerifierRole(supervisor.role ?? '');
-                      setVerifierCompany(supervisor.company ?? '');
-                      setDetailsOpen(Boolean(supervisor.role || supervisor.company));
-                    }}
-                    style={({ pressed }) => ({
-                      minHeight: touchTarget.min,
-                      justifyContent: 'center',
-                      borderWidth: 1.5,
-                      borderColor: selected ? tidewater.accent : tidewater.hair,
-                      backgroundColor: selected ? tidewater.accentSoft : tidewater.white,
-                      opacity: pressed ? 0.82 : 1,
-                      paddingHorizontal: spacing.sm,
-                      paddingVertical: 6,
-                    })}
-                  >
-                    <Text
-                      selectable={false}
-                      style={{
-                        ...typography.monoSm,
-                        color: selected ? tidewater.accent : tidewater.ink2,
-                        fontFamily: 'IBMPlexMono_600SemiBold',
-                        fontWeight: '600',
-                      }}
-                    >
-                      {supervisor.name.toUpperCase()}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
-          <View style={{ gap: spacing.md }}>
-            <Field
-              label="Verifier name"
-              value={recipientName}
-              onChangeText={setRecipientName}
-              placeholder="Jordan Lee"
-              invalid={!hasVerifierName}
-            />
-            <Field
-              label="Verifier contact"
-              value={recipientContact}
-              onChangeText={setRecipientContact}
-              placeholder="Optional email or phone"
-              hint="Optional. Add it if you want it saved for next time."
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setDetailsOpen((value) => !value)}
-              style={({ pressed }) => ({
-                minHeight: 48,
-                borderWidth: 1.5,
-                borderColor: tidewater.hair,
-                backgroundColor: verifierRole || verifierCompany ? tidewater.greenSoft : tidewater.white,
-                opacity: pressed ? 0.82 : 1,
-                paddingHorizontal: spacing.md,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: spacing.sm,
-              })}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
-                <Mail size={18} color={verifierRole || verifierCompany ? tidewater.green : tidewater.ink2} strokeWidth={2.2} />
-                <Text selectable={false} style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                  VERIFIER DETAILS
+            {blockingMessage ? (
+              <View
+                style={{
+                  marginTop: 14,
+                  padding: 12,
+                  borderRadius: 10,
+                  backgroundColor: tokens.warnSoft,
+                  flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <IconWarn size={18} color={tokens.warn} fill={tokens.warn} />
+                <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
+                  {blockingMessage}
                 </Text>
               </View>
-              {detailsOpen ? (
-                <ChevronUp size={18} color={tidewater.ink2} strokeWidth={2.2} />
-              ) : (
-                <ChevronDown size={18} color={tidewater.ink2} strokeWidth={2.2} />
-              )}
-            </Pressable>
-            {detailsOpen ? (
-              <>
-                <Field
-                  label="Verifier role"
-                  value={verifierRole}
-                  onChangeText={setVerifierRole}
-                  placeholder="IRATA L3 / Rope Access Manager"
-                    />
-                <Field
-                  label="Company"
-                  value={verifierCompany}
-                  onChangeText={setVerifierCompany}
-                  placeholder="Optional"
-                    />
-              </>
             ) : null}
-          </View>
+          </Card>
         </View>
 
-        {entry?.status && entry.status !== 'draft' ? (
-          <Text selectable style={{ ...typography.body, color: tidewater.ink2 }}>
-            Remote requests can only be created for draft entries.
-          </Text>
-        ) : null}
+        <SectionH kicker="01 VERIFIER" title="Who's signing?" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          {supervisors.data?.length ? (
+            <View>
+              <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
+                SAVED CONTACTS
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {supervisors.data.map((supervisor) => {
+                  const selected = supervisor.id === selectedKnownSupervisor?.id;
+                  return (
+                    <Pressable
+                      key={supervisor.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        setRecipientName(supervisor.name);
+                        setRecipientContact(supervisor.contact ?? '');
+                        setVerifierRole(supervisor.role ?? '');
+                        setVerifierCompany(supervisor.company ?? '');
+                        setDetailsOpen(Boolean(supervisor.role || supervisor.company));
+                      }}
+                      style={{
+                        paddingVertical: 7,
+                        paddingHorizontal: 12,
+                        borderRadius: 999,
+                        backgroundColor: selected ? tokens.accent : tokens.surface,
+                        borderWidth: 1,
+                        borderColor: selected ? tokens.accent : tokens.lineSoft,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: 'Manrope_600SemiBold',
+                          fontWeight: '600',
+                          fontSize: 12,
+                          color: selected ? tokens.accentInk : tokens.text,
+                        }}
+                      >
+                        {supervisor.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+          <Field
+            label="Verifier name"
+            value={recipientName}
+            onChangeText={setRecipientName}
+            placeholder="Jordan Lee"
+            autoCapitalize="words"
+          />
+          <Field
+            label="Contact"
+            value={recipientContact}
+            onChangeText={setRecipientContact}
+            placeholder="Optional email or phone"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            helper="Optional. Saved for future requests."
+          />
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setDetailsOpen((v) => !v)}
+            style={({ pressed }) => ({
+              backgroundColor: tokens.surface,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: tokens.lineSoft,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Text style={{ ...type.cardTitle, color: tokens.text }}>
+              {detailsOpen ? 'Hide role + company' : 'Add role + company'}
+            </Text>
+            <Text style={{ ...type.monoSm, color: tokens.textDim }}>
+              {detailsOpen ? '−' : '+'}
+            </Text>
+          </Pressable>
+          {detailsOpen ? (
+            <>
+              <Field
+                label="Role"
+                value={verifierRole}
+                onChangeText={setVerifierRole}
+                placeholder="IRATA L3 / Rope access manager"
+              />
+              <Field
+                label="Company"
+                value={verifierCompany}
+                onChangeText={setVerifierCompany}
+                placeholder="Optional"
+              />
+            </>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 12,
+          backgroundColor: tokens.bg,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+        }}
+      >
+        <Button
+          variant="primary"
+          size="lg"
+          full
+          onPress={submit}
+          disabled={!canCreate || createRequest.isPending}
+        >
+          {createRequest.isPending
+            ? 'Creating request…'
+            : canCreate
+              ? 'Create remote request'
+              : hasVerifierName
+                ? 'Finish entry first'
+                : 'Add verifier name'}
+        </Button>
       </View>
-
-      <DocBand
-        variant="footer"
-        text={canCreate ? 'REMOTE LINK WILL BE TOKEN-GATED AND ONE-TIME COMPLETABLE' : 'REMOTE REQUEST HOLD - COMPLETE REQUIRED FIELDS'}
-        page={entryId ? `ENTRY ${entryId.slice(-6).toUpperCase()}` : 'ENTRY ------'}
-      />
-    </Screen>
+    </KeyboardAvoidingView>
   );
 }
-
-function DocNotice({ title, body }: { title: string; body: string }) {
-  const { spacing, typography, tidewater } = useTheme();
-
-  return (
-    <View
-      style={{
-        borderTopWidth: 1,
-        borderTopColor: tidewater.hairFaint,
-        backgroundColor: tidewater.yellowSoft,
-        padding: spacing.md,
-      }}
-    >
-      <Text selectable style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-        {title.toUpperCase()}
-      </Text>
-      <Text selectable style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
-        {body}
-      </Text>
-    </View>
-  );
-}
-

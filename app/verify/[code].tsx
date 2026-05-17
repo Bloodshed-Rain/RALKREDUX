@@ -1,9 +1,19 @@
 import React from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, BadgeCheck, CalendarClock, CheckCircle2, ShieldOff } from 'lucide-react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { BadgeCheck, CalendarClock, ShieldOff } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   completeHostedRemoteSignatureRequest,
   fetchHostedRemoteSigningRequest,
@@ -11,33 +21,68 @@ import {
 import {
   certLevelToDigit,
   formatIrataNumber,
-  inferSchemeFromCertNumber,
   irataNumberDigits,
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
 import { formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
-import { describeClosedRemoteRequest, RemoteRequestClosedReason } from '@/src/domain/logbook/remote-signing-status';
+import {
+  describeClosedRemoteRequest,
+  RemoteRequestClosedReason,
+} from '@/src/domain/logbook/remote-signing-status';
 import { EntryDetail } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
   useRemoteSignatureRequestDetail,
 } from '@/src/domain/logbook/use-logbook';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
-import { AnimatedStamp, CheckboxRow, Chip, DocActionButton, DocBand, Field, Screen, SectionH, SignatureFill, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  Field,
+  IconBtn,
+  Pill,
+  SectionH,
+  SigFill,
+  SigPad,
+  TopBar,
+  type SigPadHandle,
+} from '@/src/ui/primitives/v2';
+import { IconArrowLeft, IconCheck, IconVerified } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
+
+const ATTESTATION_TEXT =
+  'I am the requested verifier, I reviewed this remote request and work record, and I authorize this signature.';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] : value;
 }
 
-const ATTESTATION_TEXT =
-  'I am the requested verifier, I reviewed this remote request and work record, and I authorize this signature.';
+function truncateHash(value: string): string {
+  return `${value.slice(0, 16)}…${value.slice(-12)}`;
+}
+
+const SCHEME_OPTIONS: Array<{ value: CertScheme; label: string }> = [
+  { value: 'sprat', label: 'SPRAT' },
+  { value: 'irata', label: 'IRATA' },
+];
+
+const LEVEL_OPTIONS: Array<{ value: CertLevel; label: string }> = [
+  { value: 'I', label: 'Level I' },
+  { value: 'II', label: 'Level II' },
+  { value: 'III', label: 'Level III' },
+];
 
 export default function RemoteVerifyScreen() {
-  const { spacing, typography, tidewater, hairlines } = useTheme();
-  const { code, token } = useLocalSearchParams<{ code?: string | string[]; token?: string | string[] }>();
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { code, token } = useLocalSearchParams<{
+    code?: string | string[];
+    token?: string | string[];
+  }>();
   const requestCode = firstParam(code);
   const queryToken = firstParam(token);
   const [signingToken, setSigningToken] = React.useState<string | null>(queryToken);
@@ -51,6 +96,7 @@ export default function RemoteVerifyScreen() {
     },
   });
   const completeRequest = useCompleteRemoteSignatureRequest();
+
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorScheme, setSupervisorScheme] = React.useState<CertScheme>('sprat');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
@@ -63,6 +109,8 @@ export default function RemoteVerifyScreen() {
   const [hostedCompletePending, setHostedCompletePending] = React.useState(false);
   const [hostedCompleteFailed, setHostedCompleteFailed] = React.useState(false);
   const previousRequestCodeRef = React.useRef<string | null>(requestCode);
+  const sigRef = React.useRef<SigPadHandle | null>(null);
+
   const detail = requestDetail.data ?? hostedRequestDetail.data ?? null;
   const isHostedRequest = !requestDetail.data && Boolean(hostedRequestDetail.data);
   const entry = detail?.entry;
@@ -86,10 +134,7 @@ export default function RemoteVerifyScreen() {
       setHostedCompleteFailed(false);
       return;
     }
-
-    if (queryToken) {
-      setSigningToken(queryToken);
-    }
+    if (queryToken) setSigningToken(queryToken);
   }, [queryToken, requestCode]);
 
   React.useEffect(() => {
@@ -104,7 +149,8 @@ export default function RemoteVerifyScreen() {
     }
   }, [request?.recipient_name, supervisorName]);
 
-  const certReady = !requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5;
+  const certReady =
+    !requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5;
   const hasSignature = signaturePath.trim().length > 0;
   const hasName = supervisorName.trim().length > 1;
   const canSign =
@@ -159,140 +205,114 @@ export default function RemoteVerifyScreen() {
     });
   }
 
-  // Completed state
+  // Completed state ------------------------------------------------
   if (completedDetail) {
     const signed = completedDetail.signature;
     return (
-      <Screen padded={false} weave>
-        <DocBand
-          variant="top"
-          formId="CH.8 - VERIFIER PORTAL"
-          rev="SUBMITTED"
-          effective="ENTRY-HASH v2"
-          rightLabel="COMPLETE"
-        />
-        <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.lg }}>
-          <View
-            style={{
-              borderWidth: hairlines.standard.width,
-              borderColor: hairlines.standard.color,
-              backgroundColor: tidewater.white,
-            }}
-          >
-            <View
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <TopBar title="Submitted" />
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 + insets.bottom, gap: 14 }}
+        >
+          <Card padding={18}>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
+              REMOTE SIGNATURE COMPLETE
+            </Text>
+            <Text
               style={{
-                padding: spacing.md,
-                borderBottomWidth: 1.5,
-                borderBottomColor: tidewater.hair,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                gap: spacing.sm,
-                alignItems: 'flex-start',
+                fontFamily: 'Manrope_800ExtraBold',
+                fontWeight: '800',
+                fontSize: 26,
+                letterSpacing: -0.7,
+                lineHeight: 30,
+                color: tokens.text,
+                marginTop: 4,
               }}
+              numberOfLines={2}
             >
-              <View style={{ flex: 1, gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                  REMOTE SIGNATURE COMPLETE
-                </Text>
-                <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }}>
-                  {completedDetail.entry.site}
-                </Text>
-              </View>
-              <AnimatedStamp tone="green" rotation="standard">
-                SIGNED
-              </AnimatedStamp>
+              {completedDetail.entry.site}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+              <Pill tone="ok" icon={IconVerified}>Signed</Pill>
+              <Pill tone="chip">{signed?.method ?? 'remote'}</Pill>
             </View>
             {signed?.supervisor_name ? (
-              <View
-                style={{
-                  paddingHorizontal: spacing.sm,
-                  paddingTop: spacing.sm,
-                  paddingBottom: spacing.xs,
-                  borderBottomWidth: 1,
-                  borderBottomColor: tidewater.hairFaint,
-                  gap: 4,
-                }}
-              >
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+              <View style={{ marginTop: 14 }}>
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 8 }}>
                   SIGNER
                 </Text>
-                <SignatureFill name={signed.supervisor_name} fontSize={22} />
+                <SigFill name={signed.supervisor_name} height={56} />
               </View>
             ) : null}
-            <DocRow label="METHOD" value={signed?.method ?? 'remote'} />
-            <DocRow label="SIGNED" value={formatDateOrDash(signed?.signed_at)} />
-            {signed?.chain_hash ? (
-              <DocRow label="CHAIN HASH" value={truncateHash(signed.chain_hash)} mono last />
-            ) : null}
-          </View>
+            <View style={{ marginTop: 14, gap: 6 }}>
+              <Row label="Signed" value={formatDateOrDash(signed?.signed_at)} />
+              {signed?.chain_hash ? (
+                <Row label="Chain hash" value={truncateHash(signed.chain_hash)} mono />
+              ) : null}
+            </View>
+          </Card>
           {!completedFromHosted ? (
-            <DocActionButton
-              title="RETURN TO LOGBOOK"
-              icon={ArrowLeft}
+            <Button
               variant="secondary"
+              full
               onPress={() => router.replace(`/entry/${completedDetail.entry.id}`)}
-            />
+            >
+              Return to logbook
+            </Button>
           ) : null}
-        </View>
-        <DocBand
-          variant="footer"
-          text="REMOTE SIGNATURE SEALED INTO HASH CHAIN"
-          page={requestCode ? `REQ ${requestCode}` : 'REQ ------'}
-        />
-      </Screen>
+        </ScrollView>
+      </View>
     );
   }
 
-  // No token
+  // No token -------------------------------------------------------
   if (!signingToken) {
     return (
-      <Screen padded={false} weave>
-        <DocBand variant="top" formId="CH.8 - VERIFIER PORTAL" rev="NO TOKEN" rightLabel="HOLD" />
-        <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.md }}>
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.yellowDeep,
-              backgroundColor: tidewater.yellowSoft,
-              padding: spacing.md,
-              gap: spacing.xs,
-            }}
-          >
-            <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-              SECURE LINK REQUIRED
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <TopBar title="Verifier portal" />
+        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <Card padding={18}>
+            <Text style={{ ...type.cardTitle, color: tokens.text }}>Secure link required</Text>
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
+              Open the full verifier link from the request message. The request code alone cannot authorize a remote signature.
             </Text>
-            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
-              Open the full verifier link from the request message. The request code alone cannot authorize a remote
-              signature.
-            </Text>
-          </View>
+          </Card>
         </View>
-      </Screen>
+      </View>
     );
   }
 
-  // Loading
+  // Loading --------------------------------------------------------
   if (requestDetail.isLoading || hostedRequestDetail.isLoading) {
     return (
-      <Screen padded={false} weave>
-        <DocBand variant="top" formId="CH.8 - VERIFIER PORTAL" rev="LOADING" rightLabel="WAIT" />
-        <View style={{ padding: spacing.base }}>
-          <Text style={{ ...typography.body, color: tidewater.ink }}>Loading request…</Text>
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <TopBar title="Verifier portal" />
+        <View style={{ padding: 20 }}>
+          <Text style={{ ...type.body, color: tokens.textDim }}>Loading request…</Text>
         </View>
-      </Screen>
+      </View>
     );
   }
 
-  // Not found
+  // Not found ------------------------------------------------------
   if (!detail || !entry || !request) {
     return (
-      <Screen padded={false} weave>
-        <DocBand variant="top" formId="CH.8 - VERIFIER PORTAL" rev="NOT FOUND" rightLabel="404" />
-        <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.md }}>
-          <Text style={{ ...typography.displayMd, color: tidewater.ink }}>Request not found</Text>
-          <Text style={{ ...typography.body, color: tidewater.ink2 }}>Check the request code and try again.</Text>
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <TopBar title="Verifier portal" />
+        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <Card padding={18}>
+            <Text style={{ ...type.cardTitle, color: tokens.text }}>Request not found</Text>
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
+              Check the request code and try again.
+            </Text>
+          </Card>
         </View>
-      </Screen>
+      </View>
     );
   }
 
@@ -300,197 +320,152 @@ export default function RemoteVerifyScreen() {
   const isActionable = request.status === 'pending' && entry.status === 'draft';
 
   return (
-    <Screen
-      padded={false}
-      weave
-      preserveChildTouches
-      scrollEnabled={!signatureActive}
-      footer={
-        isActionable ? (
-          <DocActionButton
-            title={canSign ? 'SUBMIT REMOTE SIGNATURE' : 'FINISH VERIFICATION'}
-            icon={CheckCircle2}
-            onPress={submit}
-            disabled={!canSign}
-            loading={completeRequest.isPending || hostedCompletePending}
-          />
-        ) : (
-          <DocActionButton
-            title="CLOSE"
-            icon={ArrowLeft}
-            variant="secondary"
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <TopBar
+        title="Verifier portal"
+        leading={
+          <IconBtn
+            icon={IconArrowLeft}
+            label="Close"
+            size="sm"
             onPress={() => {
               if (router.canGoBack()) router.back();
               else router.replace('/');
             }}
           />
-        )
-      }
-    >
-      <DocBand
-        variant="top"
-        formId="CH.8 - VERIFIER PORTAL"
-        rev={request.status.toUpperCase()}
-        effective="ENTRY-HASH v2"
-        rightLabel={isActionable ? (canSign ? 'READY' : 'HOLD') : 'CLOSED'}
+        }
       />
-
-      <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.lg }}>
-        {/* Closed state notice (if not actionable) */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        scrollEnabled={!signatureActive}
+        keyboardShouldPersistTaps="handled"
+      >
         {!isActionable ? (
-          <ClosedStateCard reason={describeClosedRemoteRequest(request, entry, detail.signature)} />
+          <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+            <ClosedStateCard reason={describeClosedRemoteRequest(request, entry, detail.signature)} />
+          </View>
         ) : null}
 
-        {/* Header card */}
-        <View
-          style={{
-            borderWidth: hairlines.standard.width,
-            borderColor: hairlines.standard.color,
-            backgroundColor: tidewater.white,
-          }}
-        >
-          <View
-            style={{
-              padding: spacing.md,
-              borderBottomWidth: 1.5,
-              borderBottomColor: tidewater.hair,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: spacing.sm,
-              alignItems: 'flex-start',
-            }}
-          >
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                REMOTE SIGNATURE REQUEST
-              </Text>
-              <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
-                {entry.site}
-              </Text>
-              <Text selectable style={{ ...typography.monoSm, color: tidewater.ink2 }} numberOfLines={2}>
-                {[entry.employer, entry.client].filter(Boolean).join(' · ') || 'No employer / client'}
-              </Text>
+        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <Card padding={18}>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
+              REMOTE SIGNATURE REQUEST
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Manrope_800ExtraBold',
+                fontWeight: '800',
+                fontSize: 26,
+                letterSpacing: -0.7,
+                lineHeight: 30,
+                color: tokens.text,
+                marginTop: 4,
+              }}
+              numberOfLines={2}
+            >
+              {entry.site}
+            </Text>
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }} numberOfLines={2}>
+              {[entry.employer, entry.client].filter(Boolean).join(' · ') || 'No employer / client on file'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+              <Pill tone="chip">{dateLabel}</Pill>
+              <Pill tone="chip">{`${entry.work_hours.toFixed(1)} hr`}</Pill>
+              <Pill tone={isActionable ? 'warn' : 'chip'}>{request.status}</Pill>
+              <Pill tone="chip">{`code ${request.request_code}`}</Pill>
             </View>
-            <AnimatedStamp tone={isActionable ? 'yellow' : 'mute'} rotation="light">
-              {request.status.toUpperCase()}
-            </AnimatedStamp>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
-            <Chip tone="ink">{dateLabel.toUpperCase()}</Chip>
-            <Chip tone="mute">{`${entry.work_hours.toFixed(1)} HR`}</Chip>
-            <Chip tone="mute">{`CODE ${request.request_code}`}</Chip>
-          </View>
+          </Card>
         </View>
 
-        {/* § 18 Request details */}
-        <View>
-          <SectionH n="18" right={`EXPIRES ${formatDateOrDash(request.expires_at).toUpperCase()}`}>
-            Request
-          </SectionH>
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.hair,
-              backgroundColor: tidewater.white,
-            }}
-          >
-            <DocRow label="REQUESTED" value={request.recipient_name} />
-            <DocRow label="CONTACT" value={request.recipient_contact ?? '—'} />
-            <DocRow label="ROLE" value={request.verifier_role ?? '—'} />
-            <DocRow label="COMPANY" value={request.verifier_company ?? '—'} />
-            <DocRow label="LINK CHECK" value={request.token_hint ?? '—'} mono last />
-          </View>
+        <SectionH kicker="REQUEST" title={`Expires ${formatDateOrDash(request.expires_at)}`} />
+        <View style={{ paddingHorizontal: 20 }}>
+          <Card padding={14}>
+            <Row label="Requested" value={request.recipient_name} />
+            <Row label="Contact" value={request.recipient_contact ?? '—'} />
+            <Row label="Role" value={request.verifier_role ?? '—'} />
+            <Row label="Company" value={request.verifier_company ?? '—'} />
+            <Row label="Link check" value={request.token_hint ?? '—'} mono last />
+          </Card>
         </View>
 
-        {/* § 19 Work record */}
-        <View>
-          <SectionH n="19">Work record</SectionH>
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.hair,
-              backgroundColor: tidewater.white,
-            }}
-          >
-            <DocRow label="DATE" value={dateLabel} />
-            <DocRow label="HOURS" value={entry.work_hours.toFixed(1)} />
-            <DocRow label="TASK" value={entry.work_task || '—'} />
-            <DocRow label="ACCESS" value={entry.access_method || '—'} />
-            <DocRow label="STRUCTURE" value={entry.structure_type || '—'} />
-            <DocRow
-              label="HEIGHT"
-              value={!entry.max_height || entry.max_height <= 0 ? '—' : `${entry.max_height.toFixed(0)} ${entry.height_unit}`}
+        <SectionH kicker="WORK RECORD" title={dateLabel} />
+        <View style={{ paddingHorizontal: 20 }}>
+          <Card padding={14}>
+            <Row label="Hours" value={entry.work_hours.toFixed(1)} />
+            <Row label="Task" value={entry.work_task || '—'} />
+            <Row label="Access" value={entry.access_method || '—'} />
+            <Row label="Structure" value={entry.structure_type || '—'} />
+            <Row
+              label="Height"
+              value={
+                !entry.max_height || entry.max_height <= 0
+                  ? '—'
+                  : `${entry.max_height.toFixed(0)} ${entry.height_unit}`
+              }
               last={!entry.description}
             />
             {entry.description ? (
               <View
                 style={{
-                  padding: spacing.sm,
+                  marginTop: 12,
+                  paddingTop: 12,
                   borderTopWidth: 1,
-                  borderTopColor: tidewater.hairFaint,
+                  borderTopColor: tokens.lineSoft,
                 }}
               >
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>NOTES</Text>
-                <Text selectable style={{ ...typography.body, color: tidewater.ink, marginTop: 4 }}>
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 4 }}>
+                  NOTES
+                </Text>
+                <Text selectable style={{ ...type.body, color: tokens.text }}>
                   {entry.description}
                 </Text>
               </View>
             ) : null}
-          </View>
+          </Card>
         </View>
 
-        {/* § 20 Record change check */}
-        <View>
-          <SectionH n="20">Record change check</SectionH>
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3, marginBottom: spacing.sm }}>
-            This code proves the record has not changed since the request was sent.
-          </Text>
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.hair,
-              backgroundColor: tidewater.white,
-            }}
-          >
-            <DocRow label="ENTRY HASH" value={truncateHash(request.entry_hash)} mono last />
-          </View>
+        <SectionH kicker="RECORD CHANGE CHECK" title="Tamper proof" />
+        <View style={{ paddingHorizontal: 20 }}>
+          <Card padding={14}>
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginBottom: 8 }}>
+              This hash proves the record has not changed since the request was sent.
+            </Text>
+            <Row label="Entry hash" value={truncateHash(request.entry_hash)} mono last />
+          </Card>
         </View>
 
-        {/* § 21 Authorization (only when actionable) */}
         {isActionable ? (
-          <View>
-            <SectionH n="21" right={canSign ? 'READY' : 'REQUIRED'}>
-              Remote authorization
-            </SectionH>
-            <View style={{ gap: spacing.md }}>
+          <>
+            <SectionH kicker="AUTHORIZATION" title="Sign as verifier" />
+            <View style={{ paddingHorizontal: 20, gap: 12 }}>
               <Field
                 label="Verifier name"
                 value={supervisorName}
                 onChangeText={setSupervisorName}
                 placeholder="Jordan Lee"
-                invalid={!hasName}
+                autoCapitalize="words"
               />
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+              <View>
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
                   YOUR SCHEME
                 </Text>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  {(['sprat', 'irata'] as const).map((scheme) => (
-                    <LevelChip
-                      key={scheme}
-                      label={scheme.toUpperCase()}
-                      selected={scheme === supervisorScheme}
-                      onPress={() => {
-                        setSupervisorScheme(scheme);
-                        setSupervisorCertNumber(
-                          scheme === 'irata'
-                            ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
-                            : normalizeSpratNumber(supervisorCertNumber),
-                        );
-                      }}
-                    />
-                  ))}
-                </View>
+                <ChipSelect<CertScheme>
+                  value={supervisorScheme}
+                  options={SCHEME_OPTIONS}
+                  onChange={(next) => {
+                    setSupervisorScheme(next);
+                    setSupervisorCertNumber(
+                      next === 'irata'
+                        ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
+                        : normalizeSpratNumber(supervisorCertNumber),
+                    );
+                  }}
+                />
               </View>
               <Field
                 label={requiresCertNumber ? 'IRATA number' : 'SPRAT number'}
@@ -509,85 +484,128 @@ export default function RemoteVerifyScreen() {
                 placeholder={requiresCertNumber ? '12345' : 'Optional'}
                 keyboardType="number-pad"
                 maxLength={requiresCertNumber ? 5 : 12}
-                invalid={requiresCertNumber && !certReady}
-                hint={
+                helper={
                   requiresCertNumber
-                    ? `Required for IRATA verifiers. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
-                    : 'Optional for SPRAT verifiers. Add it if you have a SPRAT card number.'
+                    ? `Required for IRATA. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
+                    : 'Optional for SPRAT.'
                 }
               />
               {requiresCertNumber ? (
-                <View style={{ gap: spacing.xs }}>
-                  <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
+                <View>
+                  <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
                     YOUR LEVEL
                   </Text>
-                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                    {(['I', 'II', 'III'] as const).map((level) => (
-                      <LevelChip
-                        key={level}
-                        label={certLevelToDigit(level)}
-                        selected={level === supervisorIrataLevel}
-                        onPress={() => {
-                          setSupervisorIrataLevel(level);
-                          setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
-                        }}
-                      />
-                    ))}
-                  </View>
+                  <ChipSelect<CertLevel>
+                    value={supervisorIrataLevel}
+                    options={LEVEL_OPTIONS}
+                    onChange={(level) => {
+                      setSupervisorIrataLevel(level);
+                      setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
+                    }}
+                  />
                 </View>
               ) : null}
-              <SignaturePad
-                label="Verifier signature"
-                value={signaturePath}
-                onChange={setSignaturePath}
-                onStrokeStart={() => setSignatureActive(true)}
-                onStrokeEnd={() => setSignatureActive(false)}
-              />
-              <View
-                style={{
-                  borderWidth: 1.5,
-                  borderColor: attestationAccepted ? tidewater.green : tidewater.hairSoft,
-                  backgroundColor: attestationAccepted ? tidewater.greenSoft : tidewater.white,
-                  padding: spacing.sm,
-                }}
-              >
-                <CheckboxRow
-                  checked={attestationAccepted}
-                  label={ATTESTATION_TEXT}
-                  onChange={setAttestationAccepted}
+              <View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 6,
+                  }}
+                >
+                  <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
+                    SIGNATURE
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => sigRef.current?.clear()}
+                    hitSlop={10}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: 'Manrope_600SemiBold',
+                        fontWeight: '600',
+                        fontSize: 12,
+                        color: tokens.textDim,
+                      }}
+                    >
+                      Clear
+                    </Text>
+                  </Pressable>
+                </View>
+                <SigPad
+                  ref={sigRef}
+                  value={signaturePath}
+                  onChange={setSignaturePath}
+                  onStrokeStart={() => setSignatureActive(true)}
+                  onStrokeEnd={() => setSignatureActive(false)}
                 />
               </View>
+              <AttestationRow
+                accepted={attestationAccepted}
+                onToggle={() => setAttestationAccepted((v) => !v)}
+              />
             </View>
-          </View>
+          </>
         ) : null}
 
         {completeRequest.isError || hostedCompleteFailed ? (
-          <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
-            Remote signing failed. Refresh the request and try again.
-          </Text>
+          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+            <Text style={{ ...type.cardSub, color: tokens.danger }}>
+              Remote signing failed. Refresh the request and try again.
+            </Text>
+          </View>
         ) : null}
-      </View>
+      </ScrollView>
 
-      <DocBand
-        variant="footer"
-        text={
-          isActionable
-            ? canSign
-              ? 'SUBMITTING SEALS THIS SIGNATURE INTO THE HASH CHAIN'
-              : 'VERIFIER PORTAL HOLD - COMPLETE REQUIRED FIELDS'
-            : 'REQUEST CLOSED - READ-ONLY VIEW'
-        }
-        page={requestCode ? `REQ ${requestCode}` : 'REQ ------'}
-      />
-    </Screen>
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 12,
+          backgroundColor: tokens.bg,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+        }}
+      >
+        {isActionable ? (
+          <Button
+            variant="primary"
+            size="lg"
+            full
+            onPress={submit}
+            disabled={!canSign || completeRequest.isPending || hostedCompletePending}
+          >
+            {completeRequest.isPending || hostedCompletePending
+              ? 'Submitting…'
+              : canSign
+                ? 'Submit remote signature'
+                : 'Finish verification'}
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            size="lg"
+            full
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/');
+            }}
+          >
+            Close
+          </Button>
+        )}
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
-function truncateHash(value: string): string {
-  return `${value.slice(0, 16)}…${value.slice(-12)}`;
-}
-
-function DocRow({
+function Row({
   label,
   value,
   mono = false,
@@ -598,31 +616,27 @@ function DocRow({
   mono?: boolean;
   last?: boolean;
 }) {
-  const { spacing, typography, tidewater } = useTheme();
-
+  const { tokens } = useTheme();
   return (
     <View
       style={{
         flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs + 2,
+        alignItems: 'flex-start',
+        paddingVertical: 8,
+        gap: 12,
         borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: tidewater.hairFaint,
-        gap: spacing.sm,
+        borderBottomColor: tokens.lineSoft,
       }}
     >
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, width: 96, letterSpacing: 1.5 }}>
-        {label}
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, width: 92 }}>
+        {label.toUpperCase()}
       </Text>
       <Text
         selectable
-        style={{
-          flex: 1,
-          ...(mono ? typography.monoMd : typography.body),
-          color: tidewater.ink,
-          fontVariant: mono ? ['tabular-nums'] : undefined,
-        }}
+        style={[
+          mono ? type.mono : type.body,
+          { color: tokens.text, flex: 1 },
+        ]}
         numberOfLines={2}
       >
         {value}
@@ -631,145 +645,142 @@ function DocRow({
   );
 }
 
-type ClosedCardTone = 'green' | 'yellow' | 'red' | 'ink';
+function AttestationRow({ accepted, onToggle }: { accepted: boolean; onToggle: () => void }) {
+  const { tokens } = useTheme();
+  const rowStyle: ViewStyle = {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: accepted ? tokens.ok : tokens.lineSoft,
+    backgroundColor: accepted ? tokens.okSoft : tokens.surface,
+    alignItems: 'flex-start',
+  };
+  const boxStyle: ViewStyle = {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: accepted ? tokens.ok : tokens.line,
+    backgroundColor: accepted ? tokens.ok : 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+  const textStyle: TextStyle = { ...type.cardSub, color: tokens.text, flex: 1 };
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: accepted }}
+      onPress={onToggle}
+      style={({ pressed }) => [rowStyle, pressed ? { opacity: 0.92 } : null]}
+    >
+      <View style={boxStyle}>
+        {accepted ? (
+          <IconCheck size={14} color={tokens.accentInk} fill={tokens.accentInk} />
+        ) : null}
+      </View>
+      <Text style={textStyle}>{ATTESTATION_TEXT}</Text>
+    </Pressable>
+  );
+}
+
+type ClosedTone = 'ok' | 'warn' | 'danger' | 'chip';
 
 function closedCardCopy(reason: RemoteRequestClosedReason | null): {
   title: string;
   detail: string;
   icon: LucideIcon;
-  tone: ClosedCardTone;
+  tone: ClosedTone;
   signedAt?: string | null;
   signer?: string | null;
   expiresAt?: string | null;
 } {
   if (!reason) {
     return {
-      title: 'REQUEST CLOSED',
+      title: 'Request closed',
       detail: 'This request is no longer pending.',
       icon: ShieldOff,
-      tone: 'ink',
+      tone: 'chip',
     };
   }
-
   if (reason.kind === 'completed') {
     return {
-      title: 'SIGNATURE ALREADY SUBMITTED',
+      title: 'Signature already submitted',
       detail: 'This request has been signed. No further action is needed.',
       icon: BadgeCheck,
-      tone: 'green',
+      tone: 'ok',
       signedAt: reason.signed_at,
       signer: reason.signer_name,
     };
   }
-
   if (reason.kind === 'expired') {
     return {
-      title: 'REQUEST EXPIRED',
+      title: 'Request expired',
       detail: 'Ask the technician to send a new request.',
       icon: CalendarClock,
-      tone: 'yellow',
+      tone: 'warn',
       expiresAt: reason.expires_at,
     };
   }
-
   if (reason.kind === 'cancelled') {
     return {
-      title: 'REQUEST CANCELLED',
+      title: 'Request cancelled',
       detail: 'The technician cancelled this remote signing request.',
       icon: ShieldOff,
-      tone: 'red',
+      tone: 'danger',
     };
   }
-
   return {
-    title: 'ENTRY ALREADY CLOSED',
+    title: 'Entry already closed',
     detail: 'The technician completed this record without a remote signature.',
     icon: BadgeCheck,
-    tone: 'ink',
+    tone: 'chip',
   };
 }
 
 function ClosedStateCard({ reason }: { reason: RemoteRequestClosedReason | null }) {
-  const { spacing, typography, tidewater } = useTheme();
+  const { tokens } = useTheme();
   const copy = closedCardCopy(reason);
-  const toneColor =
-    copy.tone === 'green'
-      ? tidewater.green
-      : copy.tone === 'yellow'
-        ? tidewater.yellowDeep
-        : copy.tone === 'red'
-          ? tidewater.red
-          : tidewater.ink2;
-  const toneBg =
-    copy.tone === 'green'
-      ? tidewater.greenSoft
-      : copy.tone === 'yellow'
-        ? tidewater.yellowSoft
-        : copy.tone === 'red'
-          ? tidewater.redSoft
-          : tidewater.paper2;
+  const tones = {
+    ok: { fg: tokens.ok, bg: tokens.okSoft },
+    warn: { fg: tokens.warn, bg: tokens.warnSoft },
+    danger: { fg: tokens.danger, bg: tokens.dangerSoft },
+    chip: { fg: tokens.textDim, bg: tokens.surface },
+  } as const;
+  const tone = tones[copy.tone];
   const Icon = copy.icon;
-
   return (
     <View
       style={{
-        borderWidth: 1.5,
-        borderColor: toneColor,
-        backgroundColor: toneBg,
-        padding: spacing.md,
-        gap: spacing.xs,
+        backgroundColor: tone.bg,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: tone.fg,
+        padding: 14,
+        gap: 6,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <Icon size={20} color={toneColor} strokeWidth={2.2} />
-        <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2, flex: 1 }}>
-          {copy.title}
-        </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Icon size={20} color={tone.fg} strokeWidth={2.2} />
+        <Text style={{ ...type.cardTitle, color: tokens.text, flex: 1 }}>{copy.title}</Text>
       </View>
-      <Text style={{ ...typography.body, color: tidewater.ink2 }}>{copy.detail}</Text>
+      <Text style={{ ...type.cardSub, color: tokens.textDim }}>{copy.detail}</Text>
       {copy.signer ? (
-        <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
+        <Text style={{ ...type.monoSm, color: tokens.textFaint, marginTop: 4 }}>
           SIGNER · {copy.signer}
         </Text>
       ) : null}
       {copy.signedAt ? (
-        <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
+        <Text style={{ ...type.monoSm, color: tokens.textFaint }}>
           SIGNED · {formatDateOrDash(copy.signedAt)}
         </Text>
       ) : null}
       {copy.expiresAt ? (
-        <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
+        <Text style={{ ...type.monoSm, color: tokens.textFaint }}>
           EXPIRED · {formatDateOrDash(copy.expiresAt)}
         </Text>
       ) : null}
     </View>
   );
 }
-
-function LevelChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const { spacing, typography, touchTarget, tidewater } = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: touchTarget.min,
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1.5,
-        borderColor: selected ? tidewater.accent : tidewater.hair,
-        backgroundColor: selected ? tidewater.accent : tidewater.white,
-        opacity: pressed ? 0.82 : 1,
-        paddingHorizontal: spacing.md,
-      })}
-    >
-      <Text selectable={false} style={{ ...typography.displaySm, color: selected ? tidewater.paper : tidewater.ink2 }}>
-        Level {label}
-      </Text>
-    </Pressable>
-  );
-}
-

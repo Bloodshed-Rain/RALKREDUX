@@ -1,39 +1,51 @@
+import React from 'react';
 import { router, Tabs } from 'expo-router';
-import { BookOpen, HardHat, Plus, Sun, User2 } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { haptics } from '@/src/ui/haptics';
+import {
+  IconGear,
+  IconPlus,
+  IconProfile,
+  IconRecords,
+  IconToday,
+  type IconProps,
+} from '@/src/ui/icons';
 
-const RAISED_BUTTON_SIZE = 56;
-const RAISED_BUTTON_LIFT = 18;
+type TabIcon = React.ComponentType<IconProps>;
+
+const TAB_ICONS: Record<string, TabIcon> = {
+  today: IconToday,
+  records: IconRecords,
+  gear: IconGear,
+  more: IconProfile,
+};
 
 function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const { theme, tokens } = useTheme();
   const insets = useSafeAreaInsets();
-  const { colors, tidewater } = useTheme();
-  const bottomInset = Math.max(insets.bottom, 8);
-  const tabBarHeight = 72 + bottomInset;
+  const isHeliotype = theme.key === 'heliotype';
+  const bottomPad = Math.max(insets.bottom, 12) + 8;
+
+  const containerStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: bottomPad,
+    backgroundColor: tokens.bg,
+    borderTopWidth: 1,
+    borderTopColor: tokens.lineSoft,
+  };
 
   return (
-    <View
-      role="tablist"
-      style={{
-        height: tabBarHeight,
-        backgroundColor: colors.navBar,
-        borderTopColor: colors.navBar,
-        borderTopWidth: 1,
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        paddingHorizontal: 10,
-        paddingTop: 7,
-        paddingBottom: bottomInset + 7,
-        overflow: 'visible',
-      }}
-    >
-      {state.routes.map((route) => {
+    <View role="tablist" style={containerStyle}>
+      {state.routes.map((route, index) => {
+        const isFocused = state.index === index;
         const { options } = descriptors[route.key];
-        const isFocused = state.index === state.routes.indexOf(route);
         const label =
           options.tabBarLabel !== undefined
             ? options.tabBarLabel
@@ -51,52 +63,39 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                 haptics.selection();
                 router.push('/entry/new');
               }}
-              style={{
-                flex: 1,
+              style={({ pressed }) => ({
+                width: 84,
                 alignItems: 'center',
-                justifyContent: 'flex-start',
-                overflow: 'visible',
-              }}
+                justifyContent: 'flex-end',
+                transform: pressed ? [{ scale: 0.94 }, { rotate: '-8deg' }] : undefined,
+              })}
             >
               <View
                 style={{
-                  position: 'absolute',
-                  top: -RAISED_BUTTON_LIFT,
-                  width: RAISED_BUTTON_SIZE,
-                  height: RAISED_BUTTON_SIZE,
-                  borderRadius: RAISED_BUTTON_SIZE / 2,
-                  backgroundColor: colors.accentPrimary,
-                  borderWidth: 2,
-                  borderColor: colors.navBar,
+                  width: 60,
+                  height: 60,
+                  borderRadius: 22,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  shadowColor: tidewater.ink,
-                  shadowOpacity: 0.25,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowRadius: 8,
-                  elevation: 6,
+                  backgroundColor: tokens.accent,
+                  shadowColor: isHeliotype ? '#1A1410' : tokens.accent,
+                  shadowOffset: { width: 0, height: isHeliotype ? 3 : 12 },
+                  shadowOpacity: isHeliotype ? 1 : 0.45,
+                  shadowRadius: isHeliotype ? 0 : 18,
+                  elevation: 8,
+                  borderWidth: isHeliotype ? 2 : 0,
+                  borderColor: isHeliotype ? '#1A1410' : 'transparent',
                 }}
               >
-                <Plus color={tidewater.ink} size={28} strokeWidth={2.4} />
+                <IconPlus size={26} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
               </View>
-              <Text
-                numberOfLines={1}
-                style={{
-                  position: 'absolute',
-                  top: RAISED_BUTTON_SIZE - RAISED_BUTTON_LIFT + 4,
-                  color: colors.textInverse,
-                  fontFamily: 'IBMPlexMono_500Medium',
-                  fontSize: 10,
-                  letterSpacing: 1.4,
-                }}
-              >
-                NEW
-              </Text>
             </Pressable>
           );
         }
 
-        const tintColor = isFocused ? colors.navBar : colors.textInverse;
+        const Icon = TAB_ICONS[route.name];
+        const color = isFocused ? tokens.text : tokens.textDim;
+        const fill = isFocused ? tokens.accent : tokens.textFaint;
 
         const onPress = () => {
           const event = navigation.emit({
@@ -104,7 +103,6 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             target: route.key,
             canPreventDefault: true,
           });
-
           if (!isFocused && !event.defaultPrevented) {
             haptics.selection();
             navigation.navigate(route.name, route.params);
@@ -112,10 +110,17 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         };
 
         const onLongPress = () => {
-          navigation.emit({
-            type: 'tabLongPress',
-            target: route.key,
-          });
+          navigation.emit({ type: 'tabLongPress', target: route.key });
+        };
+
+        const labelStyle: TextStyle = {
+          fontFamily: 'Manrope_600SemiBold',
+          fontWeight: '600',
+          fontSize: 10,
+          lineHeight: 12,
+          letterSpacing: 0.2,
+          color,
+          marginTop: 3,
         };
 
         return (
@@ -129,32 +134,16 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             onLongPress={onLongPress}
             style={({ pressed }) => ({
               flex: 1,
-              height: 58,
-              borderRadius: 4,
-              marginHorizontal: 4,
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: 3,
-              backgroundColor: isFocused ? colors.navBarActive : 'transparent',
-              opacity: pressed ? 0.82 : 1,
+              paddingVertical: 8,
+              paddingHorizontal: 6,
+              borderRadius: 12,
+              transform: pressed ? [{ scale: 0.96 }] : undefined,
             })}
           >
-            {options.tabBarIcon?.({
-              focused: isFocused,
-              color: tintColor,
-              size: 22,
-            })}
-            <Text
-              numberOfLines={1}
-              style={{
-                color: tintColor,
-                fontFamily: 'IBMPlexMono_500Medium',
-                fontSize: 10,
-                letterSpacing: 1.4,
-                textAlign: 'center',
-              }}
-            >
-              {typeof label === 'string' ? label.toUpperCase() : route.name.toUpperCase()}
+            {Icon ? <Icon size={22} color={color} fill={fill} /> : null}
+            <Text selectable={false} numberOfLines={1} style={labelStyle}>
+              {typeof label === 'string' ? label : route.name}
             </Text>
           </Pressable>
         );
@@ -164,50 +153,18 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
-  const { colors } = useTheme();
   return (
     <Tabs
       tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.navBar,
-        tabBarInactiveTintColor: colors.textInverse,
       }}
     >
-      <Tabs.Screen
-        name="today"
-        options={{
-          title: 'Today',
-          tabBarIcon: ({ color, size }) => <Sun color={color} size={size} strokeWidth={1.8} />,
-        }}
-      />
-      <Tabs.Screen
-        name="records"
-        options={{
-          title: 'Records',
-          tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} strokeWidth={1.8} />,
-        }}
-      />
-      <Tabs.Screen
-        name="new"
-        options={{
-          title: 'New',
-        }}
-      />
-      <Tabs.Screen
-        name="gear"
-        options={{
-          title: 'Gear',
-          tabBarIcon: ({ color, size }) => <HardHat color={color} size={size} strokeWidth={1.8} />,
-        }}
-      />
-      <Tabs.Screen
-        name="more"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User2 color={color} size={size} strokeWidth={1.8} />,
-        }}
-      />
+      <Tabs.Screen name="today" options={{ title: 'Today' }} />
+      <Tabs.Screen name="records" options={{ title: 'Records' }} />
+      <Tabs.Screen name="new" options={{ title: 'New' }} />
+      <Tabs.Screen name="gear" options={{ title: 'Gear' }} />
+      <Tabs.Screen name="more" options={{ title: 'Profile' }} />
     </Tabs>
   );
 }
