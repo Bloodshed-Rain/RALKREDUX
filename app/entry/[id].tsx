@@ -1,6 +1,6 @@
 import React from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
+import { captureOrPickPhoto } from '@/src/ui/photo-picker';
 import * as Linking from 'expo-linking';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -241,17 +241,13 @@ export default function EntryDetailScreen() {
 
   async function addPhotoEvidence() {
     if (!entryId || !entry || entry.status !== 'draft') return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.75,
-    });
-    if (result.canceled || !result.assets.length) return;
-    const asset = result.assets[0];
+    const photo = await captureOrPickPhoto();
+    if (!photo) return;
     addAttachment.mutate({
       entry_id: entryId,
-      label: asset.fileName || 'Evidence photo',
-      uri: asset.uri,
-      mime_type: asset.mimeType ?? 'image/jpeg',
+      label: photo.fileName || 'Evidence photo',
+      uri: photo.uri,
+      mime_type: photo.mimeType ?? 'image/jpeg',
     });
   }
 

@@ -11,8 +11,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { captureOrPickPhoto } from '@/src/ui/photo-picker';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type {
   CreateEntryInput,
@@ -592,17 +592,13 @@ function StepWhat({ draft, update }: StepProps) {
 
   async function addPhoto() {
     if (!draft.entryId || addAttachment.isPending) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.75,
-    });
-    if (result.canceled || !result.assets.length) return;
-    const asset = result.assets[0];
+    const photo = await captureOrPickPhoto();
+    if (!photo) return;
     addAttachment.mutate({
       entry_id: draft.entryId,
-      label: asset.fileName || 'Evidence photo',
-      uri: asset.uri,
-      mime_type: asset.mimeType ?? 'image/jpeg',
+      label: photo.fileName || 'Evidence photo',
+      uri: photo.uri,
+      mime_type: photo.mimeType ?? 'image/jpeg',
     });
   }
 
