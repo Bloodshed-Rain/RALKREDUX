@@ -1,7 +1,7 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { PenLine } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   certLevelToDigit,
   formatIrataNumber,
@@ -11,10 +11,29 @@ import {
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
-import { useEntryDetail, useSignEntryLocal, useSupervisorContacts } from '@/src/domain/logbook/use-logbook';
+import {
+  useEntryDetail,
+  useSignEntryLocal,
+  useSupervisorContacts,
+} from '@/src/domain/logbook/use-logbook';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
-import { AnimatedStamp, CheckboxRow, Chip, DocActionButton, DocBand, Field, Screen, SectionH, SignaturePad } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  Field,
+  IconBtn,
+  Pill,
+  SealAnim,
+  SectionH,
+  SigPad,
+  StatusPill,
+  TopBar,
+  type SigPadHandle,
+} from '@/src/ui/primitives/v2';
+import { IconArrowLeft, IconCheck } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -22,19 +41,33 @@ function firstParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const ATTESTATION_TEXT = 'I verify this entry matches the work performed and I am authorized to sign it.';
+const ATTESTATION_TEXT =
+  'I verify this entry matches the work performed and I am authorized to sign it.';
+
+const SCHEME_OPTIONS: Array<{ value: CertScheme; label: string }> = [
+  { value: 'sprat', label: 'SPRAT' },
+  { value: 'irata', label: 'IRATA' },
+];
+
+const IRATA_LEVELS: Array<{ value: CertLevel; label: string }> = [
+  { value: 'I', label: 'L1' },
+  { value: 'II', label: 'L2' },
+  { value: 'III', label: 'L3' },
+];
 
 export default function LocalSignScreen() {
-  const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
-  const { id, supervisorId } = useLocalSearchParams<{
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { id, supervisor: supervisorParam } = useLocalSearchParams<{
     id?: string | string[];
-    supervisorId?: string | string[];
+    supervisor?: string | string[];
   }>();
   const entryId = firstParam(id);
-  const supervisorIdParam = firstParam(supervisorId);
+  const supervisorIdParam = firstParam(supervisorParam);
   const detail = useEntryDetail(entryId);
   const signEntry = useSignEntryLocal();
   const supervisors = useSupervisorContacts();
+
   const [supervisorName, setSupervisorName] = React.useState('');
   const [supervisorScheme, setSupervisorScheme] = React.useState<CertScheme>('sprat');
   const [supervisorCertNumber, setSupervisorCertNumber] = React.useState('');
@@ -42,17 +75,22 @@ export default function LocalSignScreen() {
   const [signaturePath, setSignaturePath] = React.useState('');
   const [signatureActive, setSignatureActive] = React.useState(false);
   const [attestationAccepted, setAttestationAccepted] = React.useState(false);
+  const [sealing, setSealing] = React.useState(false);
+  const [sealedChainHash, setSealedChainHash] = React.useState<string | null>(null);
+
+  const sigPadRef = React.useRef<SigPadHandle>(null);
   const didPrefillSupervisor = React.useRef(false);
 
   const entry = detail.data?.entry;
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
   const requiresCertNumber = supervisorScheme === 'irata';
+  const isDraft = entry?.status === 'draft';
+  const isReady = readiness?.ready === true;
 
   React.useEffect(() => {
     if (didPrefillSupervisor.current || !supervisorIdParam || !entry) return;
     const supervisor = supervisors.data?.find((item) => item.id === supervisorIdParam);
     if (!supervisor) return;
-
     didPrefillSupervisor.current = true;
     const inferredScheme = inferSchemeFromCertNumber(supervisor.cert_number) ?? supervisorScheme;
     setSupervisorScheme(inferredScheme);
@@ -67,20 +105,23 @@ export default function LocalSignScreen() {
   }, [entry, supervisorIdParam, supervisorIrataLevel, supervisorScheme, supervisors.data]);
 
   const selectedKnownSupervisor = supervisors.data?.find(
-    (supervisor) =>
-      supervisor.name === supervisorName &&
+    (s) =>
+      s.name === supervisorName &&
       (requiresCertNumber
-        ? irataNumberDigits(supervisor.cert_number ?? '') === irataNumberDigits(supervisorCertNumber)
-        : normalizeSpratNumber(supervisor.cert_number ?? '') === normalizeSpratNumber(supervisorCertNumber)),
+        ? irataNumberDigits(s.cert_number ?? '') === irataNumberDigits(supervisorCertNumber)
+        : normalizeSpratNumber(s.cert_number ?? '') === normalizeSpratNumber(supervisorCertNumber)),
   );
-  const signatureReady = signaturePath.trim().length > 0 && attestationAccepted;
+
+  const signatureReady = signaturePath.trim().length > 0;
   const canSign =
     Boolean(entryId) &&
-    entry?.status === 'draft' &&
-    readiness?.ready === true &&
+    isDraft &&
+    isReady &&
     supervisorName.trim().length > 1 &&
     (!requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5) &&
-    signatureReady;
+    signatureReady &&
+    attestationAccepted;
+
   function submit() {
     if (!canSign || !entryId) return;
     signEntry.mutate(
@@ -98,287 +139,338 @@ export default function LocalSignScreen() {
       {
         onSuccess: (signed) => {
           haptics.success();
-          router.replace(`/entry/${signed.entry.id}`);
+          const chainHash = signed.signature?.chain_hash ?? null;
+          setSealedChainHash(chainHash ? formatChainShort(chainHash) : null);
+          setSealing(true);
+          // After 3 s, navigate to the signed entry. SealAnim itself fires
+          // `onSealed` around 1.7 s in (when the dial completes) — we don't
+          // navigate yet so the user can read "Sealed in chain" briefly.
+          setTimeout(() => {
+            if (signed.entry?.id) router.replace(`/entry/${signed.entry.id}` as never);
+          }, 3000);
         },
         onError: () => haptics.error(),
       },
     );
   }
 
+  if (sealing) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: tokens.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        }}
+      >
+        <SealAnim hash={sealedChainHash} />
+      </View>
+    );
+  }
+
   return (
-    <Screen
-      padded={false}
-      weave
-      preserveChildTouches
-      scrollEnabled={!signatureActive}
-      footer={
-        <DocActionButton
-          title={canSign ? 'SIGN ENTRY' : 'FINISH SIGN-OFF'}
-          icon={PenLine}
-          onPress={submit}
-          disabled={!canSign}
-          loading={signEntry.isPending}
-        />
-      }
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
     >
-      <DocBand
-        variant="top"
-        formId="CH.5 - LOCAL SIGN"
-        rev={entry?.status === 'draft' ? 'DRAFT ENTRY' : 'LOCKED ENTRY'}
-        effective="ENTRY-HASH v2"
-        rightLabel={canSign ? 'READY' : 'HOLD'}
+      <TopBar
+        title="Seal in chain"
+        leading={
+          <IconBtn
+            icon={IconArrowLeft}
+            label="Back"
+            size="sm"
+            onPress={() => router.back()}
+          />
+        }
       />
 
-      <View style={{ paddingHorizontal: spacing.base, gap: spacing.lg }}>
-        <View
-          style={{
-            borderWidth: hairlines.standard.width,
-            borderColor: hairlines.standard.color,
-            backgroundColor: tidewater.white,
-          }}
-        >
-          <View
-            style={{
-              padding: spacing.md,
-              borderBottomWidth: 1.5,
-              borderBottomColor: tidewater.hair,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: spacing.sm,
-              alignItems: 'flex-start',
-            }}
-          >
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                ENTRY READY CHECK
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: 132,
+          gap: 14,
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        scrollEnabled={!signatureActive}
+      >
+        {/* CONTEXT */}
+        <Card padding={14}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>SIGNING</Text>
+              <Text
+                style={{ ...type.heroCardTitle, color: tokens.text, marginTop: 2 }}
+                numberOfLines={1}
+              >
+                {entry?.site || 'Loading entry…'}
               </Text>
-              <Text style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
-                {entry?.site || 'Loading entry'}
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+                {entry ? `${entry.work_hours.toFixed(1)} hrs · ${entry.work_task || '—'}` : ''}
               </Text>
             </View>
-            <AnimatedStamp tone={readiness?.ready ? 'green' : 'yellow'} rotation="light">
-              {readiness?.ready ? 'READY' : 'PENDING'}
-            </AnimatedStamp>
+            <StatusPill status={isDraft ? 'draft' : isReady === false ? 'pending' : 'draft'} />
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
-            <Chip tone="ink">{entry?.site || 'LOADING'}</Chip>
-            <Chip tone="mute">{entry ? `${entry.work_hours.toFixed(1)} HR` : '0.0 HR'}</Chip>
-            <Chip tone={readiness?.ready ? 'green' : 'yellow'}>
-              {readiness?.ready ? 'READY TO SIGN' : `${readiness?.missingFields.length ?? 0} MISSING`}
-            </Chip>
-          </View>
-          {entry?.status === 'draft' && readiness && !readiness.ready ? (
+          {isDraft && readiness && !isReady ? (
             <View
               style={{
-                borderTopWidth: 1,
-                borderTopColor: tidewater.hairFaint,
-                backgroundColor: tidewater.yellowSoft,
-                padding: spacing.md,
+                marginTop: 12,
+                flexDirection: 'row',
+                gap: 8,
+                padding: 10,
+                borderRadius: 10,
+                backgroundColor: tokens.warnSoft,
               }}
             >
-              <Text selectable style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                FINISH THE ENTRY FIRST
-              </Text>
-              <Text selectable style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
-                Add {readiness.missingFields.join(', ')}
+              <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+                Finish required fields before signing: {readiness.missingFields.join(', ')}.
               </Text>
             </View>
           ) : null}
-        </View>
+        </Card>
 
+        {/* SUPERVISOR */}
         <View>
-          <SectionH n="15" right={selectedKnownSupervisor ? 'KNOWN' : 'MANUAL'}>
-            Supervisor
-          </SectionH>
-          {supervisors.data?.length ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
-              {supervisors.data.map((supervisor) => {
-                const selected = supervisor.id === selectedKnownSupervisor?.id;
-
-                return (
-                  <Pressable
-                    key={supervisor.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      const inferredScheme =
-                        inferSchemeFromCertNumber(supervisor.cert_number) ?? supervisorScheme;
-                      setSupervisorScheme(inferredScheme);
-                      setSupervisorName(supervisor.name);
-                      const level = irataLevelFromNumber(supervisor.cert_number, supervisorIrataLevel);
-                      setSupervisorIrataLevel(level);
-                      setSupervisorCertNumber(
-                        inferredScheme === 'irata'
-                          ? irataNumberDigits(supervisor.cert_number ?? '')
-                          : normalizeSpratNumber(supervisor.cert_number ?? ''),
-                      );
-                    }}
-                    style={({ pressed }) => ({
-                      minHeight: touchTarget.min,
-                      justifyContent: 'center',
-                      borderWidth: 1.5,
-                      borderColor: selected ? tidewater.accent : tidewater.hair,
-                      backgroundColor: selected ? tidewater.accentSoft : tidewater.white,
-                      opacity: pressed ? 0.82 : 1,
-                      paddingHorizontal: spacing.sm,
-                      paddingVertical: 6,
-                    })}
-                  >
-                    <Text
-                      selectable={false}
-                      style={{
-                        ...typography.monoSm,
-                        color: selected ? tidewater.accent : tidewater.ink2,
-                        fontFamily: 'IBMPlexMono_600SemiBold',
-                        fontWeight: '600',
+          <SectionH
+            kicker="SUPERVISOR"
+            title="Who's signing"
+            action={
+              selectedKnownSupervisor ? <Pill tone="ok" size="sm">Known</Pill> : null
+            }
+          />
+          <View style={{ paddingHorizontal: 0, gap: 12 }}>
+            {supervisors.data && supervisors.data.length > 0 ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {supervisors.data.map((s) => {
+                  const selected = s.id === selectedKnownSupervisor?.id;
+                  return (
+                    <Pressable
+                      key={s.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        const inferred = inferSchemeFromCertNumber(s.cert_number) ?? supervisorScheme;
+                        setSupervisorScheme(inferred);
+                        setSupervisorName(s.name);
+                        const level = irataLevelFromNumber(s.cert_number, supervisorIrataLevel);
+                        setSupervisorIrataLevel(level);
+                        setSupervisorCertNumber(
+                          inferred === 'irata'
+                            ? irataNumberDigits(s.cert_number ?? '')
+                            : normalizeSpratNumber(s.cert_number ?? ''),
+                        );
+                        haptics.selection();
                       }}
+                      style={({ pressed }) => [
+                        knownChipStyle(tokens, selected),
+                        pressed ? { transform: [{ scale: 0.97 }] } : null,
+                      ]}
                     >
-                      {supervisor.name.toUpperCase()}
-                    </Text>
-                  </Pressable>
+                      <Text
+                        style={{
+                          ...type.cardSub,
+                          color: selected ? tokens.accentInk : tokens.text,
+                          fontFamily: 'Manrope_600SemiBold',
+                          fontWeight: '600',
+                        }}
+                      >
+                        {s.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            <ChipSelect<CertScheme>
+              value={supervisorScheme}
+              options={SCHEME_OPTIONS}
+              onChange={(scheme) => {
+                setSupervisorScheme(scheme);
+                setSupervisorCertNumber(
+                  scheme === 'irata'
+                    ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
+                    : normalizeSpratNumber(supervisorCertNumber),
                 );
-              })}
-            </View>
-          ) : null}
-          <View style={{ gap: spacing.md }}>
+              }}
+            />
+
             <Field
               label="Supervisor name"
               value={supervisorName}
               onChangeText={setSupervisorName}
               placeholder="Jordan Lee"
-              invalid={supervisorName.trim().length <= 1}
+              autoCapitalize="words"
             />
-            <View style={{ gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                SUPERVISOR'S SCHEME
-              </Text>
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                {(['sprat', 'irata'] as const).map((scheme) => (
-                  <LevelChip
-                    key={scheme}
-                    label={scheme.toUpperCase()}
-                    selected={scheme === supervisorScheme}
-                    onPress={() => {
-                      setSupervisorScheme(scheme);
-                      // Re-format the stored cert number for the new scheme so
-                      // toggling doesn't strand IRATA digits in SPRAT context.
-                      setSupervisorCertNumber(
-                        scheme === 'irata'
-                          ? formatIrataNumber(supervisorIrataLevel, supervisorCertNumber)
-                          : normalizeSpratNumber(supervisorCertNumber),
-                      );
-                    }}
-                  />
-                ))}
-              </View>
-            </View>
             <Field
               label={requiresCertNumber ? 'IRATA number' : 'SPRAT number'}
-              value={requiresCertNumber ? irataNumberDigits(supervisorCertNumber) : normalizeSpratNumber(supervisorCertNumber)}
-              onChangeText={(value) => {
-                setSupervisorCertNumber(requiresCertNumber ? formatIrataNumber(supervisorIrataLevel, value) : normalizeSpratNumber(value));
+              value={
+                requiresCertNumber
+                  ? irataNumberDigits(supervisorCertNumber)
+                  : normalizeSpratNumber(supervisorCertNumber)
+              }
+              onChangeText={(v) => {
+                setSupervisorCertNumber(
+                  requiresCertNumber
+                    ? formatIrataNumber(supervisorIrataLevel, v)
+                    : normalizeSpratNumber(v),
+                );
               }}
               placeholder={requiresCertNumber ? '12345' : 'Optional'}
               keyboardType="number-pad"
-              maxLength={requiresCertNumber ? 5 : 12}
-              invalid={requiresCertNumber && irataNumberDigits(supervisorCertNumber).length !== 5}
-              hint={requiresCertNumber
-                ? `Required for IRATA supervisors. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
-                : 'Optional for SPRAT supervisors. Add it if the signer has a SPRAT card number.'}
+              helper={
+                requiresCertNumber
+                  ? `Required for IRATA. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
+                  : 'Optional for SPRAT — add it if the signer has a card number.'
+              }
             />
             {requiresCertNumber ? (
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                  SUPERVISOR'S LEVEL
-                </Text>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  {(['I', 'II', 'III'] as const).map((level) => (
-                    <LevelChip
-                      key={level}
-                      label={certLevelToDigit(level)}
-                      selected={level === supervisorIrataLevel}
-                      onPress={() => {
-                        setSupervisorIrataLevel(level);
-                        setSupervisorCertNumber(formatIrataNumber(level, supervisorCertNumber));
-                      }}
-                    />
-                  ))}
-                </View>
+              <View style={{ gap: 6 }}>
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>SUPERVISOR LEVEL</Text>
+                <ChipSelect<CertLevel>
+                  value={supervisorIrataLevel}
+                  options={IRATA_LEVELS}
+                  onChange={(lvl) => {
+                    setSupervisorIrataLevel(lvl);
+                    setSupervisorCertNumber(formatIrataNumber(lvl, supervisorCertNumber));
+                  }}
+                />
               </View>
             ) : null}
           </View>
         </View>
 
+        {/* SIGNATURE PAD */}
         <View>
-          <SectionH n="16" right={signatureReady ? 'READY' : 'REQUIRED'}>
-            Signature and attestation
-          </SectionH>
-          <View style={{ gap: spacing.md }}>
-            <SignaturePad
-              label="Draw signature"
-              value={signaturePath}
-              onChange={setSignaturePath}
-              height={240}
-              onStrokeStart={() => setSignatureActive(true)}
-              onStrokeEnd={() => setSignatureActive(false)}
-            />
-            <View
-              style={{
-                borderWidth: 1.5,
-                borderColor: signatureReady ? tidewater.green : tidewater.hairSoft,
-                backgroundColor: signatureReady ? tidewater.greenSoft : tidewater.white,
-                padding: spacing.sm,
-              }}
-            >
-              <CheckboxRow
-                checked={attestationAccepted}
-                label={ATTESTATION_TEXT}
-                onChange={setAttestationAccepted}
-              />
-            </View>
-          </View>
+          <SectionH
+            kicker="SIGNATURE"
+            title="Draw to sign"
+            action={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear signature"
+                onPress={() => sigPadRef.current?.clear()}
+                hitSlop={8}
+              >
+                <Text
+                  style={{
+                    ...type.cardSub,
+                    color: tokens.accent,
+                    fontFamily: 'Manrope_600SemiBold',
+                    fontWeight: '600',
+                  }}
+                >
+                  Clear
+                </Text>
+              </Pressable>
+            }
+          />
+          <SigPad
+            ref={sigPadRef}
+            value={signaturePath}
+            onChange={setSignaturePath}
+            onStrokeStart={() => setSignatureActive(true)}
+            onStrokeEnd={() => setSignatureActive(false)}
+          />
         </View>
 
-        {entry?.status && entry.status !== 'draft' ? (
-          <Text selectable style={{ ...typography.body, color: tidewater.ink2 }}>
-            Signed and amended records are locked.
+        {/* ATTESTATION */}
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: attestationAccepted }}
+          onPress={() => setAttestationAccepted(!attestationAccepted)}
+          style={({ pressed }) => [
+            attestationStyle(tokens, attestationAccepted),
+            pressed ? { transform: [{ scale: 0.99 }] } : null,
+          ]}
+        >
+          <View
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              borderWidth: 1.5,
+              borderColor: attestationAccepted ? tokens.ok : tokens.line,
+              backgroundColor: attestationAccepted ? tokens.ok : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {attestationAccepted ? (
+              <IconCheck size={14} color={tokens.okSoft} fill={tokens.okSoft} />
+            ) : null}
+          </View>
+          <Text style={{ ...type.cardSub, color: tokens.text, flex: 1, lineHeight: 19 }}>
+            {ATTESTATION_TEXT}
           </Text>
-        ) : null}
-      </View>
+        </Pressable>
+      </ScrollView>
 
-      <DocBand
-        variant="footer"
-        text={canSign ? 'SIGNATURE WILL LOCK THIS DRAFT INTO THE LOCAL HASH CHAIN' : 'LOCAL SIGNATURE HOLD - COMPLETE REQUIRED FIELDS'}
-        page={entryId ? `ENTRY ${entryId.slice(-6).toUpperCase()}` : 'ENTRY ------'}
-      />
-    </Screen>
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 12 + insets.bottom,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+          backgroundColor: tokens.bg,
+        }}
+      >
+        <Button variant="ghost" onPress={() => router.back()}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          full
+          onPress={submit}
+          disabled={!canSign || signEntry.isPending}
+        >
+          {signEntry.isPending ? 'Sealing…' : 'Seal in chain'}
+        </Button>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
-function LevelChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const { spacing, typography, touchTarget, tidewater } = useTheme();
+function formatChainShort(hash: string): string {
+  if (hash.length <= 14) return hash;
+  return `${hash.slice(0, 8)}…${hash.slice(-4)}`;
+}
 
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: touchTarget.min,
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1.5,
-        borderColor: selected ? tidewater.accent : tidewater.hair,
-        backgroundColor: selected ? tidewater.accent : tidewater.white,
-        opacity: pressed ? 0.82 : 1,
-        paddingHorizontal: spacing.md,
-      })}
-    >
-      <Text selectable={false} style={{ ...typography.displaySm, color: selected ? tidewater.paper : tidewater.ink2 }}>
-        Level {label}
-      </Text>
-    </Pressable>
-  );
+function knownChipStyle(
+  tokens: ReturnType<typeof useTheme>['tokens'],
+  selected: boolean,
+): ViewStyle {
+  return {
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    backgroundColor: selected ? tokens.accent : tokens.surface2,
+    borderWidth: 1,
+    borderColor: selected ? tokens.accent : tokens.lineSoft,
+  };
+}
+
+function attestationStyle(
+  tokens: ReturnType<typeof useTheme>['tokens'],
+  accepted: boolean,
+): ViewStyle {
+  return {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: accepted ? tokens.ok : tokens.lineSoft,
+    backgroundColor: accepted ? tokens.okSoft : tokens.surface,
+  };
 }
 

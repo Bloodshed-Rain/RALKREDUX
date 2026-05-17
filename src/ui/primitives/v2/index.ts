@@ -30,3 +30,5 @@ export { EntryRow, type EntryRowProps } from './entry-row';
 export { ChainLink, type ChainLinkItem, type ChainLinkProps } from './chain-link';
 export { SigFill, type SigFillProps } from './sig-fill';
 export { PhotoStrip, type PhotoStripItem, type PhotoStripProps } from './photo-strip';
+export { SigPad, type SigPadProps, type SigPadHandle } from './sig-pad';
+export { SealAnim, type SealAnimProps } from './seal-anim';

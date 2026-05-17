@@ -52,6 +52,18 @@ Key shifts in v2:
 
   Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
 
+- **Step 11 — Sign screen + SealAnim.** Shipped 2026-05-17. Two new primitives + screen rewrite:
+
+  - `src/ui/primitives/v2/sig-pad.tsx` — 180 px tall signature surface wrapping `react-native-signature-canvas`. Custom `webStyle` strips the library's built-in footer; a hairline baseline sits 32 px from the bottom and a mono `✕  SIGN HERE` hint sits at the lower-left until the first stroke. Exposes a `SigPadHandle` ref with a `clear()` method so parent screens can put the clear button in their section header (per v2 spec, instead of inside the pad).
+
+  - `src/ui/primitives/v2/seal-anim.tsx` — bespoke 200×200 sealing dial. 24 evenly-spaced ticks around an inner radius, an outer accent ring that draws via animated `strokeDashoffset` (528 → 0) over 1.4 s with `cubic-bezier(.65,.05,.36,1)`, a center 88×72 accent-fill stamp that fades in over 360 ms on ring complete, and an `IconBrand` mark that fades in 120 ms later. Caption transitions "Sealing chain…" → "Sealed in chain" once the brand reveal lands. Honors `useReducedMotion()` — jumps straight to the sealed state.
+
+  - `app/entry/[id]/sign.tsx` rewritten — small `TopBar` ("Seal in chain"), Context `Card` (mono SIGNING kicker + site title + hours · task sub + `StatusPill`, plus an inline `warnSoft` chip listing missing fields when readiness fails). Supervisor section: known-supervisor chip row sourced from `useSupervisorContacts`, SPRAT/IRATA `ChipSelect`, name `Field`, cert number `Field` (helper text changes by scheme — required for IRATA, optional for SPRAT), IRATA-level `ChipSelect` when scheme = 'irata'. Signature section: `SectionH` with a "Clear" text action that drives the `SigPad` ref, then the `SigPad`. Attestation row: full-width pressable card with a 22 px square check + `ATTESTATION_TEXT`; turns `okSoft` background + `ok` border when accepted. Primary "Seal in chain" `Button` in a footer pinned above the safe-area insets.
+
+  On successful `signEntry.mutate`, the screen swaps to a full-bleed `SealAnim` with the truncated chain hash printed below the dial. After 3 s the screen routes to `/entry/${signed.entry.id}` so the user reads "Sealed in chain" briefly before landing on the signed-record view.
+
+  Functionality preserved: prefill-from-supervisor query param, scheme inference from cert number, IRATA digit normalization + level digit folding into `formatIrataNumber`, draft-vs-signed readiness gating, scroll-disabled-while-drawing (prevents the page from scrolling under the pad), full attestation text in the persisted signature. Typecheck clean. Jest 136/136 still green.
+
 - **Step 10 — New entry 3-step sheet + PhotoStrip.** Shipped 2026-05-17. `app/entry/new.tsx` rewritten end-to-end (was ~2000 lines of paper-form chrome; now ~800 lines on v2 primitives). New primitive at `src/ui/primitives/v2/photo-strip.tsx` — horizontally-scrolling 88 px tile row. Leading accent-filled `Capture` tile with `IconCamera`, then real photo tiles with mono filename overlay, then dashed-outline `Anchors / Workzone / Hazard` slot placeholders that collapse from the trailing side as photos accumulate. `disabled` (no draft yet) and `capturePending` states wired.
 
   Wizard layout: bottom-sheet-styled header (grab handle + 3-bar progress strip + close X + 28 px Manrope 800 title + sub). Body scrolls under a `KeyboardAvoidingView`. Footer with ghost Back + primary Continue on steps 1–2; step 3 has inline `ChoiceRow` actions instead of a footer.
