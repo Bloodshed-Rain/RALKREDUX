@@ -12,10 +12,10 @@ Full inline punch list delivered 2026-05-12 (re-audit after the user reported lo
 **How to apply:** If the user asks for "the audit," "the punch list," or "what UX issues you found," lead with the full list, not headlines. The three P0s are stable but always re-verify against current code before recommending — see [[feedback-memory-staleness]] / the "Before recommending from memory" guidance. The supporting P1/P2 set is the part that's easiest to lose; if you're tempted to abbreviate, don't.
 
 The P0s (all post-redesign behavioral gaps, not visual):
-1. Wizard Cancel after Step 1 commit silently saves a draft (`app/entry/new.tsx` handleClose only gates on !draft.entryId; Step 1 auto-commits).
-2. Gear FAIL inspection retires on single tap with banner-only warning, no Alert.alert (`app/(tabs)/gear.tsx` SAVE INSPECTION).
-3. Restore-from-backup is paste-only, no document picker (`app/(tabs)/more.tsx` restoreSnapshot).
-4. Edit-draft "SAVE AUDIT-READY DRAFT" label promises full readiness; canSave only requires 3 of 10 fields (`app/entry/[id]/edit.tsx`).
+1. Wizard Cancel after Step 1 commit silently saves a draft — **RESOLVED 2026-05-17 re-audit**: `app/entry/new.tsx` handleClose now branches on draft.entryId with Keep editing / Keep draft / Delete draft.
+2. Gear FAIL inspection retires on single tap with banner-only warning, no Alert.alert — **RESOLVED 2026-05-17 re-audit**: `app/gear/[id].tsx` submitInspection now wraps fail in Alert.alert('Retire gear?', …) with destructive button.
+3. Restore-from-backup is paste-only, no document picker (`app/(tabs)/more.tsx` restoreSnapshot) — **STILL PRESENT** as of 2026-05-17; BackupInlinePanel uses TextInput paste only.
+4. Edit-draft "SAVE AUDIT-READY DRAFT" label promises full readiness; canSave only requires 3 of 10 fields (`app/entry/[id]/edit.tsx`) — **STILL PRESENT** as of 2026-05-17; canSave only requires site + workTask + hours>0 while button shows "Save audit-ready draft" whenever isAuditReady (full 10 fields).
 
 P1 cluster (clear friction): wizard Step 2 stepper-only hours, Step1/Step3 readiness inconsistency, no path-switch on sign screen, single-tap gear-detach on entry detail, no expired-request surfacing on technician side, no cancel-remote-request action, photo attach goes to library not camera, no save-this-verifier prompt, Today has no log-work entry point when quiet, inspection auto-selects first item silently, next-due input stays editable when result=fail.
 
