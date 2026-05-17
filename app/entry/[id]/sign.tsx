@@ -81,6 +81,28 @@ export default function LocalSignScreen() {
 
   const sigPadRef = React.useRef<SigPadHandle>(null);
   const didPrefillSupervisor = React.useRef(false);
+  const sealNavTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sealNavRouteRef = React.useRef<string | null>(null);
+
+  // Cancel any pending auto-navigate when the screen unmounts so a fast user
+  // back-press during the seal animation doesn't navigate out from under them.
+  React.useEffect(() => {
+    return () => {
+      if (sealNavTimeoutRef.current) {
+        clearTimeout(sealNavTimeoutRef.current);
+        sealNavTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  function advancePastSeal() {
+    if (sealNavTimeoutRef.current) {
+      clearTimeout(sealNavTimeoutRef.current);
+      sealNavTimeoutRef.current = null;
+    }
+    const target = sealNavRouteRef.current;
+    if (target) router.replace(target as never);
+  }
 
   const entry = detail.data?.entry;
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
@@ -143,12 +165,13 @@ export default function LocalSignScreen() {
           const chainHash = signed.signature?.chain_hash ?? null;
           setSealedChainHash(chainHash ? formatChainShort(chainHash) : null);
           setSealing(true);
-          // After 3 s, navigate to the signed entry. SealAnim itself fires
-          // `onSealed` around 1.7 s in (when the dial completes) — we don't
-          // navigate yet so the user can read "Sealed in chain" briefly.
-          setTimeout(() => {
-            if (signed.entry?.id) router.replace(`/entry/${signed.entry.id}` as never);
-          }, 3000);
+          // Set the auto-advance to 3s so the seal animation reads, but let
+          // the user tap the seal to skip ahead (advancePastSeal clears the
+          // timeout). Both paths route to the same destination.
+          if (signed.entry?.id) {
+            sealNavRouteRef.current = `/entry/${signed.entry.id}`;
+            sealNavTimeoutRef.current = setTimeout(advancePastSeal, 3000);
+          }
         },
         onError: () => haptics.error(),
       },
@@ -157,7 +180,11 @@ export default function LocalSignScreen() {
 
   if (sealing) {
     return (
-      <View
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Continue to signed entry"
+        accessibilityHint="Skip the seal animation"
+        onPress={advancePastSeal}
         style={{
           flex: 1,
           backgroundColor: tokens.bg,
@@ -168,7 +195,17 @@ export default function LocalSignScreen() {
         }}
       >
         <SealAnim hash={sealedChainHash} />
-      </View>
+        <Text
+          style={{
+            ...type.monoKicker,
+            color: tokens.textFaint,
+            position: 'absolute',
+            bottom: 24 + insets.bottom,
+          }}
+        >
+          TAP TO CONTINUE
+        </Text>
+      </Pressable>
     );
   }
 

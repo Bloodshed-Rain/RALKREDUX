@@ -168,7 +168,9 @@ export default function AmendEntryScreen() {
         <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
           <Card padding={18}>
             <Text style={heroKickerStyle}>
-              AMENDS {entryId ? entryId.slice(-6).toUpperCase() : '------'}
+              {entry
+                ? `AMENDS ${entry.date_to.slice(0, 10)} · ${shortEntryRef(entry.id)}`
+                : 'AMENDS ──────'}
             </Text>
             <Text style={heroTitleStyle} numberOfLines={2}>
               {entry?.site || 'Loading entry'}
@@ -350,4 +352,13 @@ function UnitToggle({ value, onChange }: { value: HeightUnit; onChange: (next: H
       })}
     </View>
   );
+}
+
+// Audit-friendly short reference for an entry: strip the createId prefix
+// and surface the first 8 chars of the UUID. Pairs with the entry date in
+// audit-context labels (e.g. "AMENDS 2026-05-10 · A1B2C3D4").
+function shortEntryRef(id: string): string {
+  const parts = id.split('_');
+  const uuid = parts.length > 1 ? parts.slice(1).join('_') : id;
+  return uuid.slice(0, 8).toUpperCase();
 }

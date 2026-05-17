@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Pressable, ScrollView, Text, View, type TextStyle } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { haptics } from '@/src/ui/haptics';
 import { useDeleteDraftEntry, useEntries } from '@/src/domain/logbook/use-logbook';
 import type { LogbookEntry } from '@/src/domain/logbook/types';
@@ -17,7 +17,15 @@ import {
 } from '@/src/ui/primitives/v2';
 import { IconExport, IconFilter, IconSearch } from '@/src/ui/icons';
 
-type FilterKey = 'all' | 'drafts' | 'signed' | 'amended';
+type FilterKey = 'all' | 'drafts' | 'pending' | 'signed' | 'amended';
+
+const VALID_FILTERS: ReadonlySet<FilterKey> = new Set([
+  'all',
+  'drafts',
+  'pending',
+  'signed',
+  'amended',
+]);
 
 function rowStatus(entry: LogbookEntry): 'draft' | 'signed' | 'amended' | 'pending' {
   if (entry.status === 'amended') return 'amended';
@@ -31,7 +39,9 @@ function matchesFilter(entry: LogbookEntry, filter: FilterKey): boolean {
     case 'all':
       return true;
     case 'drafts':
-      return entry.status === 'draft';
+      return entry.status === 'draft' && !entry.pending_signature_id;
+    case 'pending':
+      return entry.status === 'draft' && !!entry.pending_signature_id;
     case 'signed':
       return entry.status === 'signed';
     case 'amended':
@@ -95,20 +105,37 @@ export default function RecordsScreen() {
   const deleteDraft = useDeleteDraftEntry();
   const { tokens } = useTheme();
 
+  // The Today screen's action tiles deep-link into this screen with a
+  // `?filter=pending` (or drafts / signed / amended) param so a tap on
+  // "Awaiting signature" lands on a pre-filtered list, not the full one.
+  const params = useLocalSearchParams<{ filter?: string | string[] }>();
+  const initialFilter = React.useMemo<FilterKey>(() => {
+    const raw = Array.isArray(params.filter) ? params.filter[0] : params.filter;
+    return raw && VALID_FILTERS.has(raw as FilterKey) ? (raw as FilterKey) : 'all';
+  }, [params.filter]);
+
   const [query, setQuery] = React.useState('');
-  const [filter, setFilter] = React.useState<FilterKey>('all');
+  const [filter, setFilter] = React.useState<FilterKey>(initialFilter);
+
+  // Honour route-param changes after mount (re-tap from Today on a different tile).
+  React.useEffect(() => {
+    setFilter(initialFilter);
+  }, [initialFilter]);
 
   const entriesData = entries.data ?? [];
   const counts = React.useMemo(() => {
     let drafts = 0;
+    let pending = 0;
     let signed = 0;
     let amended = 0;
     for (const e of entriesData) {
-      if (e.status === 'draft') drafts += 1;
-      else if (e.status === 'signed') signed += 1;
+      if (e.status === 'draft') {
+        if (e.pending_signature_id) pending += 1;
+        else drafts += 1;
+      } else if (e.status === 'signed') signed += 1;
       else if (e.status === 'amended') amended += 1;
     }
-    return { drafts, signed, amended, all: entriesData.length };
+    return { drafts, pending, signed, amended, all: entriesData.length };
   }, [entriesData]);
 
   const filteredEntries = React.useMemo(() => {
@@ -165,6 +192,7 @@ export default function RecordsScreen() {
           options={[
             { value: 'all', label: 'All', count: counts.all },
             { value: 'drafts', label: 'Drafts', count: counts.drafts },
+            { value: 'pending', label: 'Pending', count: counts.pending },
             { value: 'signed', label: 'Signed', count: counts.signed },
             { value: 'amended', label: 'Amended', count: counts.amended },
           ]}

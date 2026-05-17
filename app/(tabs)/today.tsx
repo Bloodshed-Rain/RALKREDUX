@@ -498,7 +498,7 @@ function ActionTileGrid({
       hint: openDrafts === 1 ? '1 to finish' : `${openDrafts} to finish`,
       icon: IconDraft,
       tone: 'warn',
-      route: '/records',
+      route: '/records?filter=drafts',
     },
     {
       count: awaitingSignature,
@@ -506,7 +506,7 @@ function ActionTileGrid({
       hint: awaitingSignature === 1 ? '1 pending' : `${awaitingSignature} pending`,
       icon: IconSign,
       tone: 'ok',
-      route: '/records',
+      route: '/records?filter=pending',
     },
     {
       count: overdueGear,
