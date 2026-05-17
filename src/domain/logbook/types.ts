@@ -5,6 +5,9 @@ export type EntryStatus = 'draft' | 'signed' | 'amended';
 export type SignatureMethod = 'local' | 'remote';
 export type RemoteSignatureRequestStatus = 'pending' | 'completed' | 'cancelled' | 'expired';
 export type HeightUnit = 'ft' | 'm';
+// SPRAT/IRATA progression splits hours into distinct buckets; auditors want
+// to know how many were on real work vs training/assessment/rescue drills.
+export type EntryKind = 'work' | 'training' | 'assessment' | 'rescue_drill';
 
 export interface LogbookEntry {
   id: string;
@@ -22,11 +25,44 @@ export interface LogbookEntry {
   height_unit: HeightUnit;
   sprat_level_snapshot: CertLevel | null;
   irata_level_snapshot: CertLevel | null;
+  // v3 hash-bumped fields. `entry_kind` defaults to 'work' at the SQL layer so
+  // pre-v3 rows keep their meaning. `rescue_cover` and `hazards` are nullable.
+  // `hazards` is stored as a canonical (sorted, JSON-stringified) string —
+  // consumers parse it with `parseHazards` for array access.
+  entry_kind: EntryKind;
+  rescue_cover: string | null;
+  hazards: string | null;
   status: EntryStatus;
   amends_entry_id: string | null;
   pending_signature_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Parses the raw `hazards` TEXT column into a string[]. Returns an empty
+// array for null / empty / malformed JSON so consumers can render
+// unconditionally.
+export function parseHazards(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is string => typeof v === 'string');
+  } catch {
+    return [];
+  }
+}
+
+// Canonicalizes a hazards array for storage / hashing: trim, drop empties,
+// dedupe, sort. Returns null when the resulting list is empty so the DB row
+// matches the "no hazards recorded" intent.
+export function canonicalizeHazards(values: readonly string[] | null | undefined): string | null {
+  if (!values || values.length === 0) return null;
+  const cleaned = Array.from(
+    new Set(values.map((v) => v.trim()).filter((v) => v.length > 0)),
+  ).sort();
+  if (cleaned.length === 0) return null;
+  return JSON.stringify(cleaned);
 }
 
 export interface EntrySignature {
@@ -71,6 +107,12 @@ export interface CreateEntryInput {
   template_id?: string | null;
   sprat_level_snapshot?: CertLevel | null;
   irata_level_snapshot?: CertLevel | null;
+  // v3 hash-bumped fields. All optional at the input boundary so existing
+  // call sites compile unchanged; service defaults entry_kind to 'work',
+  // rescue_cover to null, and runs hazards through `canonicalizeHazards`.
+  entry_kind?: EntryKind;
+  rescue_cover?: string | null;
+  hazards?: readonly string[];
 }
 
 export interface UpdateDraftEntryInput extends CreateEntryInput {

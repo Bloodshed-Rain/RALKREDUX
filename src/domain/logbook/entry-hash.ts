@@ -1,7 +1,11 @@
 import * as Crypto from 'expo-crypto';
 import { EntrySignature, LogbookEntry } from './types';
 
-export const ENTRY_HASH_VERSION = 2;
+// v3 added the three rope-access-audit fields that were missing from v2:
+// entry_kind (work / training / assessment / rescue_drill), rescue_cover,
+// and hazards. All three are part of what a signer attests to, so they
+// must be included in the canonical entry hash.
+export const ENTRY_HASH_VERSION = 3;
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -30,6 +34,12 @@ export function canonicalizeEntry(entry: LogbookEntry): string {
       description: entry.description,
       employer: entry.employer,
       access_method: entry.access_method,
+      // v3 fields. `hazards` is the canonical (sorted, JSON-stringified) TEXT
+      // that lives in the DB column — hashing the raw string is safe because
+      // service write paths run input through `canonicalizeHazards`.
+      entry_kind: entry.entry_kind,
+      hazards: entry.hazards,
+      rescue_cover: entry.rescue_cover,
       height_unit: entry.height_unit,
       id: entry.id,
       irata_level_snapshot: entry.irata_level_snapshot,

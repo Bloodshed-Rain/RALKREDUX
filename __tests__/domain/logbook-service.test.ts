@@ -1,5 +1,6 @@
 import { createTestClient } from '../setup';
 import { createGearService } from '@/src/domain/gear/gear-service';
+import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import { buildRemoteSigningToken, buildRemoteSigningUrl, createLogbookService } from '@/src/domain/logbook/logbook-service';
 import { CreateEntryInput } from '@/src/domain/logbook/types';
 import { createProfileService } from '@/src/domain/profile/profile-service';
@@ -224,7 +225,7 @@ describe('logbook service', () => {
         supervisor_name: 'Jordan Lee',
         supervisor_cert_number: 'SPRAT-1234',
         method: 'local',
-        hash_version: 2,
+        hash_version: ENTRY_HASH_VERSION,
         signer_attestation: 'Verified in person.',
         signature_path: 'M 100 200 L 300 160',
         attestation_accepted_at: '2026-05-08T10:00:00.000Z',
@@ -452,7 +453,7 @@ describe('logbook service', () => {
         verifier_role: 'SPRAT L3',
         verifier_company: 'Northwind Rope',
         status: 'pending',
-        hash_version: 2,
+        hash_version: ENTRY_HASH_VERSION,
         signing_token_hash: expect.stringMatching(/^sha256:/),
         token_hint: expect.any(String),
       }),
@@ -888,7 +889,7 @@ describe('logbook service', () => {
       expect.objectContaining({
         entry_id: signedEntry.id,
         entry_hash: expect.stringMatching(/^sha256:/),
-        hash_version: 2,
+        hash_version: ENTRY_HASH_VERSION,
       }),
     );
   });
@@ -918,7 +919,7 @@ describe('logbook service', () => {
     expect(packet.entry.id).toBe(entry.id);
     expect(packet.verification).toEqual(
       expect.objectContaining({
-        hash_version: 2,
+        hash_version: ENTRY_HASH_VERSION,
         signature_method: 'local',
         signed_at: '2026-05-08T10:00:00.000Z',
       }),

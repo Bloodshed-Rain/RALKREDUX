@@ -38,7 +38,11 @@ export type RemoteSigningRow = {
   updated_at: string;
 };
 
-export const ENTRY_HASH_VERSION = 2;
+// v3 added the three rope-access-audit fields that were missing from v2:
+// entry_kind, rescue_cover, and hazards. Both client (entry-hash.ts) and
+// edge function must canonicalize against the same shape — keep these two
+// modules in lockstep on any future version bump.
+export const ENTRY_HASH_VERSION = 3;
 
 type JsonValue = string | number | boolean | null | JsonValue[] | {
   [key: string]: JsonValue;
@@ -91,6 +95,21 @@ function stringField(entry: Record<string, unknown>, key: string): string {
   return value;
 }
 
+const VALID_ENTRY_KINDS = new Set([
+  "work",
+  "training",
+  "assessment",
+  "rescue_drill",
+]);
+
+function entryKindField(entry: Record<string, unknown>): string {
+  const value = entry.entry_kind;
+  if (typeof value !== "string" || !VALID_ENTRY_KINDS.has(value)) {
+    throw new Error("entry_kind_invalid");
+  }
+  return value;
+}
+
 export function canonicalizeEntryPayload(
   entry: Record<string, unknown>,
 ): string {
@@ -107,6 +126,12 @@ export function canonicalizeEntryPayload(
       description: stringField(entry, "description"),
       employer: stringField(entry, "employer"),
       access_method: stringField(entry, "access_method"),
+      // v3 fields. `hazards` is the canonical (sorted, JSON-stringified) TEXT
+      // that the client persists — hashing the raw string is safe because
+      // every client write path runs input through `canonicalizeHazards`.
+      entry_kind: entryKindField(entry),
+      hazards: nullableStringField(entry, "hazards"),
+      rescue_cover: nullableStringField(entry, "rescue_cover"),
       height_unit: stringField(entry, "height_unit"),
       id: stringField(entry, "id"),
       irata_level_snapshot: nullableStringField(entry, "irata_level_snapshot"),

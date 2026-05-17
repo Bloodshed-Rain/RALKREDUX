@@ -31,6 +31,7 @@ import {
   SignEntryInput,
   SupervisorContact,
   UpdateDraftEntryInput,
+  canonicalizeHazards,
 } from './types';
 
 function isoDateToUtcMs(value: string): number {
@@ -456,9 +457,9 @@ export function createLogbookService(db: DbClient) {
         `INSERT INTO entries (
           id, date_from, date_to, employer, site, client, description, work_hours,
           work_task, access_method, structure_type, max_height, height_unit,
-          sprat_level_snapshot, irata_level_snapshot, status, amends_entry_id,
-          pending_signature_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NULL, NULL, ?, ?)`,
+          sprat_level_snapshot, irata_level_snapshot, entry_kind, rescue_cover,
+          hazards, status, amends_entry_id, pending_signature_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NULL, NULL, ?, ?)`,
         [
           id,
           dateFrom,
@@ -475,6 +476,9 @@ export function createLogbookService(db: DbClient) {
           input.height_unit,
           input.sprat_level_snapshot ?? null,
           input.irata_level_snapshot ?? null,
+          input.entry_kind ?? 'work',
+          input.rescue_cover?.trim() || null,
+          canonicalizeHazards(input.hazards),
           now,
           now,
         ],
@@ -505,7 +509,8 @@ export function createLogbookService(db: DbClient) {
          SET date_from = ?, date_to = ?, employer = ?, site = ?, client = ?,
              description = ?, work_hours = ?, work_task = ?, access_method = ?,
              structure_type = ?, max_height = ?, height_unit = ?,
-             sprat_level_snapshot = ?, irata_level_snapshot = ?, updated_at = ?
+             sprat_level_snapshot = ?, irata_level_snapshot = ?,
+             entry_kind = ?, rescue_cover = ?, hazards = ?, updated_at = ?
          WHERE id = ? AND status = 'draft' AND pending_signature_id IS NULL`,
         [
           dateFrom,
@@ -522,6 +527,11 @@ export function createLogbookService(db: DbClient) {
           input.height_unit,
           input.sprat_level_snapshot ?? existing.sprat_level_snapshot,
           input.irata_level_snapshot ?? existing.irata_level_snapshot,
+          input.entry_kind ?? existing.entry_kind,
+          input.rescue_cover === undefined
+            ? existing.rescue_cover
+            : input.rescue_cover?.trim() || null,
+          input.hazards === undefined ? existing.hazards : canonicalizeHazards(input.hazards),
           now,
           existing.id,
         ],
@@ -569,9 +579,9 @@ export function createLogbookService(db: DbClient) {
         `INSERT INTO entries (
           id, date_from, date_to, employer, site, client, description, work_hours,
           work_task, access_method, structure_type, max_height, height_unit,
-          sprat_level_snapshot, irata_level_snapshot, status, amends_entry_id,
-          pending_signature_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, NULL, ?, ?)`,
+          sprat_level_snapshot, irata_level_snapshot, entry_kind, rescue_cover,
+          hazards, status, amends_entry_id, pending_signature_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, NULL, ?, ?)`,
         [
           id,
           dateFrom,
@@ -588,6 +598,11 @@ export function createLogbookService(db: DbClient) {
           input.height_unit,
           input.sprat_level_snapshot ?? original.sprat_level_snapshot,
           input.irata_level_snapshot ?? original.irata_level_snapshot,
+          input.entry_kind ?? original.entry_kind,
+          input.rescue_cover === undefined
+            ? original.rescue_cover
+            : input.rescue_cover?.trim() || null,
+          input.hazards === undefined ? original.hazards : canonicalizeHazards(input.hazards),
           original.id,
           now,
           now,
