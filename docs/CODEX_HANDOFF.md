@@ -52,6 +52,20 @@ Key shifts in v2:
 
   Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
 
+- **Step 10 — New entry 3-step sheet + PhotoStrip.** Shipped 2026-05-17. `app/entry/new.tsx` rewritten end-to-end (was ~2000 lines of paper-form chrome; now ~800 lines on v2 primitives). New primitive at `src/ui/primitives/v2/photo-strip.tsx` — horizontally-scrolling 88 px tile row. Leading accent-filled `Capture` tile with `IconCamera`, then real photo tiles with mono filename overlay, then dashed-outline `Anchors / Workzone / Hazard` slot placeholders that collapse from the trailing side as photos accumulate. `disabled` (no draft yet) and `capturePending` states wired.
+
+  Wizard layout: bottom-sheet-styled header (grab handle + 3-bar progress strip + close X + 28 px Manrope 800 title + sub). Body scrolls under a `KeyboardAvoidingView`. Footer with ghost Back + primary Continue on steps 1–2; step 3 has inline `ChoiceRow` actions instead of a footer.
+
+  Step 1 (Where) — recent-sites chip row (top 6 distinct sites from `useEntries`), Site / Client / Employer `Field`s, two-column Date from / Date to `Field`s with `isValidIsoDateRange` helper.
+
+  Step 2 (What) — `ChipSelect` for Work task / Structure / Access method, two-column Hours + Max height `Field`s with an inline ft/m toggle in the height suffix, description multiline `Field`, 4-col gear grid (uses `GEAR_ICON`; active tiles get the accent ring + tinted bg), and the new `PhotoStrip`. Gear toggling and photo capture both mutate against the already-committed draft (Step 1 → 2 transition commits via `useCreateEntry`).
+
+  Step 3 (Review) — summary `Card` (mono kicker + site title + sub + 3-col `Stat` row), optional supervisor-pick chip row sourced from `useSupervisorContacts`, ordered `ChoiceRow` stack honoring `PrefKeys.defaultTerminalAction` (the user's pick from Profile bubbles the matching action up + applies the accent primary treatment + adds a "Default" pill on it), and a `warnSoft` immutability advisory chip with `IconWarn`.
+
+  Functionality preserved: 3-step state machine, draft auto-save on Step 1 → 2 (and again on Step 2 → 3), keep-or-delete-draft dialog on close, cert level snapshot prefill from `profile.data`, gear attach/detach with toggle, photo attach via ImagePicker, supervisor pass-through to `/entry/[id]/sign` and `/entry/[id]/request-signature` via the existing `withSupervisor(path, id)` helper, terminal-action routing (sign / request / draft).
+
+  Dropped from this iteration: hours +/- bump buttons + custom keypad (replaced by a plain decimal-pad `Field`), save-template inline UI, template-recall list on Step 1, the duplicated-from-last-entry banner, the FORM-numbered section headers. The "save current as template" affordance is gone for now — the underlying mutation hook stays, so it can come back as a sub-screen later if templates get used heavily. Typecheck clean. Jest 136/136 still green.
+
 - **Step 9 — Records list + Record detail + ChainLink + SigFill.** Shipped 2026-05-17. Two new primitives + two screen rewrites:
 
   - `src/ui/primitives/v2/chain-link.tsx` — vertical chain-ladder visualization. Each link row = bullet (with accent ring) on a rail + hash short + label + `HashGlyph`. A single continuous rail clips between the first and last bullets so the ladder reads as one chain rather than a stack of cards. `head` flag renders an accent "HEAD" `Pill`; `dim` greys the bullet (used for previous-chain links pulled from `signature.previous_chain_hash`).

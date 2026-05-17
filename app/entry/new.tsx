@@ -6,40 +6,46 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Camera, Check, Copy, Minus, PenLine, Plus, Send } from 'lucide-react-native';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
-import type { CertLevel } from '@/src/domain/profile/types';
 import type {
   CreateEntryInput,
-  CreateEntryTemplateInput,
-  EntryTemplate,
   HeightUnit,
   SupervisorContact,
   UpdateDraftEntryInput,
 } from '@/src/domain/logbook/types';
+import type { CertLevel } from '@/src/domain/profile/types';
 import {
   useAddEntryAttachment,
   useAttachGearToEntry,
   useCreateEntry,
-  useCreateEntryTemplate,
   useDeleteDraftEntry,
   useEntries,
   useEntryDetail,
-  useEntryTemplates,
   useRemoveGearFromEntry,
   useSupervisorContacts,
   useUpdateDraftEntry,
 } from '@/src/domain/logbook/use-logbook';
 import { useGearItems } from '@/src/domain/gear/use-gear';
 import { useProfile } from '@/src/domain/profile/use-profile';
-import { DateField } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  Field,
+  Pill,
+  PhotoStrip,
+  type PhotoStripItem,
+} from '@/src/ui/primitives/v2';
+import { GEAR_ICON, IconClose, IconSign, IconWarn } from '@/src/ui/icons';
 import {
   DEFAULT_TERMINAL_ACTION,
   PrefKeys,
@@ -48,16 +54,15 @@ import {
   type TerminalActionPref,
 } from '@/src/storage/local-prefs';
 import { haptics } from '@/src/ui/haptics';
+import type { GearCategory } from '@/src/domain/gear/types';
 
 const WORK_TASK_PRESETS = ['Inspection', 'Maintenance', 'Rescue standby', 'Training'];
 const ACCESS_METHOD_PRESETS = ['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'];
-const STEP_TITLES = ['JOB PARTICULARS', 'ACTIVITY', 'VERIFY & SUBMIT'];
-const STEP_SUBTITLES = [
-  'Date · site · client · task',
-  'Hours · work · level',
-  'Pick supervisor · choose path',
+const STRUCTURE_PRESETS = ['Tower', 'Tank', 'Bridge', 'Wind turbine', 'Building'];
+const HEIGHT_UNIT_OPTIONS = [
+  { value: 'ft' as HeightUnit, label: 'ft' },
+  { value: 'm' as HeightUnit, label: 'm' },
 ];
-const TOTAL_STEPS = 3;
 
 interface DraftState {
   entryId: string | null;
@@ -119,102 +124,51 @@ function step1Ready(draft: DraftState): boolean {
 }
 
 function step2Ready(draft: DraftState): boolean {
-  const hours = Number(draft.hours);
-  return Number.isFinite(hours) && hours > 0;
-}
-
-function step3Missing(draft: DraftState): string[] {
-  const missing: string[] = [];
-  if (!isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom)) missing.push('valid work dates');
-  if (!draft.employer.trim()) missing.push('employer');
-  if (!draft.site.trim()) missing.push('site or location');
-  if (!draft.client.trim()) missing.push('client');
-  if (!draft.workTask.trim()) missing.push('work task');
-  if (!draft.accessMethod.trim()) missing.push('access method');
-  if (!draft.structureType.trim()) missing.push('structure type');
-  if (!draft.description.trim()) missing.push('work description');
-  const hours = Number(draft.hours);
-  if (!Number.isFinite(hours) || hours <= 0) missing.push('rope access hours');
-  const height = Number(draft.maxHeight);
-  if (!Number.isFinite(height) || height <= 0) missing.push('maximum height');
-  return missing;
+  return draft.workTask.trim().length > 0 && Number(draft.hours) > 0;
 }
 
 function buildCreateInput(draft: DraftState): CreateEntryInput {
-  const hours = Number(draft.hours);
-  const height = Number(draft.maxHeight);
+  const maxHeightTrimmed = draft.maxHeight.trim();
+  const maxHeight = maxHeightTrimmed === '' ? 0 : Number(maxHeightTrimmed);
   return {
-    employer: draft.employer,
-    site: draft.site,
-    client: draft.client,
-    description: draft.description,
-    work_hours: Number.isFinite(hours) ? hours : 0,
-    work_task: draft.workTask,
-    access_method: draft.accessMethod,
-    structure_type: draft.structureType,
-    max_height: Number.isFinite(height) ? height : 0,
-    height_unit: draft.heightUnit,
     date_from: draft.dateFrom,
     date_to: draft.dateTo || draft.dateFrom,
+    employer: draft.employer.trim(),
+    site: draft.site.trim(),
+    client: draft.client.trim(),
+    description: draft.description.trim(),
+    work_hours: Number(draft.hours) || 0,
+    work_task: draft.workTask.trim(),
+    access_method: draft.accessMethod.trim(),
+    structure_type: draft.structureType.trim(),
+    max_height: Number.isFinite(maxHeight) ? maxHeight : 0,
+    height_unit: draft.heightUnit,
     sprat_level_snapshot: draft.spratLevel,
     irata_level_snapshot: draft.irataLevel,
   };
 }
 
 function buildUpdateInput(draft: DraftState, entryId: string): UpdateDraftEntryInput {
-  return { ...buildCreateInput(draft), entry_id: entryId };
-}
-
-// A template only carries the reusable activity shape — not dates, site, or
-// supervisor. These are the fields it must have before it is worth saving.
-function templateMissing(draft: DraftState): string[] {
-  const missing: string[] = [];
-  if (!draft.workTask.trim()) missing.push('work task');
-  if (!draft.accessMethod.trim()) missing.push('access method');
-  if (!draft.structureType.trim()) missing.push('structure type');
-  if (!draft.description.trim()) missing.push('work description');
-  const hours = Number(draft.hours);
-  if (!Number.isFinite(hours) || hours <= 0) missing.push('hours');
-  return missing;
-}
-
-function buildTemplateInput(draft: DraftState, name: string): CreateEntryTemplateInput {
-  const hours = Number(draft.hours);
-  const height = Number(draft.maxHeight);
-  return {
-    name,
-    employer: draft.employer,
-    client: draft.client,
-    work_task: draft.workTask,
-    access_method: draft.accessMethod,
-    structure_type: draft.structureType,
-    description: draft.description,
-    work_hours: Number.isFinite(hours) ? hours : 0,
-    max_height: Number.isFinite(height) && height > 0 ? height : null,
-    height_unit: draft.heightUnit,
-  };
+  return { entry_id: entryId, ...buildCreateInput(draft) };
 }
 
 function withSupervisor(path: string, supervisorId: string | null): string {
-  return supervisorId ? `${path}?supervisorId=${encodeURIComponent(supervisorId)}` : path;
+  return supervisorId ? `${path}?supervisor=${encodeURIComponent(supervisorId)}` : path;
 }
 
 export default function NewEntryWizard() {
-  const { tidewater, typography, spacing } = useTheme();
+  const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
   const profile = useProfile();
   const entries = useEntries();
-  const templates = useEntryTemplates();
   const supervisors = useSupervisorContacts();
   const createEntry = useCreateEntry();
   const updateDraft = useUpdateDraftEntry();
   const deleteDraft = useDeleteDraftEntry();
-  const createTemplate = useCreateEntryTemplate();
 
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [draft, setDraft] = React.useState<DraftState>(initialDraft);
-  const [busy, setBusy] = React.useState<null | 'draft' | 'sign' | 'request' | 'template'>(null);
-  const [duplicatedFromDate, setDuplicatedFromDate] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState<null | 'draft' | 'sign' | 'request'>(null);
   const [defaultTerminalAction, setDefaultTerminalAction] =
     React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const prefilledCertLevels = React.useRef(false);
@@ -232,8 +186,7 @@ export default function NewEntryWizard() {
   }, []);
 
   React.useEffect(() => {
-    if (prefilledCertLevels.current) return;
-    if (!profile.data) return;
+    if (prefilledCertLevels.current || !profile.data) return;
     prefilledCertLevels.current = true;
     update({
       spratLevel: profile.data.sprat_level,
@@ -241,8 +194,13 @@ export default function NewEntryWizard() {
     });
   }, [profile.data, update]);
 
-  const missingForSign = React.useMemo(() => step3Missing(draft), [draft]);
-  const signReady = missingForSign.length === 0;
+  const recentSites = React.useMemo(() => {
+    const out = new Set<string>();
+    for (const e of entries.data ?? []) {
+      if (e.site && out.size < 6) out.add(e.site);
+    }
+    return Array.from(out);
+  }, [entries.data]);
 
   async function commitDraft(): Promise<string | null> {
     if (!draft.entryId) {
@@ -284,8 +242,6 @@ export default function NewEntryWizard() {
 
   function handleClose() {
     if (draft.entryId) {
-      // A draft has already been persisted (committed on Step 1 → 2 transition).
-      // Be explicit: keep it (route to detail), or delete it.
       const committedId = draft.entryId;
       haptics.warning();
       Alert.alert(
@@ -301,9 +257,7 @@ export default function NewEntryWizard() {
             text: 'Delete draft',
             style: 'destructive',
             onPress: () => {
-              deleteDraft.mutate(committedId, {
-                onSettled: () => router.back(),
-              });
+              deleteDraft.mutate(committedId, { onSettled: () => router.back() });
             },
           },
         ],
@@ -329,7 +283,7 @@ export default function NewEntryWizard() {
     setBusy('sign');
     try {
       const id = await commitDraft();
-      if (id) router.replace(withSupervisor(`/entry/${id}/sign`, draft.selectedSupervisorId));
+      if (id) router.replace(withSupervisor(`/entry/${id}/sign`, draft.selectedSupervisorId) as never);
     } catch (err) {
       Alert.alert('Could not save before signing', err instanceof Error ? err.message : String(err));
     } finally {
@@ -341,7 +295,11 @@ export default function NewEntryWizard() {
     setBusy('request');
     try {
       const id = await commitDraft();
-      if (id) router.replace(withSupervisor(`/entry/${id}/request-signature`, draft.selectedSupervisorId));
+      if (id) {
+        router.replace(
+          withSupervisor(`/entry/${id}/request-signature`, draft.selectedSupervisorId) as never,
+        );
+      }
     } catch (err) {
       Alert.alert('Could not save before requesting', err instanceof Error ? err.message : String(err));
     } finally {
@@ -353,7 +311,7 @@ export default function NewEntryWizard() {
     setBusy('draft');
     try {
       const id = await commitDraft();
-      if (id) router.replace(`/entry/${id}`);
+      if (id) router.replace(`/entry/${id}` as never);
       else router.back();
     } catch (err) {
       Alert.alert('Could not save draft', err instanceof Error ? err.message : String(err));
@@ -362,523 +320,253 @@ export default function NewEntryWizard() {
     }
   }
 
-  async function handleSaveTemplate(name: string) {
-    setBusy('template');
-    try {
-      await createTemplate.mutateAsync(buildTemplateInput(draft, name));
-    } catch (err) {
-      Alert.alert('Could not save template', err instanceof Error ? err.message : String(err));
-      throw err;
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  function applyTemplate(template: EntryTemplate) {
-    update({
-      employer: template.employer || draft.employer,
-      client: template.client || draft.client,
-      workTask: template.work_task,
-      accessMethod: template.access_method,
-      structureType: template.structure_type,
-      description: template.description,
-      hours: String(template.work_hours),
-      maxHeight: template.max_height === null ? '' : String(template.max_height),
-      heightUnit: template.height_unit,
-    });
-  }
-
-  function duplicateLast() {
-    const latest = entries.data?.[0];
-    if (!latest) return;
-    setDuplicatedFromDate(latest.date_to);
-    update({
-      employer: latest.employer,
-      site: latest.site,
-      client: latest.client,
-      workTask: latest.work_task,
-      accessMethod: latest.access_method,
-      structureType: latest.structure_type,
-      maxHeight: latest.max_height === null ? '' : String(latest.max_height),
-      heightUnit: latest.height_unit,
-      description: latest.description,
-      hours: String(latest.work_hours),
-      dateFrom: todayLocalIsoDate(),
-      dateTo: todayLocalIsoDate(),
-    });
-  }
-
   const canContinue =
     step === 1 ? step1Ready(draft) : step === 2 ? step2Ready(draft) : false;
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: tidewater.paper }}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
     >
-        <View style={{ paddingTop: insets.top, backgroundColor: tidewater.ink, position: 'relative' }}>
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              height: 4,
-              width: 80,
-              backgroundColor: tidewater.accent,
-            }}
-          />
-          <View
-            style={{
-              paddingHorizontal: spacing.base,
-              paddingTop: spacing.sm,
-              paddingBottom: spacing.md,
-              gap: 4,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Pressable onPress={handleBack} hitSlop={12} accessibilityRole="button">
-                <Text style={{ ...typography.formNumber, color: tidewater.paper }}>
-                  {step === 1 ? '✕ CANCEL' : '← BACK'}
-                </Text>
-              </Pressable>
-              <Text style={{ ...typography.formNumber, color: 'rgba(230,236,232,0.6)' }}>
-                STEP {String(step).padStart(2, '0')} / {String(TOTAL_STEPS).padStart(2, '0')}
-              </Text>
-            </View>
-            <Text
-              style={{
-                fontFamily: 'Archivo_900Black',
-                fontSize: 28,
-                lineHeight: 32,
-                color: tidewater.paper,
-                fontWeight: '900',
-                letterSpacing: -0.2,
-                marginTop: 4,
-              }}
-            >
-              {STEP_TITLES[step - 1]}
-            </Text>
-            <Text style={{ ...typography.monoSm, color: 'rgba(230,236,232,0.7)' }}>
-              {STEP_SUBTITLES[step - 1]}
-            </Text>
-          </View>
-        </View>
+      <SheetHeader
+        step={step}
+        title={['Where', 'What', 'Review'][step - 1]}
+        sub={['Date · site · client · task', 'Hours · work · gear · photos', 'Choose what happens next'][step - 1]}
+        onClose={handleClose}
+      />
 
-        <View style={{ height: 6, backgroundColor: tidewater.paper2, flexDirection: 'row' }}>
-          <View
-            style={{
-              width: `${(step / TOTAL_STEPS) * 100}%`,
-              backgroundColor: tidewater.accent,
-            }}
-          />
-        </View>
-
-        <ScrollView
-          style={{ flex: 1 }}
-          automaticallyAdjustKeyboardInsets
-          contentContainerStyle={{
-            padding: spacing.base,
-            gap: spacing.md,
-            paddingBottom: spacing.xxl,
-          }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        >
-          {step === 1 ? (
-            <Step1
-              draft={draft}
-              update={update}
-              templates={templates.data ?? []}
-              hasLast={Boolean(entries.data?.length)}
-              onApplyTemplate={applyTemplate}
-              onDuplicateLast={duplicateLast}
-              duplicatedFromDate={duplicatedFromDate}
-              onAcknowledgeDuplicate={() => setDuplicatedFromDate(null)}
-            />
-          ) : null}
-          {step === 2 ? <Step2 draft={draft} update={update} /> : null}
-          {step === 3 ? (
-            <Step3
-              draft={draft}
-              update={update}
-              supervisors={supervisors.data ?? []}
-              missingFields={missingForSign}
-              signReady={signReady}
-              busy={busy}
-              onSignNow={handleSignNow}
-              onRequestRemote={handleRequestRemote}
-              onSaveDraft={handleSaveDraft}
-              templateMissingFields={templateMissing(draft)}
-              onSaveTemplate={handleSaveTemplate}
-              defaultTerminalAction={defaultTerminalAction}
-            />
-          ) : null}
-        </ScrollView>
-
-        {step < 3 ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              gap: spacing.sm,
-              paddingHorizontal: spacing.base,
-              paddingTop: spacing.sm,
-              paddingBottom: spacing.base + insets.bottom,
-              borderTopWidth: 1,
-              borderTopColor: tidewater.hairFaint,
-              backgroundColor: tidewater.paper,
-            }}
-          >
-            <Pressable
-              onPress={handleBack}
-              style={({ pressed }) => ({
-                flex: 1,
-                height: 52,
-                borderWidth: 1.5,
-                borderColor: tidewater.ink,
-                backgroundColor: tidewater.white,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  ...typography.displaySm,
-                  color: tidewater.ink,
-                  letterSpacing: 1.5,
-                }}
-              >
-                {step === 1 ? 'CANCEL' : 'BACK'}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={handleContinue}
-              disabled={!canContinue}
-              style={({ pressed }) => ({
-                flex: 1.6,
-                height: 52,
-                borderWidth: 1.5,
-                borderColor: tidewater.ink,
-                backgroundColor: canContinue ? tidewater.accent : tidewater.paper2,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed && canContinue ? 0.85 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  ...typography.displaySm,
-                  color: canContinue ? tidewater.paper : tidewater.ink3,
-                  letterSpacing: 1.5,
-                }}
-              >
-                CONTINUE →
-              </Text>
-            </Pressable>
-          </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 6,
+          paddingBottom: 24,
+          gap: 14,
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        {step === 1 ? (
+          <StepWhere draft={draft} update={update} recentSites={recentSites} />
         ) : null}
+        {step === 2 ? <StepWhat draft={draft} update={update} /> : null}
+        {step === 3 ? (
+          <StepReview
+            draft={draft}
+            update={update}
+            supervisors={supervisors.data ?? []}
+            defaultTerminalAction={defaultTerminalAction}
+            busy={busy}
+            onSignNow={handleSignNow}
+            onRequestRemote={handleRequestRemote}
+            onSaveDraft={handleSaveDraft}
+          />
+        ) : null}
+      </ScrollView>
+
+      {step < 3 ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 10,
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: 12 + insets.bottom,
+            borderTopWidth: 1,
+            borderTopColor: tokens.lineSoft,
+            backgroundColor: tokens.bg,
+          }}
+        >
+          <Button variant="ghost" full onPress={handleBack}>
+            {step === 1 ? 'Cancel' : 'Back'}
+          </Button>
+          <Button variant="primary" full onPress={handleContinue} disabled={!canContinue}>
+            Continue
+          </Button>
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
 
-function Step1({
-  draft,
-  update,
-  templates,
-  hasLast,
-  onApplyTemplate,
-  onDuplicateLast,
-  duplicatedFromDate,
-  onAcknowledgeDuplicate,
+// ──────────────────────────────────────────────────────────────────────────
+
+function SheetHeader({
+  step,
+  title,
+  sub,
+  onClose,
 }: {
-  draft: DraftState;
-  update: (patch: Partial<DraftState>) => void;
-  templates: EntryTemplate[];
-  hasLast: boolean;
-  onApplyTemplate: (t: EntryTemplate) => void;
-  onDuplicateLast: () => void;
-  duplicatedFromDate: string | null;
-  onAcknowledgeDuplicate: () => void;
+  step: 1 | 2 | 3;
+  title: string;
+  sub: string;
+  onClose: () => void;
 }) {
-  const { tidewater, typography, spacing } = useTheme();
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={{ gap: spacing.md }}>
-      {duplicatedFromDate ? (
-        <View
+    <View
+      style={{
+        paddingTop: Math.max(insets.top, 12),
+        paddingHorizontal: 20,
+        paddingBottom: 14,
+        backgroundColor: tokens.bg,
+        gap: 8,
+      }}
+    >
+      <View
+        style={{
+          alignSelf: 'center',
+          width: 36,
+          height: 4,
+          borderRadius: 999,
+          backgroundColor: tokens.line,
+          marginBottom: 6,
+        }}
+      />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', gap: 4, flex: 1 }}>
+          {[1, 2, 3].map((s) => (
+            <View
+              key={s}
+              style={{
+                flex: 1,
+                height: 3,
+                borderRadius: 999,
+                backgroundColor: s <= step ? tokens.accent : tokens.lineSoft,
+              }}
+            />
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={onClose}
+          hitSlop={10}
+          style={{ marginLeft: 12 }}
+        >
+          <IconClose size={20} color={tokens.textDim} />
+        </Pressable>
+      </View>
+      <View style={{ marginTop: 8 }}>
+        <Text
           style={{
-            borderWidth: 1.5,
-            borderColor: tidewater.yellowDeep,
-            backgroundColor: tidewater.yellowSoft,
-            padding: spacing.md,
-            gap: spacing.xs,
+            fontFamily: 'Manrope_800ExtraBold',
+            fontWeight: '800',
+            fontSize: 28,
+            lineHeight: 32,
+            letterSpacing: -0.84,
+            color: tokens.text,
           }}
         >
-          <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-            COPIED FROM {duplicatedFromDate.toUpperCase()}
-          </Text>
-          <Text style={{ ...typography.monoSm, color: tidewater.ink2 }}>
-            Dates were reset to today. Verify the site, hours, and any other particulars before
-            signing — copies are a starting point, not a record of today's work.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onAcknowledgeDuplicate}
-            hitSlop={6}
-            style={({ pressed }) => ({
-              alignSelf: 'flex-start',
-              borderWidth: 1.5,
-              borderColor: tidewater.ink,
-              backgroundColor: pressed ? tidewater.ink : tidewater.white,
-              paddingHorizontal: spacing.sm,
-              paddingVertical: 6,
-              marginTop: spacing.xs,
-            })}
-          >
-            {({ pressed }) => (
-              <Text
-                style={{
-                  ...typography.displaySm,
-                  color: pressed ? tidewater.paper : tidewater.ink,
-                  letterSpacing: 1.2,
-                }}
-              >
-                I'LL VERIFY
-              </Text>
-            )}
-          </Pressable>
-        </View>
-      ) : null}
-      {templates.length > 0 || hasLast ? (
-        <View style={{ gap: spacing.xs }}>
-          <SectionLabel n="01" label="QUICK START" />
-          {templates.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              canCancelContentTouches={false}
-              contentContainerStyle={{ gap: spacing.xs }}
-            >
-              {templates.map((t) => (
-                <Pressable
-                  key={t.id}
-                  accessibilityRole="button"
-                  onPress={() => onApplyTemplate(t)}
-                  hitSlop={6}
-                  style={({ pressed }) => ({
-                    minHeight: 36,
-                    borderWidth: 1.5,
-                    borderColor: tidewater.ink,
-                    backgroundColor: pressed ? tidewater.ink : tidewater.white,
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: 6,
-                    justifyContent: 'center',
-                  })}
-                >
-                  {({ pressed }) => (
-                    <Text
-                      style={{
-                        ...typography.displaySm,
-                        color: pressed ? tidewater.paper : tidewater.ink,
-                        letterSpacing: 1.5,
-                      }}
-                    >
-                      {t.name.toUpperCase()}
-                    </Text>
-                  )}
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
-          {hasLast ? (
-            <Pressable
-              onPress={onDuplicateLast}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: spacing.xs,
-                borderWidth: 1.5,
-                borderColor: tidewater.hair,
-                paddingHorizontal: spacing.sm,
-                paddingVertical: 8,
-                alignSelf: 'flex-start',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Copy color={tidewater.ink} size={14} strokeWidth={2.2} />
-              <Text
-                style={{
-                  ...typography.displaySm,
-                  color: tidewater.ink,
-                  letterSpacing: 1.5,
-                }}
-              >
-                DUPLICATE LAST ENTRY
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel n="02" label="WORK DATES" />
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <View style={{ flex: 1 }}>
-            <DateField
-              label="From"
-              value={draft.dateFrom}
-              onChange={(v) => update({ dateFrom: v })}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <DateField
-              label="To"
-              value={draft.dateTo}
-              onChange={(v) => update({ dateTo: v })}
-            />
-          </View>
-        </View>
+          {title}
+        </Text>
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }}>{sub}</Text>
       </View>
+    </View>
+  );
+}
 
-      <FormCellInput
-        n="03"
-        label="EMPLOYER"
-        value={draft.employer}
-        onChangeText={(v) => update({ employer: v })}
-        placeholder="Company name"
-      />
+// ──────────────────────────────────────────────────────────────────────────
 
-      <FormCellInput
-        n="04"
-        label="SITE / LOCATION"
+interface StepProps {
+  draft: DraftState;
+  update: (patch: Partial<DraftState>) => void;
+}
+
+function StepWhere({
+  draft,
+  update,
+  recentSites,
+}: StepProps & { recentSites: string[] }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ gap: 14 }}>
+      {recentSites.length > 0 ? (
+        <View>
+          <SectionKicker>RECENT SITES</SectionKicker>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {recentSites.map((site) => (
+              <Pressable
+                key={site}
+                accessibilityRole="button"
+                onPress={() => {
+                  haptics.selection();
+                  update({ site });
+                }}
+                style={({ pressed }) => [
+                  {
+                    paddingVertical: 6,
+                    paddingHorizontal: 11,
+                    borderRadius: 999,
+                    backgroundColor: tokens.surface2,
+                    borderWidth: 1,
+                    borderColor: tokens.lineSoft,
+                  },
+                  pressed ? { transform: [{ scale: 0.97 }] } : null,
+                ]}
+              >
+                <Text style={{ ...type.cardSub, color: tokens.text }} numberOfLines={1}>
+                  {site}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <Field
+        label="Site"
         value={draft.site}
         onChangeText={(v) => update({ site: v })}
-        placeholder="Tower · plant · bridge"
+        placeholder="Where the work happened"
+        autoCapitalize="words"
       />
-
-      <FormCellInput
-        n="05"
-        label="CLIENT"
+      <Field
+        label="Client"
         value={draft.client}
         onChangeText={(v) => update({ client: v })}
-        placeholder="Customer · contractor"
+        placeholder="Who hired you"
+        autoCapitalize="words"
+      />
+      <Field
+        label="Employer"
+        value={draft.employer}
+        onChangeText={(v) => update({ employer: v })}
+        placeholder="Who paid you"
+        autoCapitalize="words"
       />
 
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel n="06" label="WORK TASK" />
-        <ChipRow
-          value={draft.workTask}
-          options={WORK_TASK_PRESETS}
-          onSelect={(v) => update({ workTask: v })}
-        />
-        <PlainInput
-          value={draft.workTask}
-          onChangeText={(v) => update({ workTask: v })}
-          placeholder="Custom task"
-        />
-      </View>
-
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel n="07" label="ACCESS METHOD" />
-        <ChipRow
-          value={draft.accessMethod}
-          options={ACCESS_METHOD_PRESETS}
-          onSelect={(v) => update({ accessMethod: v })}
-        />
-        <PlainInput
-          value={draft.accessMethod}
-          onChangeText={(v) => update({ accessMethod: v })}
-          placeholder="Custom access method"
-        />
-      </View>
-
-      <FormCellInput
-        n="08"
-        label="STRUCTURE TYPE"
-        value={draft.structureType}
-        onChangeText={(v) => update({ structureType: v })}
-        placeholder="Tower · bridge · vessel"
-      />
-
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel n="09" label="MAX HEIGHT" />
-        <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
-          <View style={{ flex: 2 }}>
-            <PlainInput
-              value={draft.maxHeight}
-              onChangeText={(v) => update({ maxHeight: v.replace(/[^\d.]/g, '') })}
-              placeholder="0"
-              keyboardType="numeric"
-            />
-          </View>
-          <View
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              borderWidth: 1.5,
-              borderColor: tidewater.hair,
-            }}
-          >
-            {(['ft', 'm'] as const).map((unit, i) => {
-              const active = draft.heightUnit === unit;
-              return (
-                <Pressable
-                  key={unit}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => {
-                    haptics.selection();
-                    update({ heightUnit: unit });
-                  }}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    paddingVertical: 12,
-                    backgroundColor: active ? tidewater.ink : 'transparent',
-                    borderRightWidth: i === 0 ? 1 : 0,
-                    borderRightColor: tidewater.hairSoft,
-                    alignItems: 'center',
-                    opacity: pressed ? 0.7 : 1,
-                  })}
-                >
-                  <Text
-                    style={{
-                      ...typography.displaySm,
-                      color: active ? tidewater.paper : tidewater.ink2,
-                      letterSpacing: 1.5,
-                    }}
-                  >
-                    {unit.toUpperCase()}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Field
+            label="Date from"
+            value={draft.dateFrom}
+            onChangeText={(v) => update({ dateFrom: v, dateTo: draft.dateTo || v })}
+            placeholder="YYYY-MM-DD"
+            autoCapitalize="none"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Field
+            label="Date to"
+            value={draft.dateTo}
+            onChangeText={(v) => update({ dateTo: v })}
+            placeholder="YYYY-MM-DD"
+            autoCapitalize="none"
+            helper={isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom) ? undefined : 'Invalid range'}
+          />
         </View>
       </View>
     </View>
   );
 }
 
-function Step2({
-  draft,
-  update,
-}: {
-  draft: DraftState;
-  update: (patch: Partial<DraftState>) => void;
-}) {
-  const { tidewater, typography, spacing } = useTheme();
-  const [showKeypad, setShowKeypad] = React.useState(false);
+// ──────────────────────────────────────────────────────────────────────────
 
-  // Gear + evidence read/write off the already-committed draft. The draft is
-  // persisted on the Step 1 -> 2 transition, so draft.entryId is normally set
-  // here; the null guards below are defensive in case Step 2 is reached early.
+function StepWhat({ draft, update }: StepProps) {
+  const { tokens } = useTheme();
   const gearItems = useGearItems();
   const detail = useEntryDetail(draft.entryId);
   const attachGear = useAttachGearToEntry();
@@ -918,312 +606,151 @@ function Step2({
     });
   }
 
-  const hoursNum = Number(draft.hours);
-  const hoursFloat = Number.isFinite(hoursNum) ? hoursNum : 0;
-  const whole = Math.floor(hoursFloat);
-  const dec = Math.round((hoursFloat - whole) * 10);
-
-  function bumpHours(delta: number) {
-    const next = Math.max(0, Math.round((hoursFloat + delta) * 10) / 10);
-    haptics.selection();
-    update({ hours: String(next) });
-  }
-
-  function pressKey(key: string) {
-    const current = draft.hours;
-    if (key === 'BACK') {
-      const next = current.length > 1 ? current.slice(0, -1) : '0';
-      update({ hours: next });
-      return;
-    }
-    if (key === '.') {
-      if (current.includes('.')) return;
-      update({ hours: current.length === 0 ? '0.' : `${current}.` });
-      return;
-    }
-    // digit
-    if (current === '0') {
-      update({ hours: key });
-      return;
-    }
-    if (current.length >= 5) return; // cap at "999.9" length
-    update({ hours: `${current}${key}` });
-  }
+  const photoItems: PhotoStripItem[] = attachments.map((a) => ({
+    id: a.id,
+    uri: a.uri,
+    label: a.label,
+  }));
 
   return (
-    <View style={{ gap: spacing.lg }}>
-      <View
-        style={{
-          borderWidth: 1.5,
-          borderColor: tidewater.hair,
-          backgroundColor: tidewater.white,
-          padding: spacing.md,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'baseline',
-          }}
-        >
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-            § 10 · HOURS ON ROPE
-          </Text>
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>HRS</Text>
+    <View style={{ gap: 14 }}>
+      <View>
+        <SectionKicker>WORK TASK</SectionKicker>
+        <ChipSelect
+          value={draft.workTask}
+          options={WORK_TASK_PRESETS.map((t) => ({ value: t, label: t }))}
+          onChange={(v) => update({ workTask: v })}
+        />
+      </View>
+
+      <View>
+        <SectionKicker>STRUCTURE</SectionKicker>
+        <ChipSelect
+          value={draft.structureType}
+          options={STRUCTURE_PRESETS.map((t) => ({ value: t, label: t }))}
+          onChange={(v) => update({ structureType: v })}
+        />
+      </View>
+
+      <View>
+        <SectionKicker>ACCESS METHOD</SectionKicker>
+        <ChipSelect
+          value={draft.accessMethod}
+          options={ACCESS_METHOD_PRESETS.map((t) => ({ value: t, label: t }))}
+          onChange={(v) => update({ accessMethod: v })}
+        />
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Field
+            label="Hours"
+            value={draft.hours}
+            onChangeText={(v) => update({ hours: v })}
+            keyboardType="decimal-pad"
+            suffix="hrs"
+          />
         </View>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: spacing.sm,
-            gap: spacing.md,
-          }}
-        >
-          <Pressable
-            onPress={() => bumpHours(-0.5)}
-            accessibilityRole="button"
-            accessibilityLabel="Decrease hours"
-            style={({ pressed }) => ({
-              width: 56,
-              height: 56,
-              borderWidth: 1.5,
-              borderColor: tidewater.ink,
-              backgroundColor: tidewater.white,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Minus color={tidewater.ink} size={28} strokeWidth={2.4} />
-          </Pressable>
-          <Pressable
-            onPress={() => setShowKeypad((value) => !value)}
-            accessibilityRole="button"
-            accessibilityLabel="Type hours on a keypad"
-            accessibilityState={{ expanded: showKeypad }}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'baseline',
-              paddingHorizontal: spacing.xs,
-              paddingBottom: 2,
-              borderBottomWidth: 1.5,
-              borderBottomColor: showKeypad ? tidewater.accent : tidewater.hair,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Text
-              style={{
-                fontFamily: 'Archivo_900Black',
-                fontSize: 56,
-                lineHeight: 56,
-                color: tidewater.ink,
-                fontWeight: '900',
-                letterSpacing: -1,
-              }}
-            >
-              {String(whole).padStart(2, '0')}
-            </Text>
-            <Text
-              style={{
-                fontFamily: 'Archivo_900Black',
-                fontSize: 36,
-                lineHeight: 36,
-                color: tidewater.accent,
-                fontWeight: '900',
-                marginLeft: 2,
-                paddingBottom: 4,
-              }}
-            >
-              .{dec}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => bumpHours(0.5)}
-            accessibilityRole="button"
-            accessibilityLabel="Increase hours"
-            style={({ pressed }) => ({
-              width: 56,
-              height: 56,
-              borderWidth: 1.5,
-              borderColor: tidewater.ink,
-              backgroundColor: tidewater.accent,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Plus color={tidewater.paper} size={28} strokeWidth={2.4} />
-          </Pressable>
-        </View>
-        <Text
-          style={{
-            ...typography.monoSm,
-            color: tidewater.ink3,
-            marginTop: spacing.xs,
-            textAlign: 'center',
-          }}
-        >
-          TAP ± · 0.5 HR · TAP NUMBER TO TYPE
-        </Text>
-        {showKeypad ? (
-          <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
-            {[
-              ['7', '8', '9'],
-              ['4', '5', '6'],
-              ['1', '2', '3'],
-              ['.', '0', 'BACK'],
-            ].map((row, rowIndex) => (
-              <View key={rowIndex} style={{ flexDirection: 'row', gap: spacing.xs }}>
-                {row.map((key) => (
-                  <Pressable
-                    key={key}
-                    onPress={() => pressKey(key)}
-                    accessibilityRole="button"
-                    accessibilityLabel={key === 'BACK' ? 'Backspace' : `Type ${key}`}
-                    style={({ pressed }) => ({
-                      flex: 1,
-                      minHeight: 64,
-                      borderWidth: 1.5,
-                      borderColor: tidewater.ink,
-                      backgroundColor: pressed ? tidewater.accentSoft : tidewater.white,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    })}
-                  >
-                    <Text
+        <View style={{ flex: 1 }}>
+          <Field
+            label="Max height"
+            value={draft.maxHeight}
+            onChangeText={(v) => update({ maxHeight: v })}
+            keyboardType="decimal-pad"
+            suffix={
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                {HEIGHT_UNIT_OPTIONS.map((opt) => {
+                  const active = draft.heightUnit === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => update({ heightUnit: opt.value })}
                       style={{
-                        fontFamily: 'Archivo_900Black',
-                        fontSize: 28,
-                        lineHeight: 30,
-                        color: tidewater.ink,
-                        fontWeight: '900',
+                        paddingVertical: 2,
+                        paddingHorizontal: 6,
+                        borderRadius: 4,
+                        backgroundColor: active ? tokens.accent : 'transparent',
                       }}
                     >
-                      {key === 'BACK' ? '⌫' : key}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        style={{
+                          fontFamily: 'JetBrainsMono_600SemiBold',
+                          fontSize: 11,
+                          color: active ? tokens.accentInk : tokens.textDim,
+                        }}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            ))}
-            <Pressable
-              onPress={() => setShowKeypad(false)}
-              accessibilityRole="button"
-              accessibilityLabel="Close keypad"
-              style={({ pressed }) => ({
-                marginTop: spacing.xs,
-                minHeight: 44,
-                borderWidth: 1.5,
-                borderColor: tidewater.ink,
-                backgroundColor: pressed ? tidewater.ink : tidewater.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-              })}
-            >
-              {({ pressed }) => (
-                <Text
-                  style={{
-                    ...typography.displaySm,
-                    color: pressed ? tidewater.paper : tidewater.ink,
-                    letterSpacing: 1.5,
-                  }}
-                >
-                  DONE
-                </Text>
-              )}
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel n="11" label="WORK PERFORMED" />
-        <TextInput
-          value={draft.description}
-          onChangeText={(v) => update({ description: v })}
-          multiline
-          placeholder="What was done on rope?"
-          placeholderTextColor={tidewater.ink3}
-          style={{
-            borderWidth: 1.5,
-            borderColor: tidewater.hair,
-            backgroundColor: tidewater.white,
-            padding: spacing.sm,
-            ...typography.body,
-            color: tidewater.ink,
-            minHeight: 120,
-            textAlignVertical: 'top',
-          }}
-        />
-      </View>
-
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel
-          n="12"
-          label="CERT LEVEL ON THIS JOB"
-          right="pulled from profile"
-        />
-        <View style={{ gap: spacing.xs }}>
-          <CertLevelRow
-            scheme="SPRAT"
-            value={draft.spratLevel}
-            onChange={(v) => update({ spratLevel: v })}
-          />
-          <CertLevelRow
-            scheme="IRATA"
-            value={draft.irataLevel}
-            onChange={(v) => update({ irataLevel: v })}
+            }
           />
         </View>
       </View>
 
-      {/* § 13 Gear — toggle chips; writes straight through to the committed
-          draft so the signed record preserves the equipment history. */}
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel n="13" label="GEAR" right="tap to attach equipment used" />
+      <Field
+        label="Description"
+        value={draft.description}
+        onChangeText={(v) => update({ description: v })}
+        placeholder="What you did, conditions, anything notable"
+        multiline
+      />
+
+      <View>
+        <SectionKicker>GEAR USED</SectionKicker>
         {!draft.entryId ? (
-          <View style={{ borderWidth: 1, borderColor: tidewater.hairSoft, padding: spacing.md }}>
-            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
-              Gear attaches once the draft is saved — continue past Step 1 first.
-            </Text>
-          </View>
+          <Text style={{ ...type.cardSub, color: tokens.textDim }}>
+            Saved on continue — gear and photos attach after.
+          </Text>
         ) : selectableGear.length === 0 ? (
-          <View style={{ borderWidth: 1, borderColor: tidewater.hairSoft, padding: spacing.md }}>
-            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
-              No active gear in your inventory yet. Add items from the Gear tab.
-            </Text>
-          </View>
+          <Text style={{ ...type.cardSub, color: tokens.textDim }}>
+            No active gear yet. Add gear from the Gear tab.
+          </Text>
         ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-            {selectableGear.map(({ item }) => {
-              const attached = attachedGearIds.has(item.id);
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {selectableGear.slice(0, 8).map(({ item }) => {
+              const active = attachedGearIds.has(item.id);
+              const Icon = GEAR_ICON[item.category as GearCategory];
               return (
                 <Pressable
                   key={item.id}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: attached }}
+                  accessibilityState={{ selected: active }}
                   onPress={() => toggleGear(item.id, item.category)}
                   disabled={gearBusy}
-                  style={({ pressed }) => ({
-                    borderWidth: 1.5,
-                    borderColor: attached ? tidewater.accent : tidewater.hair,
-                    backgroundColor: attached ? tidewater.accentSoft : tidewater.white,
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: 6,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: spacing.xs,
-                    opacity: pressed ? 0.8 : 1,
-                  })}
+                  style={({ pressed }) => [
+                    {
+                      width: '22%',
+                      minWidth: 70,
+                      aspectRatio: 1,
+                      borderRadius: 14,
+                      borderWidth: active ? 2 : 1,
+                      borderColor: active ? tokens.accent : tokens.lineSoft,
+                      backgroundColor: active ? tokens.accentSoft : tokens.surface,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 6,
+                      gap: 4,
+                    },
+                    pressed ? { transform: [{ scale: 0.97 }] } : null,
+                  ]}
                 >
-                  {attached ? (
-                    <Check size={14} color={tidewater.accent} strokeWidth={2.6} />
-                  ) : (
-                    <Plus size={14} color={tidewater.ink} strokeWidth={2.2} />
-                  )}
-                  <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                    {item.name.toUpperCase()}
+                  <Icon
+                    size={22}
+                    color={active ? tokens.accent : tokens.text}
+                    fill={tokens.accent}
+                  />
+                  <Text
+                    style={{
+                      ...type.cardSub,
+                      color: active ? tokens.accent : tokens.textDim,
+                      textAlign: 'center',
+                    }}
+                    numberOfLines={1}
+                  >
+                    {item.category}
                   </Text>
                 </Pressable>
               );
@@ -1232,808 +759,302 @@ function Step2({
         )}
       </View>
 
-      {/* § 14 Evidence — photo attachments off the committed draft. */}
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel
-          n="14"
-          label="EVIDENCE"
-          right={attachments.length ? `${attachments.length} on file` : 'optional'}
+      <View>
+        <SectionKicker>PHOTO EVIDENCE</SectionKicker>
+        <PhotoStrip
+          photos={photoItems}
+          onCapture={addPhoto}
+          capturePending={addAttachment.isPending}
+          disabled={!draft.entryId}
         />
-        {attachments.length ? (
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.hairSoft,
-              backgroundColor: tidewater.white,
-            }}
-          >
-            {attachments.map((att, i) => (
-              <View
-                key={att.id}
-                style={{
-                  paddingHorizontal: spacing.sm,
-                  paddingVertical: 8,
-                  borderBottomWidth: i < attachments.length - 1 ? 1 : 0,
-                  borderBottomColor: tidewater.hairFaint,
-                }}
-              >
-                <Text
-                  style={{ ...typography.bodyMed, color: tidewater.ink }}
-                  numberOfLines={1}
-                >
-                  {att.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-        <Pressable
-          onPress={addPhoto}
-          disabled={!draft.entryId || addAttachment.isPending}
-          style={({ pressed }) => ({
-            height: 48,
-            borderWidth: 1.5,
-            borderColor: tidewater.ink,
-            backgroundColor: tidewater.white,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: spacing.xs,
-            opacity: pressed || !draft.entryId ? 0.6 : 1,
-          })}
-        >
-          <Camera size={18} color={tidewater.ink} strokeWidth={2.2} />
-          <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.4 }}>
-            {addAttachment.isPending
-              ? 'ATTACHING…'
-              : !draft.entryId
-                ? 'EVIDENCE ATTACHES AFTER STEP 1'
-                : 'ATTACH FROM PHOTOS'}
+        {!draft.entryId ? (
+          <Text style={{ ...type.cardSub, color: tokens.textFaint, marginTop: 6 }}>
+            Photos attach after Step 1 saves the draft.
           </Text>
-        </Pressable>
+        ) : null}
       </View>
     </View>
   );
 }
 
-function Step3({
+// ──────────────────────────────────────────────────────────────────────────
+
+interface ChoiceConfig {
+  key: 'sign' | 'request' | 'draft';
+  label: string;
+  hint: string;
+  primary?: boolean;
+}
+
+const TERMINAL_ACTION_SEQUENCE: TerminalActionPref[] = ['sign', 'request', 'draft'];
+
+function orderActions(pref: TerminalActionPref): TerminalActionPref[] {
+  return [pref, ...TERMINAL_ACTION_SEQUENCE.filter((k) => k !== pref)];
+}
+
+function StepReview({
   draft,
   update,
   supervisors,
-  missingFields,
-  signReady,
+  defaultTerminalAction,
   busy,
   onSignNow,
   onRequestRemote,
   onSaveDraft,
-  templateMissingFields,
-  onSaveTemplate,
-  defaultTerminalAction,
-}: {
-  draft: DraftState;
-  update: (patch: Partial<DraftState>) => void;
+}: StepProps & {
   supervisors: SupervisorContact[];
-  missingFields: string[];
-  signReady: boolean;
-  busy: null | 'draft' | 'sign' | 'request' | 'template';
+  defaultTerminalAction: TerminalActionPref;
+  busy: null | 'draft' | 'sign' | 'request';
   onSignNow: () => void;
   onRequestRemote: () => void;
   onSaveDraft: () => void;
-  templateMissingFields: string[];
-  onSaveTemplate: (name: string) => Promise<void>;
-  defaultTerminalAction: TerminalActionPref;
 }) {
-  const { tidewater, typography, spacing } = useTheme();
-  // mono renders numbers/codes/dates well; prose values stay in Inter.
-  const summaryRows: { label: string; value: string; mono?: boolean }[] = [
-    {
-      label: 'DATE',
-      value: draft.dateFrom === draft.dateTo ? draft.dateFrom : `${draft.dateFrom} → ${draft.dateTo}`,
-      mono: true,
+  const { tokens } = useTheme();
+
+  const choices: Record<TerminalActionPref, ChoiceConfig> = {
+    sign: {
+      key: 'sign',
+      label: 'Sign in person',
+      hint: 'Hand the phone to a supervisor now to seal the entry.',
     },
-    { label: 'EMPLOYER', value: draft.employer || '—' },
-    { label: 'SITE', value: draft.site || '—' },
-    { label: 'CLIENT', value: draft.client || '—' },
-    { label: 'TASK', value: draft.workTask || '—' },
-    { label: 'ACCESS', value: draft.accessMethod || '—' },
-    { label: 'STRUCTURE', value: draft.structureType || '—' },
-    {
-      label: 'HEIGHT',
-      value: draft.maxHeight ? `${draft.maxHeight} ${draft.heightUnit}` : '—',
-      mono: true,
+    request: {
+      key: 'request',
+      label: 'Request remote signature',
+      hint: 'Send a verifier link to a supervisor off-site.',
     },
-    { label: 'HOURS', value: Number(draft.hours).toFixed(1), mono: true },
-  ];
+    draft: {
+      key: 'draft',
+      label: 'Save as draft',
+      hint: 'Park the entry. Sign or send for signature later.',
+    },
+  };
+  const ordered = orderActions(defaultTerminalAction).map((k) => ({
+    ...choices[k],
+    primary: k === defaultTerminalAction,
+  }));
+
+  function handlePress(action: TerminalActionPref) {
+    if (action === 'sign') onSignNow();
+    else if (action === 'request') onRequestRemote();
+    else onSaveDraft();
+  }
 
   return (
-    <View style={{ gap: spacing.lg }}>
-      <View
-        style={{
-          borderWidth: 1.5,
-          borderColor: tidewater.hair,
-          backgroundColor: tidewater.white,
-        }}
-      >
-        <View
-          style={{
-            paddingHorizontal: spacing.sm,
-            paddingVertical: 6,
-            borderBottomWidth: 1.5,
-            borderBottomColor: tidewater.hair,
-          }}
-        >
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-            § 15 · RECORD SUMMARY
-          </Text>
+    <View style={{ gap: 14 }}>
+      <Card padding={16}>
+        <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>REVIEW</Text>
+        <Text style={{ ...type.heroCardTitle, color: tokens.text, marginTop: 4 }} numberOfLines={2}>
+          {draft.site || 'Untitled site'}
+        </Text>
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+          {[draft.client, draft.workTask].filter(Boolean).join(' · ') || '—'}
+        </Text>
+        <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 14 }} />
+        <View style={{ flexDirection: 'row', gap: 14 }}>
+          <Stat label="Hours" value={(Number(draft.hours) || 0).toFixed(1)} />
+          <Stat
+            label="Height"
+            value={
+              draft.maxHeight.trim() === ''
+                ? '—'
+                : `${draft.maxHeight} ${draft.heightUnit}`
+            }
+          />
+          <Stat label="Access" value={draft.accessMethod || '—'} />
         </View>
-        {summaryRows.map((row, i) => (
-          <View
-            key={row.label}
-            style={{
-              flexDirection: 'row',
-              paddingHorizontal: spacing.sm,
-              paddingVertical: 6,
-              borderBottomWidth: i < summaryRows.length - 1 ? 1 : 0,
-              borderBottomColor: tidewater.hairFaint,
-              gap: spacing.sm,
-              alignItems: 'center',
-            }}
-          >
-            <Text
-              style={{
-                ...typography.monoSm,
-                color: tidewater.ink3,
-                width: 84,
-                letterSpacing: 1.2,
-              }}
-            >
-              {row.label}
-            </Text>
-            <Text
-              style={{
-                flex: 1,
-                ...(row.mono ? typography.monoMd : typography.bodyMed),
-                color: tidewater.ink,
-              }}
-              numberOfLines={2}
-            >
-              {row.value}
-            </Text>
-          </View>
-        ))}
-        {draft.description ? (
-          <View
-            style={{
-              padding: spacing.sm,
-              borderTopWidth: 1,
-              borderTopColor: tidewater.hairFaint,
-            }}
-          >
-            <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
-              NOTES
-            </Text>
-            <Text style={{ ...typography.body, color: tidewater.ink, marginTop: 4 }}>
-              {draft.description}
-            </Text>
-          </View>
-        ) : null}
-      </View>
+      </Card>
 
-      <View style={{ gap: spacing.xs }}>
-        <SectionLabel
-          n="16"
-          label="SUPERVISOR"
-          right="select if signing or requesting"
-        />
-        {supervisors.length === 0 ? (
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: tidewater.hairSoft,
-              padding: spacing.md,
-            }}
-          >
-            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
-              No supervisors on file yet. The sign and request screens will let you enter one inline.
-            </Text>
-          </View>
-        ) : (
-          <View style={{ borderWidth: 1.5, borderColor: tidewater.hair }}>
-            {supervisors.map((sup, i) => {
-              const active = draft.selectedSupervisorId === sup.id;
+      {supervisors.length > 0 ? (
+        <View>
+          <SectionKicker>SUPERVISOR (OPTIONAL)</SectionKicker>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => update({ selectedSupervisorId: null })}
+              style={({ pressed }) => [
+                supervisorChipStyle(tokens, draft.selectedSupervisorId == null),
+                pressed ? { transform: [{ scale: 0.97 }] } : null,
+              ]}
+            >
+              <Text
+                style={{
+                  ...type.cardSub,
+                  color: draft.selectedSupervisorId == null ? tokens.accentInk : tokens.text,
+                }}
+              >
+                None
+              </Text>
+            </Pressable>
+            {supervisors.slice(0, 6).map((s) => {
+              const active = draft.selectedSupervisorId === s.id;
               return (
                 <Pressable
-                  key={sup.id}
-                  onPress={() => {
-                    haptics.selection();
-                    update({ selectedSupervisorId: active ? null : sup.id });
-                  }}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: 10,
-                    borderBottomWidth: i < supervisors.length - 1 ? 1 : 0,
-                    borderBottomColor: tidewater.hairFaint,
-                    backgroundColor: active ? tidewater.accentSoft : 'transparent',
-                    borderLeftWidth: active ? 4 : 0,
-                    borderLeftColor: tidewater.accent,
-                  }}
+                  key={s.id}
+                  accessibilityRole="button"
+                  onPress={() => update({ selectedSupervisorId: s.id })}
+                  style={({ pressed }) => [
+                    supervisorChipStyle(tokens, active),
+                    pressed ? { transform: [{ scale: 0.97 }] } : null,
+                  ]}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ ...typography.bodyBold, color: tidewater.ink }}>
-                      {sup.name}
-                    </Text>
-                    <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
-                      {[sup.role, sup.cert_number].filter(Boolean).join(' · ') || '—'}
-                    </Text>
-                  </View>
-                  {active ? (
-                    <Text
-                      style={{
-                        ...typography.monoSm,
-                        color: tidewater.accent,
-                        fontWeight: '600',
-                        letterSpacing: 1.5,
-                      }}
-                    >
-                      SELECTED
-                    </Text>
-                  ) : null}
+                  <Text style={{ ...type.cardSub, color: active ? tokens.accentInk : tokens.text }}>
+                    {s.name}
+                  </Text>
                 </Pressable>
               );
             })}
           </View>
-        )}
-      </View>
-
-      {!signReady ? (
-        <View
-          style={{
-            borderWidth: 1.5,
-            borderColor: tidewater.yellowDeep,
-            backgroundColor: tidewater.yellowSoft,
-            padding: spacing.md,
-          }}
-        >
-          <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-            BEFORE SIGNING
-          </Text>
-          <Text style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
-            Missing: {missingFields.join(', ')}
-          </Text>
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3, marginTop: 4 }}>
-            Save as draft is still available — finish the fields when you can.
-          </Text>
         </View>
-      ) : (
-        <View
-          style={{
-            borderWidth: 1.5,
-            borderColor: tidewater.accent,
-            backgroundColor: tidewater.accentSoft,
-            padding: spacing.md,
-          }}
-        >
-          <Text style={{ ...typography.bodyMed, color: tidewater.ink, lineHeight: 22 }}>
-            Submitting locks this record into your hash chain. Amendments require a counter-signed
-            appendix per IRATA ICOP §G.4.
-          </Text>
-        </View>
-      )}
+      ) : null}
 
-      <View style={{ gap: spacing.sm }}>
-        {/* Order + emphasis follow the operator's default-action preference
-            (More → Preferences). All three stay reachable; the preferred one
-            just takes the primary slot. */}
-        {orderTerminalActions(defaultTerminalAction).map((action, tier) => (
-          <TerminalActionButton
-            key={action}
-            tier={tier}
-            action={action}
-            signReady={signReady}
-            busy={busy}
-            onSignNow={onSignNow}
-            onRequestRemote={onRequestRemote}
-            onSaveDraft={onSaveDraft}
+      <View style={{ gap: 8 }}>
+        {ordered.map((choice) => (
+          <ChoiceRow
+            key={choice.key}
+            label={choice.label}
+            hint={choice.hint}
+            emphasis={choice.primary}
+            disabled={busy != null && busy !== choice.key}
+            loading={busy === choice.key}
+            onPress={() => handlePress(choice.key)}
           />
         ))}
+      </View>
 
-        <SaveTemplateRow
-          missingFields={templateMissingFields}
-          busy={busy}
-          onSaveTemplate={onSaveTemplate}
-        />
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: tokens.warnSoft,
+        }}
+      >
+        <IconWarn size={18} color={tokens.warn} fill={tokens.warn} />
+        <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+          Once an entry is signed, it can't be edited. Amendments are new entries that point back
+          to the original. Pick "Save as draft" if you're not sure yet.
+        </Text>
       </View>
     </View>
   );
 }
 
-// Canonical order of the three Step 3 terminal actions. The operator's
-// preferred action is hoisted to the front; the rest keep this sequence.
-const TERMINAL_ACTION_SEQUENCE: TerminalActionPref[] = ['sign', 'request', 'draft'];
-
-function orderTerminalActions(pref: TerminalActionPref): TerminalActionPref[] {
-  return [pref, ...TERMINAL_ACTION_SEQUENCE.filter((a) => a !== pref)];
+function supervisorChipStyle(tokens: ReturnType<typeof useTheme>['tokens'], active: boolean): ViewStyle {
+  return {
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    backgroundColor: active ? tokens.accent : tokens.surface2,
+    borderWidth: 1,
+    borderColor: active ? tokens.accent : tokens.lineSoft,
+  };
 }
 
-const TERMINAL_ACTION_META: Record<
-  TerminalActionPref,
-  {
-    label: string;
-    busyLabel: string;
-    busyKey: 'sign' | 'request' | 'draft';
-    Icon: typeof PenLine | null;
-    // Gated actions need the entry to be sign-ready; SAVE AS DRAFT never is.
-    gated: boolean;
-  }
-> = {
-  sign: { label: 'SIGN NOW', busyLabel: 'OPENING SIGN…', busyKey: 'sign', Icon: PenLine, gated: true },
-  request: {
-    label: 'REQUEST REMOTE SIGNATURE',
-    busyLabel: 'OPENING REQUEST…',
-    busyKey: 'request',
-    Icon: Send,
-    gated: true,
-  },
-  draft: { label: 'SAVE AS DRAFT', busyLabel: 'SAVING…', busyKey: 'draft', Icon: null, gated: false },
-};
+// ──────────────────────────────────────────────────────────────────────────
 
-// One Step 3 terminal action, styled by tier: 0 = primary (filled accent),
-// 1 = secondary (outlined), 2 = quiet text link. Tier is assigned by the
-// operator's default-action preference, not the action's identity.
-function TerminalActionButton({
-  tier,
-  action,
-  signReady,
-  busy,
-  onSignNow,
-  onRequestRemote,
-  onSaveDraft,
+function ChoiceRow({
+  label,
+  hint,
+  emphasis,
+  disabled,
+  loading,
+  onPress,
 }: {
-  tier: number;
-  action: TerminalActionPref;
-  signReady: boolean;
-  busy: null | 'draft' | 'sign' | 'request' | 'template';
-  onSignNow: () => void;
-  onRequestRemote: () => void;
-  onSaveDraft: () => void;
+  label: string;
+  hint: string;
+  emphasis?: boolean;
+  disabled?: boolean;
+  loading?: boolean;
+  onPress: () => void;
 }) {
-  const { tidewater, typography, spacing } = useTheme();
-  const meta = TERMINAL_ACTION_META[action];
-  const onPress =
-    action === 'sign' ? onSignNow : action === 'request' ? onRequestRemote : onSaveDraft;
-  const blockedByReady = meta.gated && !signReady;
-  const disabled = blockedByReady || busy !== null;
-  const label = busy === meta.busyKey ? meta.busyLabel : meta.label;
-
-  if (tier === 2) {
-    return (
-      <Pressable
-        onPress={onPress}
-        disabled={disabled}
-        style={({ pressed }) => ({
-          height: 44,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: spacing.xs,
-          opacity: pressed && !disabled ? 0.5 : blockedByReady ? 0.5 : 1,
-        })}
-      >
-        <Text style={{ ...typography.monoMd, color: tidewater.ink3, letterSpacing: 1.4 }}>
-          {label}
-        </Text>
-      </Pressable>
-    );
-  }
-
-  const primary = tier === 0;
-  const fill = primary
-    ? blockedByReady
-      ? tidewater.paper2
-      : tidewater.accent
-    : tidewater.white;
-  const foreground = primary
-    ? blockedByReady
-      ? tidewater.ink3
-      : tidewater.paper
-    : blockedByReady
-      ? tidewater.ink3
-      : tidewater.ink;
-  const Icon = meta.Icon;
-
+  const { tokens } = useTheme();
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => ({
-        height: primary ? 56 : 52,
-        borderWidth: 1.5,
-        borderColor: tidewater.ink,
-        backgroundColor: fill,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.xs,
-        opacity: pressed && !disabled ? 0.85 : blockedByReady && !primary ? 0.5 : 1,
-      })}
+      disabled={disabled || loading}
+      style={({ pressed }) => [
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          padding: 14,
+          borderRadius: 14,
+          backgroundColor: emphasis ? tokens.accent : tokens.surface,
+          borderWidth: 1,
+          borderColor: emphasis ? tokens.accent : tokens.lineSoft,
+          opacity: disabled ? 0.5 : 1,
+        },
+        pressed && !disabled ? { transform: [{ scale: 0.99 }] } : null,
+      ]}
     >
-      {Icon ? <Icon color={foreground} size={primary ? 20 : 18} strokeWidth={2.2} /> : null}
-      <Text style={{ ...typography.displaySm, color: foreground, letterSpacing: 1.5 }}>
-        {label}
-      </Text>
+      <View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          backgroundColor: emphasis ? 'rgba(0,0,0,0.12)' : tokens.surface2,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <IconSign
+          size={20}
+          color={emphasis ? tokens.accentInk : tokens.text}
+          fill={emphasis ? tokens.accentInk : tokens.accent}
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            ...type.cardTitle,
+            color: emphasis ? tokens.accentInk : tokens.text,
+          }}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+        <Text
+          style={{
+            ...type.cardSub,
+            color: emphasis ? tokens.accentInk : tokens.textDim,
+            opacity: emphasis ? 0.85 : 1,
+            marginTop: 2,
+          }}
+          numberOfLines={2}
+        >
+          {loading ? 'Saving…' : hint}
+        </Text>
+      </View>
+      {emphasis ? <Pill tone="chip" size="sm">Default</Pill> : null}
     </Pressable>
   );
 }
 
-// Persists the current activity shape (task / access / structure / notes /
-// hours / height) as a reusable template the wizard's Step 1 picker can apply.
-// Collapsed by default so it never competes with the terminal actions.
-function SaveTemplateRow({
-  missingFields,
-  busy,
-  onSaveTemplate,
-}: {
-  missingFields: string[];
-  busy: null | 'draft' | 'sign' | 'request' | 'template';
-  onSaveTemplate: (name: string) => Promise<void>;
-}) {
-  const { tidewater, typography, spacing } = useTheme();
-  const [open, setOpen] = React.useState(false);
-  const [name, setName] = React.useState('');
-  const [saved, setSaved] = React.useState(false);
+// ──────────────────────────────────────────────────────────────────────────
 
-  const blocked = missingFields.length > 0;
-  const trimmed = name.trim();
-  const canSave = !blocked && trimmed.length > 0 && busy === null;
-
-  async function save() {
-    if (!canSave) return;
-    try {
-      await onSaveTemplate(trimmed);
-      setName('');
-      setOpen(false);
-      setSaved(true);
-      haptics.success();
-    } catch {
-      // onSaveTemplate already surfaced the error; keep the row open to retry.
-    }
-  }
-
-  if (saved) {
-    return (
-      <View style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ ...typography.monoMd, color: tidewater.green, letterSpacing: 1.4 }}>
-          ✓ TEMPLATE SAVED
-        </Text>
-      </View>
-    );
-  }
-
-  if (!open) {
-    return (
-      <Pressable
-        onPress={() => setOpen(true)}
-        disabled={busy !== null}
-        style={({ pressed }) => ({
-          height: 44,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: pressed ? 0.5 : 1,
-        })}
-      >
-        <Text style={{ ...typography.monoMd, color: tidewater.ink3, letterSpacing: 1.4 }}>
-          SAVE CURRENT AS TEMPLATE
-        </Text>
-      </Pressable>
-    );
-  }
-
+function Stat({ label, value }: { label: string; value: string }) {
+  const { tokens } = useTheme();
   return (
-    <View
-      style={{
-        borderWidth: 1.5,
-        borderColor: tidewater.hair,
-        backgroundColor: tidewater.white,
-        padding: spacing.sm,
-        gap: spacing.xs,
-      }}
-    >
-      <SectionLabel n="17" label="SAVE AS TEMPLATE" right="reuse on a future record" />
-      {blocked ? (
-        <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
-          Add {missingFields.join(', ')} first — a template needs the full activity shape.
-        </Text>
-      ) : (
-        <PlainInput value={name} onChangeText={setName} placeholder="Template name" />
-      )}
-      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4 }}>
-        <Pressable
-          onPress={() => {
-            setOpen(false);
-            setName('');
-          }}
-          style={({ pressed }) => ({
-            flex: 1,
-            height: 44,
-            borderWidth: 1.5,
-            borderColor: tidewater.hair,
-            backgroundColor: tidewater.white,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.7 : 1,
-          })}
-        >
-          <Text style={{ ...typography.monoMd, color: tidewater.ink3, letterSpacing: 1.4 }}>
-            CANCEL
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={save}
-          disabled={!canSave}
-          style={({ pressed }) => ({
-            flex: 1.4,
-            height: 44,
-            borderWidth: 1.5,
-            borderColor: tidewater.ink,
-            backgroundColor: canSave ? tidewater.accent : tidewater.paper2,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed && canSave ? 0.85 : 1,
-          })}
-        >
-          <Text
-            style={{
-              ...typography.monoMd,
-              color: canSave ? tidewater.paper : tidewater.ink3,
-              letterSpacing: 1.4,
-            }}
-          >
-            {busy === 'template' ? 'SAVING…' : 'SAVE TEMPLATE'}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function SectionLabel({
-  n,
-  label,
-  right,
-}: {
-  n: string;
-  label: string;
-  right?: string;
-}) {
-  const { tidewater, typography, spacing } = useTheme();
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'baseline',
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs }}>
-        <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>§ {n}</Text>
-        <Text
-          style={{
-            ...typography.displaySm,
-            color: tidewater.ink,
-            letterSpacing: 1.2,
-          }}
-        >
-          {label}
-        </Text>
-      </View>
-      {right ? (
-        <Text
-          style={{
-            ...typography.monoSm,
-            color: tidewater.ink3,
-            fontStyle: 'italic',
-          }}
-        >
-          {right}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function FormCellInput({
-  n,
-  label,
-  value,
-  onChangeText,
-  placeholder,
-}: {
-  n: string;
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <View style={{ gap: 4 }}>
-      <SectionLabel n={n} label={label} />
-      <PlainInput value={value} onChangeText={onChangeText} placeholder={placeholder} />
-    </View>
-  );
-}
-
-function PlainInput({
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType,
-}: {
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-  keyboardType?: 'default' | 'numeric';
-}) {
-  const { tidewater, typography, spacing } = useTheme();
-  return (
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={tidewater.ink3}
-      keyboardType={keyboardType ?? 'default'}
-      style={{
-        borderWidth: 1.5,
-        borderColor: tidewater.hair,
-        backgroundColor: tidewater.white,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 10,
-        ...typography.body,
-        color: tidewater.ink,
-        minHeight: 44,
-      }}
-    />
-  );
-}
-
-function ChipRow({
-  value,
-  options,
-  onSelect,
-}: {
-  value: string;
-  options: string[];
-  onSelect: (v: string) => void;
-}) {
-  const { tidewater, typography, spacing } = useTheme();
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-      {options.map((opt) => {
-        const active = value === opt;
-        return (
-          <Pressable
-            key={opt}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-            onPress={() => {
-              haptics.selection();
-              onSelect(opt);
-            }}
-            hitSlop={6}
-            style={({ pressed }) => ({
-              minHeight: 36,
-              borderWidth: 1.5,
-              borderColor: active ? tidewater.accent : tidewater.hair,
-              backgroundColor: active ? tidewater.accent : tidewater.white,
-              paddingHorizontal: spacing.sm,
-              paddingVertical: 6,
-              justifyContent: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Text
-              style={{
-                ...typography.displaySm,
-                color: active ? tidewater.paper : tidewater.ink,
-                letterSpacing: 1.5,
-              }}
-            >
-              {opt.toUpperCase()}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function CertLevelRow({
-  scheme,
-  value,
-  onChange,
-}: {
-  scheme: string;
-  value: CertLevel | null;
-  onChange: (v: CertLevel | null) => void;
-}) {
-  const { tidewater, typography, spacing } = useTheme();
-  const levels: CertLevel[] = ['I', 'II', 'III'];
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-      <Text
-        style={{
-          ...typography.displaySm,
-          color: tidewater.ink,
-          letterSpacing: 1.5,
-          width: 70,
-        }}
-      >
-        {scheme}
+    <View style={{ flex: 1 }}>
+      <Text style={{ ...type.detailStat, color: tokens.text }} numberOfLines={1}>
+        {value}
       </Text>
-      <View
-        style={{
-          flexDirection: 'row',
-          flex: 1,
-          borderWidth: 1.5,
-          borderColor: tidewater.hair,
-        }}
-      >
-        <Pressable
-          onPress={() => {
-            haptics.selection();
-            onChange(null);
-          }}
-          style={{
-            flex: 1,
-            paddingVertical: 8,
-            backgroundColor: value === null ? tidewater.ink : 'transparent',
-            borderRightWidth: 1,
-            borderRightColor: tidewater.hairSoft,
-            alignItems: 'center',
-          }}
-        >
-          <Text
-            style={{
-              ...typography.monoSm,
-              color: value === null ? tidewater.paper : tidewater.ink3,
-              letterSpacing: 1.5,
-            }}
-          >
-            N/A
-          </Text>
-        </Pressable>
-        {levels.map((lvl, i) => {
-          const active = value === lvl;
-          return (
-            <Pressable
-              key={lvl}
-              onPress={() => {
-                haptics.selection();
-                onChange(lvl);
-              }}
-              style={{
-                flex: 1,
-                paddingVertical: 8,
-                backgroundColor: active ? tidewater.accent : 'transparent',
-                borderRightWidth: i < levels.length - 1 ? 1 : 0,
-                borderRightColor: tidewater.hairSoft,
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  ...typography.monoSm,
-                  color: active ? tidewater.paper : tidewater.ink2,
-                  letterSpacing: 1.5,
-                }}
-              >
-                {lvl}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
+}
+
+function SectionKicker({ children }: { children: string }) {
+  const { tokens } = useTheme();
+  const kickerStyle: TextStyle = {
+    ...type.monoKicker,
+    color: tokens.textFaint,
+    marginBottom: 8,
+  };
+  return <Text style={kickerStyle}>{children}</Text>;
 }
