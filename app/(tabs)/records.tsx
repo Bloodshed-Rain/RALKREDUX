@@ -1,11 +1,9 @@
 import React from 'react';
-import { Alert, Pressable, RefreshControl, Share, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, Text, View, type TextStyle } from 'react-native';
 import { router } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react-native';
 import { buildLogbookExportFileName, buildLogbookPdfHtml } from '@/src/domain/logbook/export';
 import { haptics } from '@/src/ui/haptics';
 import {
@@ -14,110 +12,123 @@ import {
   useExportLogbook,
   useExportLogbookCsv,
 } from '@/src/domain/logbook/use-logbook';
-import { useProfile } from '@/src/domain/profile/use-profile';
-import {
-  computeRangeKpis,
-  filterEntriesInRange,
-  getEntryListStatus,
-  RANGE_OPTIONS,
-  shortStatus,
-  type EntryListStatus,
-  type RangeKey,
-} from '@/src/domain/logbook/records-derivations';
-import { AnimatedCounter, DocBand, RowDoc, Screen, SwipeRow } from '@/src/ui/primitives';
+import type { LogbookEntry } from '@/src/domain/logbook/types';
 import { useTheme } from '@/src/ui/theme/theme-provider';
-import { PrefKeys, readPref, writePref } from '@/src/storage/local-prefs';
+import {
+  Button,
+  ChipSelect,
+  EmptyState,
+  EntryRow,
+  Field,
+  IconBtn,
+  Pill,
+  TopBar,
+} from '@/src/ui/primitives/v2';
+import { IconExport, IconFilter, IconSearch } from '@/src/ui/icons';
 
-function formatRowDate(iso: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-    const [, month, day] = iso.split('-');
-    return `${month}·${day}`;
-  }
-  return iso.slice(5, 10).replace('-', '·');
+type FilterKey = 'all' | 'drafts' | 'signed' | 'amended';
+
+function rowStatus(entry: LogbookEntry): 'draft' | 'signed' | 'amended' | 'pending' {
+  if (entry.status === 'amended') return 'amended';
+  if (entry.status === 'signed') return 'signed';
+  if (entry.pending_signature_id) return 'pending';
+  return 'draft';
 }
 
-function statusTone(status: EntryListStatus, palette: { green: string; yellowDeep: string; ink2: string; ink3: string }): string {
-  switch (status) {
-    case 'SIGNED':
-      return palette.green;
-    case 'PENDING':
-      return palette.yellowDeep;
-    case 'AMENDED':
-      return palette.ink2;
-    case 'DRAFT':
-      return palette.ink3;
+function matchesFilter(entry: LogbookEntry, filter: FilterKey): boolean {
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'drafts':
+      return entry.status === 'draft';
+    case 'signed':
+      return entry.status === 'signed';
+    case 'amended':
+      return entry.status === 'amended';
   }
+}
+
+function matchesQuery(entry: LogbookEntry, q: string): boolean {
+  if (!q) return true;
+  const needle = q.toLowerCase();
+  return (
+    entry.site.toLowerCase().includes(needle) ||
+    entry.client.toLowerCase().includes(needle) ||
+    entry.employer.toLowerCase().includes(needle) ||
+    entry.work_task.toLowerCase().includes(needle) ||
+    entry.description.toLowerCase().includes(needle)
+  );
+}
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+interface MonthGroup {
+  key: string;
+  label: string;
+  entries: LogbookEntry[];
+}
+
+function groupByMonth(entries: LogbookEntry[]): MonthGroup[] {
+  const order: string[] = [];
+  const map = new Map<string, MonthGroup>();
+  for (const entry of entries) {
+    const iso = entry.date_to;
+    const m = /^(\d{4})-(\d{2})/.exec(iso);
+    const yearMonth = m ? `${m[1]}-${m[2]}` : 'unknown';
+    if (!map.has(yearMonth)) {
+      const label = m ? `${MONTH_NAMES[Number(m[2]) - 1]} ${m[1]}` : 'Undated';
+      const group: MonthGroup = { key: yearMonth, label, entries: [] };
+      map.set(yearMonth, group);
+      order.push(yearMonth);
+    }
+    map.get(yearMonth)!.entries.push(entry);
+  }
+  return order.map((k) => map.get(k)!);
 }
 
 export default function RecordsScreen() {
-  const queryClient = useQueryClient();
-  const [range, setRange] = React.useState<RangeKey>('30D');
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [openSwipeId, setOpenSwipeId] = React.useState<string | null>(null);
-  const [pdfPending, setPdfPending] = React.useState(false);
-
-  // Last-used range persists across launches. A manual tap wins over a slow
-  // load so the stored value can never clobber a fresh selection.
-  const rangeTouched = React.useRef(false);
-  React.useEffect(() => {
-    readPref<RangeKey>(PrefKeys.recordsRange, '30D').then((stored) => {
-      if (rangeTouched.current) return;
-      if (RANGE_OPTIONS.some((o) => o.key === stored)) setRange(stored);
-    });
-  }, []);
-
-  const selectRange = React.useCallback((key: RangeKey) => {
-    rangeTouched.current = true;
-    setRange(key);
-    writePref(PrefKeys.recordsRange, key);
-    haptics.selection();
-  }, []);
   const entries = useEntries();
-  const profile = useProfile();
   const exportLogbook = useExportLogbook();
   const exportLogbookCsv = useExportLogbookCsv();
   const deleteDraft = useDeleteDraftEntry();
-  const { tidewater, typography, spacing } = useTheme();
+  const { tokens } = useTheme();
 
-  function confirmDeleteDraft(id: string, label: string) {
-    haptics.warning();
-    Alert.alert(
-      'Delete draft?',
-      `Permanently remove the draft for ${label}. This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel', onPress: () => setOpenSwipeId(null) },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setOpenSwipeId(null);
-            deleteDraft.mutate(id, {
-              onError: (err) => {
-                const reason =
-                  err instanceof Error && err.message === 'entry_has_pending_remote_request'
-                    ? 'A remote signature request is still pending. Resolve it before deleting this draft.'
-                    : err instanceof Error
-                      ? err.message
-                      : 'Could not delete the draft.';
-                Alert.alert('Could not delete draft', reason);
-              },
-            });
-          },
-        },
-      ],
-    );
-  }
+  const [query, setQuery] = React.useState('');
+  const [filter, setFilter] = React.useState<FilterKey>('all');
+  const [pdfPending, setPdfPending] = React.useState(false);
+  const [exportOpen, setExportOpen] = React.useState(false);
 
-  const today = new Date();
   const entriesData = entries.data ?? [];
-  const inRange = filterEntriesInRange(entriesData, today, range);
-  const kpis = computeRangeKpis(inRange);
+  const counts = React.useMemo(() => {
+    let drafts = 0;
+    let signed = 0;
+    let amended = 0;
+    for (const e of entriesData) {
+      if (e.status === 'draft') drafts += 1;
+      else if (e.status === 'signed') signed += 1;
+      else if (e.status === 'amended') amended += 1;
+    }
+    return { drafts, signed, amended, all: entriesData.length };
+  }, [entriesData]);
 
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries({ queryKey: ['entries'] });
-    setRefreshing(false);
-  }, [queryClient]);
+  const filteredEntries = React.useMemo(() => {
+    return entriesData.filter((e) => matchesFilter(e, filter) && matchesQuery(e, query));
+  }, [entriesData, filter, query]);
+
+  const monthGroups = React.useMemo(() => groupByMonth(filteredEntries), [filteredEntries]);
 
   async function shareJson() {
     const bundle = await exportLogbook.mutateAsync();
@@ -129,9 +140,6 @@ export default function RecordsScreen() {
     await Share.share({ title: 'RALB logbook CSV', message: csv });
   }
 
-  // Full-logbook PDF: signed + amended records (drafts excluded by the
-  // service) on a weave + watermark-seal cover, mirroring the per-entry
-  // share path in entry detail.
   async function sharePdf() {
     setPdfPending(true);
     try {
@@ -139,12 +147,10 @@ export default function RecordsScreen() {
       const { uri } = await Print.printToFileAsync({ html: buildLogbookPdfHtml(bundle) });
       const fileName = buildLogbookExportFileName(bundle, 'pdf');
       const namedUri = FileSystem.cacheDirectory ? `${FileSystem.cacheDirectory}${fileName}` : uri;
-
       if (namedUri !== uri) {
         await FileSystem.deleteAsync(namedUri, { idempotent: true });
         await FileSystem.copyAsync({ from: uri, to: namedUri });
       }
-
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(namedUri, {
           dialogTitle: 'Share RALB audit logbook PDF',
@@ -161,296 +167,209 @@ export default function RecordsScreen() {
     }
   }
 
-  const operatorTag = profile.data?.full_name?.split(' ').filter(Boolean).slice(-1)[0]?.toUpperCase() ?? '';
+  const sectionKickerStyle: TextStyle = {
+    fontFamily: 'JetBrainsMono_600SemiBold',
+    fontWeight: '600',
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: 1.5,
+    color: tokens.textFaint,
+    textTransform: 'uppercase',
+    paddingTop: 18,
+    paddingBottom: 6,
+    backgroundColor: tokens.bg,
+  };
 
   return (
-    <Screen
-      padded={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tidewater.ink} />}
-    >
-      <DocBand
-        variant="top"
-        formId="CH.2 · LOG"
-        rev={`LOG-${today.getFullYear()}`}
-        effective={`${entriesData.length} ON FILE`}
-        rightLabel={operatorTag}
+    <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+      <TopBar
+        title="Records"
+        subtitle={`${entriesData.length} ${entriesData.length === 1 ? 'entry' : 'entries'} · sealed in the chain`}
+        large
+        trailing={
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            <IconBtn
+              icon={IconExport}
+              label="Export"
+              size="sm"
+              onPress={() => setExportOpen((v) => !v)}
+            />
+            <IconBtn icon={IconFilter} label="Filter" size="sm" />
+          </View>
+        }
       />
 
-      <View style={{ paddingHorizontal: spacing.base, gap: spacing.md }}>
-        {/* Range chip group */}
-        <View style={{ flexDirection: 'row', borderWidth: 1.5, borderColor: tidewater.hair }}>
-          {RANGE_OPTIONS.map((opt, i) => {
-            const selected = opt.key === range;
-            return (
-              <Pressable
-                key={opt.key}
-                onPress={() => selectRange(opt.key)}
-                accessibilityRole="button"
-                accessibilityState={selected ? { selected: true } : {}}
-                style={{
-                  flex: 1,
-                  paddingVertical: 6,
-                  backgroundColor: selected ? tidewater.ink : 'transparent',
-                  borderRightWidth: i < RANGE_OPTIONS.length - 1 ? 1 : 0,
-                  borderRightColor: tidewater.hairSoft,
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  style={{
-                    ...typography.displaySm,
-                    color: selected ? tidewater.paper : tidewater.ink2,
-                    letterSpacing: 1.5,
-                  }}
-                >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* KPI row + ADD */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            borderBottomWidth: 1.5,
-            borderBottomColor: tidewater.hair,
-            paddingBottom: spacing.sm,
-            gap: spacing.md,
-          }}
-        >
-          <Kpi value={kpis.totalHours.toFixed(1)} unit="HR" label="SHOWN" />
-          <Kpi value={String(kpis.daysOnRope).padStart(2, '0')} unit="DAYS" label="ON ROPE" />
-          <Pressable
-            onPress={() => router.push('/entry/new')}
-            accessibilityRole="button"
-            accessibilityLabel="Add new entry"
+      <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 12 }}>
+        <Field
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search site, client, task…"
+          suffix={<IconSearch size={16} color={tokens.textDim} />}
+        />
+        <ChipSelect<FilterKey>
+          value={filter}
+          options={[
+            { value: 'all', label: 'All', count: counts.all },
+            { value: 'drafts', label: 'Drafts', count: counts.drafts },
+            { value: 'signed', label: 'Signed', count: counts.signed },
+            { value: 'amended', label: 'Amended', count: counts.amended },
+          ]}
+          onChange={setFilter}
+        />
+        {exportOpen ? (
+          <View
             style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.ink,
-              backgroundColor: tidewater.ink,
-              paddingHorizontal: spacing.sm,
-              paddingVertical: 6,
               flexDirection: 'row',
-              alignItems: 'center',
-              gap: 4,
-              alignSelf: 'flex-end',
+              gap: 8,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: tokens.surface,
+              borderWidth: 1,
+              borderColor: tokens.lineSoft,
             }}
           >
-            <Plus color={tidewater.paper} size={14} strokeWidth={2.4} />
-            <Text style={{ ...typography.displaySm, color: tidewater.paper, letterSpacing: 1.5 }}>
-              ADD
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Table */}
-        <View>
-          <RowDoc
-            head
-            cols={[
-              { value: 'DATE', width: 56, mono: true },
-              { value: 'SITE · CLIENT', flex: 1 },
-              { value: 'HR', width: 44, align: 'right', mono: true },
-              { value: 'STS', width: 44, align: 'right', mono: true },
-            ]}
-          />
-          {inRange.length === 0 ? (
-            <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                {entriesData.length === 0 ? 'NO ENTRIES ON FILE' : 'NO ENTRIES IN RANGE'}
-              </Text>
-            </View>
-          ) : (
-            inRange.map((entry) => {
-              const status = getEntryListStatus(entry);
-              const tone = statusTone(status, tidewater);
-              const isDeletableDraft = status === 'DRAFT';
-              const row = (
-                <Pressable
-                  onPress={() => router.push(`/entry/${entry.id}`)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open entry ${entry.site} on ${entry.date_to}`}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, backgroundColor: tidewater.paper })}
-                >
-                  <RowDoc
-                    cols={[
-                      {
-                        value: formatRowDate(entry.date_to),
-                        width: 56,
-                        mono: true,
-                        size: 11,
-                        tone: tidewater.ink3,
-                      },
-                      {
-                        value: (
-                          <View style={{ width: '100%' }}>
-                            <Text
-                              style={{
-                                ...typography.body,
-                                color: tidewater.ink,
-                                fontWeight: '600',
-                              }}
-                              numberOfLines={1}
-                            >
-                              {entry.site}
-                            </Text>
-                            <Text
-                              style={{
-                                ...typography.monoSm,
-                                color: tidewater.ink3,
-                              }}
-                              numberOfLines={1}
-                            >
-                              {entry.client.toUpperCase()}
-                            </Text>
-                          </View>
-                        ),
-                        flex: 1,
-                      },
-                      {
-                        value: entry.work_hours.toFixed(1),
-                        width: 44,
-                        align: 'right',
-                        mono: true,
-                        bold: true,
-                        size: 14,
-                      },
-                      {
-                        value: (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Text
-                              style={{
-                                ...typography.monoSm,
-                                color: tone,
-                                fontWeight: '600',
-                                letterSpacing: 1.5,
-                              }}
-                            >
-                              {shortStatus(status)}
-                            </Text>
-                            {isDeletableDraft ? (
-                              <Text
-                                style={{
-                                  ...typography.monoSm,
-                                  color: tidewater.ink3,
-                                  letterSpacing: 1.5,
-                                }}
-                              >
-                                ‹
-                              </Text>
-                            ) : null}
-                          </View>
-                        ),
-                        width: 56,
-                        align: 'right',
-                      },
-                    ]}
-                  />
-                </Pressable>
-              );
-
-              if (!isDeletableDraft) {
-                return <View key={entry.id}>{row}</View>;
-              }
-
-              return (
-                <SwipeRow
-                  key={entry.id}
-                  open={openSwipeId === entry.id}
-                  onToggle={(open) => setOpenSwipeId(open ? entry.id : null)}
-                  onDelete={() => confirmDeleteDraft(entry.id, entry.site || 'this draft')}
-                >
-                  {row}
-                </SwipeRow>
-              );
-            })
-          )}
-        </View>
-
-        {/* Export footer */}
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: spacing.sm,
-            alignItems: 'center',
-            marginTop: spacing.sm,
-          }}
-        >
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-            EXPORT:
-          </Text>
-          <Pressable onPress={shareJson} hitSlop={6}>
-            <Text style={{ ...typography.displaySm, color: tidewater.accent, letterSpacing: 1.5 }}>
+            <Button variant="primary" full onPress={sharePdf} disabled={pdfPending}>
+              {pdfPending ? 'Building PDF…' : 'PDF'}
+            </Button>
+            <Button variant="secondary" full onPress={shareJson}>
               JSON
-            </Text>
-          </Pressable>
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>·</Text>
-          <Pressable onPress={shareCsv} hitSlop={6}>
-            <Text style={{ ...typography.displaySm, color: tidewater.accent, letterSpacing: 1.5 }}>
+            </Button>
+            <Button variant="secondary" full onPress={shareCsv}>
               CSV
-            </Text>
-          </Pressable>
-          <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>·</Text>
-          <Pressable onPress={sharePdf} disabled={pdfPending} hitSlop={6}>
-            <Text
-              style={{
-                ...typography.displaySm,
-                color: pdfPending ? tidewater.ink3 : tidewater.accent,
-                letterSpacing: 1.5,
-              }}
-            >
-              {pdfPending ? 'BUILDING PDF…' : 'PDF'}
-            </Text>
-          </Pressable>
-        </View>
+            </Button>
+          </View>
+        ) : null}
       </View>
 
-      <View style={{ marginTop: spacing.lg }}>
-        <DocBand
-          variant="footer"
-          text={`SHOWING ${kpis.entryCount} OF ${entriesData.length}`}
-          page={`RANGE ${range}`}
-        />
-      </View>
-    </Screen>
-  );
-}
-
-function Kpi({ value, unit, label }: { value: string; unit: string; label: string }) {
-  const { tidewater, typography } = useTheme();
-  return (
-    <View>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
-        <AnimatedCounter
-          cacheKey={`records-kpi-${label}`}
-          text={value}
-          fontFamily="Archivo_900Black"
-          fontSize={26}
-          fontWeight="900"
-          letterSpacing={-0.4}
-          color={tidewater.ink}
-          height={30}
-          width={19}
-        />
-        <Text
-          style={{
-            ...typography.monoSm,
-            color: tidewater.ink3,
-            letterSpacing: 1.2,
-            marginTop: 14,
-          }}
-        >
-          {unit}
-        </Text>
-      </View>
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-        {label}
-      </Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 132 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {filteredEntries.length === 0 ? (
+          <View style={{ paddingTop: 16 }}>
+            <EmptyState
+              icon={IconSearch}
+              title={
+                query
+                  ? `Nothing matches "${query}"`
+                  : filter !== 'all'
+                    ? `No ${filter} entries yet`
+                    : 'No entries yet'
+              }
+              sub={
+                query || filter !== 'all'
+                  ? 'Adjust your search or filter to see more.'
+                  : 'Tap the center "+" to log your first job.'
+              }
+              action={
+                query || filter !== 'all' ? (
+                  <Button
+                    variant="outline"
+                    onPress={() => {
+                      setQuery('');
+                      setFilter('all');
+                      haptics.selection();
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                ) : null
+              }
+            />
+          </View>
+        ) : (
+          <RecordsList
+            groups={monthGroups}
+            kickerStyle={sectionKickerStyle}
+            onEntryPress={(id) => router.push(`/entry/${id}` as never)}
+            onDraftLongPress={(entry) => {
+              haptics.warning();
+              Alert.alert(
+                'Delete draft?',
+                `Permanently remove the draft for ${entry.site || 'this draft'}. This cannot be undone.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                      deleteDraft.mutate(entry.id, {
+                        onError: (err) => {
+                          const reason =
+                            err instanceof Error && err.message === 'entry_has_pending_remote_request'
+                              ? 'A remote signature request is still pending. Resolve it before deleting this draft.'
+                              : err instanceof Error
+                                ? err.message
+                                : 'Could not delete the draft.';
+                          Alert.alert('Could not delete draft', reason);
+                        },
+                      });
+                    },
+                  },
+                ],
+              );
+            }}
+          />
+        )}
+      </ScrollView>
     </View>
   );
 }
+
+interface RecordsListProps {
+  groups: MonthGroup[];
+  kickerStyle: TextStyle;
+  onEntryPress: (id: string) => void;
+  onDraftLongPress: (entry: LogbookEntry) => void;
+}
+
+function RecordsList({ groups, kickerStyle, onEntryPress, onDraftLongPress }: RecordsListProps) {
+  const { tokens } = useTheme();
+
+  return (
+    <View style={{ paddingHorizontal: 20 }}>
+      <View>
+        {groups.map((group) => (
+          <View key={group.key}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingTop: 14,
+                paddingBottom: 6,
+                backgroundColor: tokens.bg,
+              }}
+            >
+              <Text style={kickerStyle}>{group.label}</Text>
+              <Pill tone="chip" size="sm">{`${group.entries.length}`}</Pill>
+            </View>
+            <View style={{ gap: 8 }}>
+              {group.entries.map((entry) => (
+                <Pressable
+                  key={entry.id}
+                  onLongPress={() => {
+                    if (entry.status === 'draft') onDraftLongPress(entry);
+                  }}
+                >
+                  <EntryRow
+                    status={rowStatus(entry)}
+                    date={entry.date_to}
+                    site={entry.site}
+                    task={entry.work_task}
+                    hours={entry.work_hours}
+                    chainHash={entry.id}
+                    onPress={() => onEntryPress(entry.id)}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+

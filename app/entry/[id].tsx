@@ -5,21 +5,7 @@ import * as Linking from 'expo-linking';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import {
-  BookOpen,
-  Camera,
-  Eye,
-  FileJson,
-  FileText,
-  PenLine,
-  Plus,
-  RefreshCw,
-  Send,
-  Share2,
-  Trash2,
-  XCircle,
-} from 'lucide-react-native';
-import { Alert, Image as NativeImage, Platform, Pressable, Share, Text, View } from 'react-native';
+import { Alert, Image as NativeImage, Platform, Pressable, ScrollView, Share, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 import {
   cancelHostedRemoteSigningRequest,
@@ -31,9 +17,7 @@ import {
 } from '@/src/cloud/supabase/use-remote-signing-sync';
 import { formatDate, formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import { useGearItems } from '@/src/domain/gear/use-gear';
-import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
-import { deriveEntryStamps, type StampKind } from '@/src/domain/logbook/entry-stamps';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
 import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/logbook/logbook-service';
 import {
@@ -45,18 +29,29 @@ import {
   useExportEntryPacket,
   useRemoveGearFromEntry,
 } from '@/src/domain/logbook/use-logbook';
-import {
-  AnimatedStamp,
-  Chip,
-  DocActionButton,
-  DocBand,
-  Screen,
-  SectionH,
-  SignatureFill,
-  Stamp,
-} from '@/src/ui/primitives';
-import type { StampTone } from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChainLink,
+  IconBtn,
+  Pill,
+  SectionH,
+  SigFill,
+  StatusPill,
+  TopBar,
+  type ChainLinkItem,
+} from '@/src/ui/primitives/v2';
+import {
+  GEAR_ICON,
+  IconArrowLeft,
+  IconCamera,
+  IconExport,
+  IconMore,
+  IconSync,
+  IconVerified,
+} from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -69,7 +64,6 @@ function webVerifierOrigin(): string | null {
     const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
     return origin && origin !== 'null' ? origin : null;
   }
-
   return null;
 }
 
@@ -78,44 +72,15 @@ function buildVerifierLink(request: Parameters<typeof buildRemoteSigningToken>[0
   if (Platform.OS === 'web') {
     return buildRemoteSigningUrl(request, { origin: webVerifierOrigin() });
   }
-
-  return Linking.createURL(`/verify/${request.request_code}`, {
-    queryParams: { token },
-  });
+  return Linking.createURL(`/verify/${request.request_code}`, { queryParams: { token } });
 }
 
-const STAMP_TONE: Record<StampKind, StampTone> = {
-  DRAFT: 'yellow',
-  PENDING: 'yellow',
-  AMENDED: 'ink',
-  CHAIN_OK: 'green',
-  SYNCED: 'ink',
-};
-
-const STAMP_LABEL: Record<StampKind, string> = {
-  DRAFT: 'DRAFT',
-  PENDING: 'PENDING',
-  AMENDED: 'AMENDED',
-  CHAIN_OK: 'CHAIN OK',
-  SYNCED: 'SYNCED',
-};
-
-const LEAD_STAMP_PRIORITY: StampKind[] = ['AMENDED', 'DRAFT', 'CHAIN_OK', 'PENDING', 'SYNCED'];
-
-function pickLeadStamp(stamps: StampKind[]): StampKind | null {
-  for (const kind of LEAD_STAMP_PRIORITY) {
-    if (stamps.includes(kind)) return kind;
-  }
-  return null;
-}
-
-function truncateChainHash(value: string): string {
-  if (value.length <= 14) return value.toUpperCase();
-  return `${value.slice(0, 8)}…${value.slice(-4)}`.toUpperCase();
+function shortId(id: string): string {
+  return id.length > 8 ? id.slice(0, 8) : id;
 }
 
 export default function EntryDetailScreen() {
-  const { spacing, typography, tidewater, hairlines } = useTheme();
+  const { tokens } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
@@ -127,11 +92,13 @@ export default function EntryDetailScreen() {
   const cancelRemoteRequest = useCancelRemoteSignatureRequest();
   const importHostedCompletion = useImportHostedRemoteSignatureCompletion();
   useAutoSyncHostedRemoteSignature(detail.data);
-  const [isPdfPending, setIsPdfPending] = React.useState(false);
-  const [isHostedSharePending, setIsHostedSharePending] = React.useState(false);
+
+  const [pdfPending, setPdfPending] = React.useState(false);
+  const [hostedSharePending, setHostedSharePending] = React.useState(false);
   const [hostedImportFailed, setHostedImportFailed] = React.useState(false);
   const [hostedCancelFailed, setHostedCancelFailed] = React.useState(false);
   const [pdfFailed, setPdfFailed] = React.useState(false);
+
   const entry = detail.data?.entry;
   const signature = detail.data?.signature;
   const remoteRequest = detail.data?.remote_request;
@@ -141,58 +108,58 @@ export default function EntryDetailScreen() {
   const attachableGear = (gearItems.data ?? [])
     .filter(({ item, status }) => !assignedGearIds.has(item.id) && status !== 'retired')
     .slice(0, 6);
+
   const readiness = entry ? getEntryVerificationReadiness(entry) : null;
   const chainValid = useEntryChainValid(entry, signature);
-  const stamps = entry
-    ? deriveEntryStamps({
-        entry,
-        signature: signature ?? null,
-        remote_request: remoteRequest ?? null,
-        chain_valid: chainValid.data ?? false,
-      })
-    : [];
-  const leadStamp = pickLeadStamp(stamps);
-  const supportingStamps = leadStamp ? stamps.filter((s) => s !== leadStamp) : stamps;
-  const isSignedWithoutChainOk =
-    Boolean(signature) && chainValid.data === false && stamps.indexOf('CHAIN_OK') === -1;
-  const hashDrift =
-    signature && signature.hash_version !== ENTRY_HASH_VERSION
-      ? { signed: signature.hash_version, running: ENTRY_HASH_VERSION }
-      : null;
-  const chainHashLabel = signature?.chain_hash
-    ? `CHAIN ${truncateChainHash(signature.chain_hash)}`
-    : 'CHAIN PENDING';
 
   if (detail.isLoading) {
     return (
-      <Screen>
-        <Text selectable style={{ ...typography.body, color: tidewater.ink }}>
-          Loading entry
-        </Text>
-      </Screen>
+      <View style={{ flex: 1, backgroundColor: tokens.bg, padding: 20 }}>
+        <Text style={{ ...type.body, color: tokens.textDim }}>Loading entry…</Text>
+      </View>
     );
   }
 
-  if (!entry) {
+  if (!entry || !entryId) {
     return (
-      <Screen padded={false} weave>
-        <DocBand variant="top" formId="CH.7 - ENTRY RECORD" rev="MISSING" rightLabel="404" />
-        <View style={{ padding: spacing.base, gap: spacing.md }}>
-          <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }}>
-            Entry not found
-          </Text>
-          <DocActionButton
-            title="BACK TO RECORDS"
-            icon={BookOpen}
-            variant="secondary"
-            onPress={() => router.replace('/records')}
-          />
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar
+          title="Entry"
+          leading={
+            <IconBtn
+              icon={IconArrowLeft}
+              label="Back"
+              size="sm"
+              onPress={() => router.replace('/records')}
+            />
+          }
+        />
+        <View style={{ padding: 20, gap: 16 }}>
+          <Text style={{ ...type.heroCardTitle, color: tokens.text }}>Entry not found</Text>
+          <Button variant="primary" onPress={() => router.replace('/records')}>
+            Back to records
+          </Button>
         </View>
-      </Screen>
+      </View>
     );
   }
 
+  const isDraft = entry.status === 'draft';
+  const isReady = readiness?.ready === true;
+  const statusKey: 'draft' | 'signed' | 'amended' | 'pending' =
+    entry.status === 'amended'
+      ? 'amended'
+      : entry.status === 'signed'
+        ? 'signed'
+        : entry.pending_signature_id
+          ? 'pending'
+          : 'draft';
   const dateLabel = formatDateRange(entry.date_from, entry.date_to);
+  const dateKicker = dateLabel.toUpperCase();
+  const maxHeightLabel =
+    !entry.max_height || entry.max_height <= 0
+      ? '—'
+      : `${entry.max_height.toFixed(0)} ${entry.height_unit}`;
 
   async function shareEntryPacket() {
     if (!entryId) return;
@@ -205,19 +172,17 @@ export default function EntryDetailScreen() {
 
   async function shareEntryPdf() {
     if (!entryId) return;
-    setIsPdfPending(true);
+    setPdfPending(true);
     setPdfFailed(false);
     try {
       const packet = await exportEntry.mutateAsync(entryId);
       const { uri } = await Print.printToFileAsync({ html: buildEntryPdfHtml(packet) });
       const fileName = buildEntryExportFileName(packet, 'pdf');
       const namedUri = FileSystem.cacheDirectory ? `${FileSystem.cacheDirectory}${fileName}` : uri;
-
       if (namedUri !== uri) {
         await FileSystem.deleteAsync(namedUri, { idempotent: true });
         await FileSystem.copyAsync({ from: uri, to: namedUri });
       }
-
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(namedUri, {
           dialogTitle: 'Share RALB entry PDF',
@@ -225,31 +190,26 @@ export default function EntryDetailScreen() {
           UTI: 'com.adobe.pdf',
         });
       } else {
-        await Share.share({
-          title: 'RALB entry PDF',
-          message: namedUri,
-        });
+        await Share.share({ title: 'RALB entry PDF', message: namedUri });
       }
     } catch {
       setPdfFailed(true);
     } finally {
-      setIsPdfPending(false);
+      setPdfPending(false);
     }
   }
 
   async function shareVerifierRequest() {
     if (!remoteRequest || !entry || !detail.data) return;
-    setIsHostedSharePending(true);
+    setHostedSharePending(true);
     let verifierLink = buildVerifierLink(remoteRequest);
     try {
       const hosted = await syncHostedRemoteSigningRequest(detail.data);
-      if (hosted.ok) {
-        verifierLink = hosted.verifierUrl;
-      }
+      if (hosted.ok) verifierLink = hosted.verifierUrl;
     } catch {
       verifierLink = buildVerifierLink(remoteRequest);
     } finally {
-      setIsHostedSharePending(false);
+      setHostedSharePending(false);
     }
     const title = 'RALB remote signature request';
     const message = [
@@ -257,7 +217,6 @@ export default function EntryDetailScreen() {
       `Request code: ${remoteRequest.request_code}`,
       `Expires: ${remoteRequest.expires_at ? formatDate(remoteRequest.expires_at) : 'not set'}`,
     ].join('\n');
-
     await Share.share(
       Platform.OS === 'ios'
         ? { title, message, url: verifierLink }
@@ -271,16 +230,14 @@ export default function EntryDetailScreen() {
     setHostedImportFailed(false);
     try {
       const result = await importHostedCompletion.mutateAsync(remoteRequest);
-      if (!result.imported && result.reason === 'import_failed') {
-        setHostedImportFailed(true);
-      }
+      if (!result.imported && result.reason === 'import_failed') setHostedImportFailed(true);
     } catch {
       setHostedImportFailed(true);
     }
   }
 
   async function addPhotoEvidence() {
-    if (!entryId || entry?.status !== 'draft') return;
+    if (!entryId || !entry || entry.status !== 'draft') return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.75,
@@ -295,596 +252,508 @@ export default function EntryDetailScreen() {
     });
   }
 
-  const isDraft = entry.status === 'draft';
-  const isReady = readiness?.ready === true;
-  const maxHeightLabel = !entry.max_height || entry.max_height <= 0
-    ? '—'
-    : `${entry.max_height.toFixed(0)} ${entry.height_unit}`;
-  const employerClient = [entry.employer, entry.client].filter(Boolean).join(' · ') || 'No employer / client';
-
-  const footer = (
-    <View style={{ gap: spacing.sm }}>
-      {isDraft && !remoteRequest ? (
-        <View style={{ gap: spacing.sm }}>
-          <DocActionButton
-            title={isReady ? 'EDIT DRAFT' : 'FINISH DRAFT'}
-            icon={PenLine}
-            onPress={() => router.push(`/entry/${entry.id}/edit`)}
-          />
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <DocActionButton
-              title="SIGN"
-              icon={PenLine}
-              variant="secondary"
-              onPress={() => router.push(`/entry/${entry.id}/sign`)}
-              disabled={!isReady}
-              style={{ flex: 1 }}
-            />
-            <DocActionButton
-              title="REQUEST"
-              icon={Send}
-              variant="secondary"
-              onPress={() => router.push(`/entry/${entry.id}/request-signature`)}
-              disabled={!isReady}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      ) : null}
-
-      {remoteRequest ? (
-        <View style={{ gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <DocActionButton
-              title={isHostedSharePending ? 'SYNCING' : 'SHARE'}
-              icon={Share2}
-              onPress={shareVerifierRequest}
-              disabled={isHostedSharePending || importHostedCompletion.isPending}
-              style={{ flex: 1 }}
-            />
-            <DocActionButton
-              title={importHostedCompletion.isPending ? 'SYNCING' : 'SYNC'}
-              icon={RefreshCw}
-              variant="secondary"
-              onPress={syncHostedCompletion}
-              disabled={isHostedSharePending || importHostedCompletion.isPending}
-              style={{ flex: 1 }}
-            />
-            <DocActionButton
-              title="PREVIEW"
-              icon={Eye}
-              variant="secondary"
-              onPress={() =>
-                router.push(
-                  `/verify/${remoteRequest.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(remoteRequest))}`,
-                )
-              }
-              disabled={isHostedSharePending || importHostedCompletion.isPending}
-              style={{ flex: 1 }}
-            />
-          </View>
-          {remoteRequest.status === 'pending' ? (
-            <DocActionButton
-              title={cancelRemoteRequest.isPending ? 'CANCELLING' : 'CANCEL REQUEST'}
-              icon={XCircle}
-              variant="ghost"
-              onPress={() => {
-                haptics.warning();
-                Alert.alert(
-                  'Cancel this request?',
-                  "The pending request will be marked cancelled on this device. If you've already shared the verifier link, the link will still appear pending to the verifier until you tell them not to sign.",
-                  [
-                    { text: 'Keep request', style: 'cancel' },
-                    {
-                      text: 'Cancel locally',
-                      style: 'destructive',
-                      onPress: async () => {
-                        setHostedCancelFailed(false);
-                        try {
-                          await cancelRemoteRequest.mutateAsync(entry.id);
-                          haptics.success();
-                        } catch {
-                          haptics.error();
-                          return;
-                        }
-                        const result = await cancelHostedRemoteSigningRequest(remoteRequest);
-                        if (!result.ok && result.reason === 'cancel_failed') {
-                          setHostedCancelFailed(true);
-                        }
-                      },
-                    },
-                  ],
-                );
-              }}
-              disabled={
-                cancelRemoteRequest.isPending ||
-                isHostedSharePending ||
-                importHostedCompletion.isPending
-              }
-            />
-          ) : null}
-          {hostedImportFailed ? (
-            <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
-              Hosted signature sync failed. Check the connection and try again.
-            </Text>
-          ) : null}
-          {hostedCancelFailed ? (
-            <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
-              Couldn't reach hosted. The request is cancelled on this device; the verifier link may still appear pending.
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
-
-      {entry.status === 'signed' || entry.status === 'amended' ? (
-        <View style={{ gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <DocActionButton
-              title="PDF"
-              icon={FileText}
-              onPress={shareEntryPdf}
-              disabled={exportEntry.isPending || isPdfPending}
-              loading={isPdfPending}
-              style={{ flex: 1 }}
-            />
-            <DocActionButton
-              title="AUDIT PACKET"
-              icon={FileJson}
-              onPress={shareEntryPacket}
-              variant="secondary"
-              disabled={exportEntry.isPending || isPdfPending}
-              style={{ flex: 1 }}
-            />
-          </View>
-          {entry.status === 'signed' ? (
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <DocActionButton
-                title="RECORDS"
-                icon={BookOpen}
-                variant="secondary"
-                onPress={() => router.replace('/records')}
-                style={{ flex: 1 }}
-              />
-              <DocActionButton
-                title="AMEND"
-                icon={PenLine}
-                variant="ghost"
-                onPress={() => router.push(`/entry/${entry.id}/amend`)}
-                style={{ flex: 1 }}
-              />
-            </View>
-          ) : (
-            <DocActionButton
-              title="RECORDS"
-              icon={BookOpen}
-              variant="secondary"
-              onPress={() => router.replace('/records')}
-            />
-          )}
-        </View>
-      ) : null}
-    </View>
-  );
+  const chainLinks: ChainLinkItem[] = [];
+  if (signature?.chain_hash) {
+    if (signature.previous_chain_hash) {
+      chainLinks.push({
+        hash: signature.previous_chain_hash,
+        label: 'Previous link',
+        dim: true,
+      });
+    }
+    chainLinks.push({
+      hash: signature.chain_hash,
+      label: `${entry.site} · sealed ${formatDate(signature.signed_at)}`,
+      head: true,
+    });
+  }
 
   return (
-    <Screen padded={false} weave footer={footer}>
-      <DocBand
-        variant="top"
-        formId="CH.7 - ENTRY RECORD"
-        rev={entry.status === 'draft' ? 'DRAFT' : entry.status === 'amended' ? 'AMENDED' : 'LOCKED'}
-        effective={`ENTRY-HASH v${ENTRY_HASH_VERSION}`}
-        rightLabel={isDraft ? (isReady ? 'READY' : 'PENDING') : 'SEALED'}
+    <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+      <TopBar
+        title={`Entry ${shortId(entry.id)}`}
+        leading={
+          <IconBtn
+            icon={IconArrowLeft}
+            label="Back"
+            size="sm"
+            onPress={() => router.back()}
+          />
+        }
+        trailing={
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            <IconBtn
+              icon={IconExport}
+              label="Export"
+              size="sm"
+              onPress={shareEntryPdf}
+              disabled={pdfPending || exportEntry.isPending}
+            />
+            <IconBtn icon={IconMore} label="More" size="sm" />
+          </View>
+        }
       />
-
-      <View style={{ paddingHorizontal: spacing.base, gap: spacing.lg, paddingTop: spacing.base }}>
-        {/* Header card */}
-        <View
-          style={{
-            borderWidth: hairlines.standard.width,
-            borderColor: hairlines.standard.color,
-            backgroundColor: tidewater.white,
-          }}
-        >
-          <View
-            style={{
-              padding: spacing.md,
-              borderBottomWidth: 1.5,
-              borderBottomColor: tidewater.hair,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: spacing.sm,
-              alignItems: 'flex-start',
-            }}
-          >
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                LOGGED ENTRY
-              </Text>
-              <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
-                {entry.site}
-              </Text>
-              <Text selectable style={{ ...typography.monoSm, color: tidewater.ink2 }} numberOfLines={2}>
-                {employerClient}
-              </Text>
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 4 }}>
-              {leadStamp ? (
-                <AnimatedStamp
-                  tone={STAMP_TONE[leadStamp]}
-                  rotation="light"
-                  slamKey={`entry:${entry.id}:${leadStamp}`}
-                >
-                  {STAMP_LABEL[leadStamp]}
-                </AnimatedStamp>
-              ) : isSignedWithoutChainOk ? (
-                <AnimatedStamp tone="red" rotation="light" slamKey={`entry:${entry.id}:UNVERIFIED`}>
-                  UNVERIFIED
-                </AnimatedStamp>
-              ) : null}
-              {supportingStamps.length ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
-                  {supportingStamps.map((kind) => (
-                    <Stamp key={kind} tone={STAMP_TONE[kind]} rotation="heavy">
-                      {STAMP_LABEL[kind]}
-                    </Stamp>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
-            <Chip tone="ink">{dateLabel.toUpperCase()}</Chip>
-            <Chip tone="mute">{`${entry.work_hours.toFixed(1)} HR`}</Chip>
-            <Chip tone="mute">{`HEIGHT ${maxHeightLabel}`}</Chip>
-            {isDraft && readiness && !isReady ? (
-              <Chip tone="yellow">{`${readiness.missingFields.length} MISSING`}</Chip>
-            ) : null}
-            {isDraft && isReady ? <Chip tone="green">READY</Chip> : null}
-            {hashDrift ? (
-              <Chip tone="yellow">{`SIGNED UNDER v${hashDrift.signed} · RUNNING v${hashDrift.running}`}</Chip>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Work */}
-        <View>
-          <SectionH n="01" right={entry.amends_entry_id ? 'AMENDMENT' : undefined}>
-            Work
-          </SectionH>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
-            {entry.work_task ? <Chip tone="ink">{entry.work_task.toUpperCase()}</Chip> : null}
-            {entry.access_method ? <Chip tone="mute">{entry.access_method.toUpperCase()}</Chip> : null}
-            {entry.structure_type ? <Chip tone="mute">{entry.structure_type.toUpperCase()}</Chip> : null}
-            {entry.sprat_level_snapshot ? <Chip tone="green">{`SPRAT ${entry.sprat_level_snapshot}`}</Chip> : null}
-            {entry.irata_level_snapshot ? <Chip tone="green">{`IRATA ${entry.irata_level_snapshot}`}</Chip> : null}
-          </View>
-          {entry.description ? (
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 24, gap: 14 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ paddingHorizontal: 20, gap: 14 }}>
+          {/* HERO */}
+          <Card padding={18}>
             <View
               style={{
-                borderWidth: 1.5,
-                borderColor: tidewater.hairSoft,
-                backgroundColor: tidewater.white,
-                padding: spacing.sm,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 12,
               }}
             >
-              <Text selectable style={{ ...typography.body, color: tidewater.ink }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>{dateKicker}</Text>
+                <Text
+                  style={{ ...type.heroCardTitle, color: tokens.text }}
+                  numberOfLines={2}
+                  selectable
+                >
+                  {entry.site || 'Untitled entry'}
+                </Text>
+                <Text
+                  style={{ ...type.cardSub, color: tokens.textDim }}
+                  numberOfLines={2}
+                  selectable
+                >
+                  {[entry.client, entry.work_task].filter(Boolean).join(' · ') || '—'}
+                </Text>
+              </View>
+              <StatusPill status={statusKey} size="md" />
+            </View>
+
+            <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 16 }} />
+
+            <View style={{ flexDirection: 'row', gap: 14 }}>
+              <DetailStat label="Hours" value={entry.work_hours.toFixed(1)} />
+              <DetailStat label="Height" value={maxHeightLabel} />
+              <DetailStat label="Access" value={entry.access_method || '—'} />
+            </View>
+
+            {isDraft && readiness && !isReady ? (
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+                <Pill tone="warn" size="sm">
+                  {`${readiness.missingFields.length} missing`}
+                </Pill>
+              </View>
+            ) : null}
+            {chainValid.data === false && signature ? (
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 14 }}>
+                <Pill tone="danger" size="sm">Chain mismatch</Pill>
+              </View>
+            ) : null}
+          </Card>
+
+          {/* WORK */}
+          {entry.description ? (
+            <Card padding={16}>
+              <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 8 }}>
+                WORK DESCRIPTION
+              </Text>
+              <Text style={{ ...type.body, color: tokens.text }} selectable>
                 {entry.description}
               </Text>
-            </View>
+            </Card>
           ) : null}
-          {entry.amends_entry_id ? (
-            <DocRow label="AMENDS" value={entry.amends_entry_id.slice(0, 18)} />
-          ) : null}
-        </View>
 
-        {/* Gear */}
-        <View>
-          <SectionH n="02" right={`${gearUsage.length} ITEM${gearUsage.length === 1 ? '' : 'S'}`}>
-            Gear
-          </SectionH>
-          {gearUsage.length ? (
-            <View style={{ borderWidth: 1.5, borderColor: tidewater.hairSoft, backgroundColor: tidewater.white }}>
-              {gearUsage.map(({ gear, usage }, index) => (
-                <View
-                  key={gear.id}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.xs + 2,
-                    borderBottomWidth: index < gearUsage.length - 1 ? 1 : 0,
-                    borderBottomColor: tidewater.hairFaint,
-                    gap: spacing.sm,
-                  }}
-                >
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text selectable style={{ ...typography.bodyMed, color: tidewater.ink }} numberOfLines={1}>
-                      {gear.name}
-                    </Text>
-                    <Text selectable style={{ ...typography.monoSm, color: tidewater.ink3 }} numberOfLines={1}>
-                      {[gear.category, gear.serial_number, usage.role].filter(Boolean).join(' · ') || '—'}
-                    </Text>
-                  </View>
-                  {isDraft ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => {
-                        haptics.warning();
-                        Alert.alert(
-                          'Detach gear?',
-                          `Remove ${gear.name} from this draft entry. You can re-attach it before signing.`,
-                          [
-                            { text: 'Keep attached', style: 'cancel' },
-                            {
-                              text: 'Detach',
-                              style: 'destructive',
-                              onPress: () =>
-                                removeGear.mutate({ entry_id: entry.id, gear_id: gear.id }),
-                            },
-                          ],
-                        );
-                      }}
-                      disabled={removeGear.isPending}
-                      style={({ pressed }) => ({
-                        padding: spacing.xs,
-                        opacity: pressed ? 0.7 : 1,
-                      })}
-                    >
-                      <Trash2 size={18} color={tidewater.ink3} strokeWidth={2.2} />
-                    </Pressable>
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          ) : (
-            <EmptyLine>No gear attached</EmptyLine>
-          )}
-          {isDraft && attachableGear.length ? (
-            <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                ATTACH ACTIVE GEAR
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                {attachableGear.map(({ item }) => (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    onPress={() => {
-                      haptics.selection();
-                      attachGear.mutate({ entry_id: entry.id, gear_id: item.id, role: item.category });
-                    }}
-                    disabled={attachGear.isPending}
-                    style={({ pressed }) => ({
-                      borderWidth: 1.5,
-                      borderColor: tidewater.hair,
-                      backgroundColor: tidewater.white,
-                      paddingHorizontal: spacing.sm,
-                      paddingVertical: 6,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: spacing.xs,
-                      opacity: pressed ? 0.8 : 1,
-                    })}
-                  >
-                    <Plus size={14} color={tidewater.ink} strokeWidth={2.2} />
-                    <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                      {item.name.toUpperCase()}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Evidence */}
-        <View>
-          <SectionH n="03" right={`${attachments.length} FILE${attachments.length === 1 ? '' : 'S'}`}>
-            Evidence
-          </SectionH>
-          {attachments.length ? (
-            <View style={{ borderWidth: 1.5, borderColor: tidewater.hairSoft, backgroundColor: tidewater.white }}>
-              {attachments.map((attachment, index) => (
-                <View
-                  key={attachment.id}
-                  style={{
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.xs + 2,
-                    borderBottomWidth: index < attachments.length - 1 ? 1 : 0,
-                    borderBottomColor: tidewater.hairFaint,
-                    gap: 2,
-                  }}
-                >
-                  <Text selectable style={{ ...typography.bodyMed, color: tidewater.ink }} numberOfLines={1}>
-                    {attachment.label}
-                  </Text>
-                  <Text selectable style={{ ...typography.monoSm, color: tidewater.ink3 }} numberOfLines={1}>
-                    {attachment.mime_type ?? attachment.uri}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <EmptyLine>No attachments</EmptyLine>
-          )}
-          {isDraft ? (
-            <View style={{ marginTop: spacing.sm }}>
-              <DocActionButton
-                title={addAttachment.isPending ? 'ATTACHING' : 'ATTACH FROM PHOTOS'}
-                icon={Camera}
-                variant="secondary"
-                onPress={addPhotoEvidence}
-                disabled={addAttachment.isPending}
-              />
-            </View>
-          ) : null}
-        </View>
-
-        {/* Verification */}
-        <View>
-          <SectionH
-            n="04"
-            right={signature ? 'SIGNED' : remoteRequest ? 'PENDING' : 'UNSIGNED'}
-          >
-            Verification
-          </SectionH>
-          {signature ? (
-            <View
-              style={{
-                borderWidth: 1.5,
-                borderColor: tidewater.hair,
-                backgroundColor: tidewater.white,
-              }}
-            >
+          {/* GEAR */}
+          {gearUsage.length > 0 || (isDraft && attachableGear.length > 0) ? (
+            <Card padding={16}>
               <View
                 style={{
-                  padding: spacing.sm,
-                  borderBottomWidth: 1,
-                  borderBottomColor: tidewater.hairFaint,
                   flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  gap: spacing.xs,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
                 }}
               >
-                <Chip tone="green" solid>
-                  {signature.method.toUpperCase()}
-                </Chip>
-                <Chip tone="mute">{formatDate(signature.signed_at).toUpperCase()}</Chip>
-              </View>
-              <View
-                style={{
-                  paddingHorizontal: spacing.sm,
-                  paddingTop: spacing.sm,
-                  paddingBottom: spacing.xs,
-                  borderBottomWidth: 1,
-                  borderBottomColor: tidewater.hairFaint,
-                  gap: 4,
-                }}
-              >
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                  SIGNER
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>GEAR USED</Text>
+                <Text style={{ ...type.monoSm, color: tokens.textDim }}>
+                  {`${gearUsage.length} ${gearUsage.length === 1 ? 'item' : 'items'}`}
                 </Text>
-                <SignatureFill name={signature.supervisor_name} fontSize={22} />
               </View>
-              {signature.supervisor_cert_number ? (
-                <DocRow label="CERT" value={signature.supervisor_cert_number} />
-              ) : null}
-              {signature.signature_path ? (
-                <View style={{ padding: spacing.sm, gap: spacing.xs }}>
-                  <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                    DRAWN SIGNATURE
-                  </Text>
-                  <SignatureFrame value={signature.signature_path} />
+              {gearUsage.length ? (
+                <View style={{ gap: 8 }}>
+                  {gearUsage.map(({ gear, usage }) => {
+                    const Icon = GEAR_ICON[gear.category];
+                    return (
+                      <View
+                        key={gear.id}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: tokens.surface2,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Icon size={18} color={tokens.text} fill={tokens.accent} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{ ...type.cardTitle, color: tokens.text }}
+                            numberOfLines={1}
+                          >
+                            {gear.name}
+                          </Text>
+                          <Text style={{ ...type.monoSm, color: tokens.textDim }} numberOfLines={1}>
+                            {[gear.manufacturer, gear.serial_number, usage.role]
+                              .filter(Boolean)
+                              .join(' · ') || gear.category}
+                          </Text>
+                        </View>
+                        {isDraft ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Detach ${gear.name}`}
+                            onPress={() => {
+                              haptics.warning();
+                              Alert.alert(
+                                'Detach gear?',
+                                `Remove ${gear.name} from this draft entry.`,
+                                [
+                                  { text: 'Keep attached', style: 'cancel' },
+                                  {
+                                    text: 'Detach',
+                                    style: 'destructive',
+                                    onPress: () =>
+                                      removeGear.mutate({ entry_id: entry.id, gear_id: gear.id }),
+                                  },
+                                ],
+                              );
+                            }}
+                            disabled={removeGear.isPending}
+                            style={({ pressed }) => ({
+                              padding: 6,
+                              opacity: pressed ? 0.6 : 1,
+                            })}
+                          >
+                            <Text style={{ ...type.monoSm, color: tokens.textDim }}>Detach</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    );
+                  })}
                 </View>
               ) : null}
-              <DocRow label="ENTRY HASH" value={truncateHash(signature.entry_hash)} mono />
-              {signature.chain_hash ? (
-                <DocRow label="CHAIN HASH" value={truncateHash(signature.chain_hash)} mono last />
+              {isDraft && attachableGear.length ? (
+                <View style={{ marginTop: 12, gap: 6 }}>
+                  <Text style={{ ...type.monoSm, color: tokens.textFaint }}>ATTACH ACTIVE GEAR</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {attachableGear.map(({ item }) => (
+                      <Pressable
+                        key={item.id}
+                        accessibilityRole="button"
+                        onPress={() => {
+                          haptics.selection();
+                          attachGear.mutate({
+                            entry_id: entry.id,
+                            gear_id: item.id,
+                            role: item.category,
+                          });
+                        }}
+                        disabled={attachGear.isPending}
+                        style={({ pressed }) => ({
+                          paddingVertical: 6,
+                          paddingHorizontal: 11,
+                          borderRadius: 999,
+                          backgroundColor: tokens.surface2,
+                          borderWidth: 1,
+                          borderColor: tokens.lineSoft,
+                          opacity: pressed ? 0.7 : 1,
+                        })}
+                      >
+                        <Text style={{ ...type.cardSub, color: tokens.text }}>+ {item.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
               ) : null}
-            </View>
-          ) : remoteRequest ? (
-            <View
-              style={{
-                borderWidth: 1.5,
-                borderColor: tidewater.hair,
-                backgroundColor: tidewater.white,
-              }}
-            >
+            </Card>
+          ) : null}
+
+          {/* EVIDENCE */}
+          {attachments.length > 0 || isDraft ? (
+            <Card padding={16}>
               <View
                 style={{
-                  padding: spacing.sm,
-                  borderBottomWidth: 1,
-                  borderBottomColor: tidewater.hairFaint,
                   flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  gap: spacing.xs,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
                 }}
               >
-                <Chip tone="yellow">{remoteRequest.status.toUpperCase()}</Chip>
-                <Chip tone="ink">{remoteRequest.request_code}</Chip>
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>EVIDENCE</Text>
+                <Text style={{ ...type.monoSm, color: tokens.textDim }}>
+                  {`${attachments.length} ${attachments.length === 1 ? 'file' : 'files'}`}
+                </Text>
               </View>
-              <DocRow label="VERIFIER" value={remoteRequest.recipient_name} />
-              <DocRow
-                label="CONTACT"
+              {attachments.length ? (
+                <View style={{ gap: 6 }}>
+                  {attachments.map((att) => (
+                    <View
+                      key={att.id}
+                      style={{
+                        flexDirection: 'row',
+                        gap: 12,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          backgroundColor: tokens.surface2,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <IconCamera size={18} color={tokens.text} fill={tokens.accent} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+                          {att.label}
+                        </Text>
+                        <Text style={{ ...type.monoSm, color: tokens.textDim }} numberOfLines={1}>
+                          {att.mime_type ?? att.uri}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={{ ...type.cardSub, color: tokens.textDim }}>
+                  No photos attached yet.
+                </Text>
+              )}
+              {isDraft ? (
+                <View style={{ marginTop: 12 }}>
+                  <Button
+                    variant="outline"
+                    onPress={addPhotoEvidence}
+                    disabled={addAttachment.isPending}
+                    icon={IconCamera}
+                  >
+                    {addAttachment.isPending ? 'Attaching…' : 'Attach from photos'}
+                  </Button>
+                </View>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {/* SIGNATURE BLOCK */}
+          <SignatureBlock
+            isDraft={isDraft}
+            isReady={isReady}
+            entryId={entry.id}
+            signature={signature ?? null}
+          />
+
+          {/* REMOTE REQUEST */}
+          {remoteRequest ? (
+            <Card padding={16}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+                }}
+              >
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>REMOTE REQUEST</Text>
+                <Pill tone="warn" size="sm">{remoteRequest.status}</Pill>
+              </View>
+              <DetailRow label="Verifier" value={remoteRequest.recipient_name} />
+              <DetailRow
+                label="Contact"
                 value={
-                  [remoteRequest.verifier_role, remoteRequest.verifier_company].filter(Boolean).join(' · ') ||
+                  [remoteRequest.verifier_role, remoteRequest.verifier_company]
+                    .filter(Boolean)
+                    .join(' · ') ||
                   remoteRequest.recipient_contact ||
                   '—'
                 }
               />
-              <DocRow label="EXPIRES" value={formatDateOrDash(remoteRequest.expires_at)} />
-              <DocRow label="ENTRY HASH" value={truncateHash(remoteRequest.entry_hash)} mono last />
-            </View>
-          ) : (
-            <EmptyLine>Unsigned — sign locally or request a remote signature</EmptyLine>
-          )}
+              <DetailRow
+                label="Expires"
+                value={formatDateOrDash(remoteRequest.expires_at)}
+              />
+              <DetailRow
+                label="Code"
+                value={remoteRequest.request_code}
+                mono
+              />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <Button
+                  variant="primary"
+                  icon={IconExport}
+                  onPress={shareVerifierRequest}
+                  disabled={hostedSharePending || importHostedCompletion.isPending}
+                >
+                  {hostedSharePending ? 'Syncing…' : 'Share link'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon={IconSync}
+                  onPress={syncHostedCompletion}
+                  disabled={hostedSharePending || importHostedCompletion.isPending}
+                >
+                  {importHostedCompletion.isPending ? 'Syncing…' : 'Sync'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onPress={() =>
+                    router.push(
+                      `/verify/${remoteRequest.request_code}?token=${encodeURIComponent(buildRemoteSigningToken(remoteRequest))}` as never,
+                    )
+                  }
+                  disabled={hostedSharePending || importHostedCompletion.isPending}
+                >
+                  Preview
+                </Button>
+              </View>
+              {remoteRequest.status === 'pending' ? (
+                <View style={{ marginTop: 8 }}>
+                  <Button
+                    variant="ghost"
+                    onPress={() => {
+                      haptics.warning();
+                      Alert.alert(
+                        'Cancel this request?',
+                        "The pending request will be marked cancelled on this device. If you've already shared the verifier link, the link will still appear pending until you tell them not to sign.",
+                        [
+                          { text: 'Keep request', style: 'cancel' },
+                          {
+                            text: 'Cancel locally',
+                            style: 'destructive',
+                            onPress: async () => {
+                              setHostedCancelFailed(false);
+                              try {
+                                await cancelRemoteRequest.mutateAsync(entry.id);
+                                haptics.success();
+                              } catch {
+                                haptics.error();
+                                return;
+                              }
+                              const result = await cancelHostedRemoteSigningRequest(remoteRequest);
+                              if (!result.ok && result.reason === 'cancel_failed') {
+                                setHostedCancelFailed(true);
+                              }
+                            },
+                          },
+                        ],
+                      );
+                    }}
+                    disabled={
+                      cancelRemoteRequest.isPending ||
+                      hostedSharePending ||
+                      importHostedCompletion.isPending
+                    }
+                  >
+                    {cancelRemoteRequest.isPending ? 'Cancelling…' : 'Cancel request'}
+                  </Button>
+                </View>
+              ) : null}
+              {hostedImportFailed ? (
+                <Text style={{ ...type.cardSub, color: tokens.danger, marginTop: 8 }}>
+                  Hosted signature sync failed. Check the connection and try again.
+                </Text>
+              ) : null}
+              {hostedCancelFailed ? (
+                <Text style={{ ...type.cardSub, color: tokens.danger, marginTop: 8 }}>
+                  Couldn't reach hosted. The request is cancelled on this device; the verifier link may still appear pending.
+                </Text>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {/* CHAIN LADDER */}
+          {chainLinks.length > 0 ? (
+            <>
+              <SectionH kicker="CHAIN" title="Chain links" />
+              <View style={{ paddingHorizontal: 4 }}>
+                <ChainLink links={chainLinks} />
+              </View>
+            </>
+          ) : null}
+
+          {/* FOOTER ACTIONS */}
+          <FooterActions
+            entryId={entry.id}
+            entryStatus={entry.status}
+            hasRemoteRequest={!!remoteRequest}
+            isReady={isReady}
+            pdfPending={pdfPending}
+            exportPending={exportEntry.isPending}
+            onSharePdf={shareEntryPdf}
+            onShareJson={shareEntryPacket}
+          />
+
+          {pdfFailed ? (
+            <Text style={{ ...type.cardSub, color: tokens.danger }}>
+              Entry export failed.
+            </Text>
+          ) : null}
         </View>
-
-        {exportEntry.isError || pdfFailed ? (
-          <Text selectable style={{ ...typography.monoSm, color: tidewater.red }}>
-            Entry export failed.
-          </Text>
-        ) : null}
-      </View>
-
-      <DocBand
-        variant="footer"
-        text={
-          isDraft
-            ? isReady
-              ? 'DRAFT READY - SIGN LOCALLY OR REQUEST REMOTE SIGNATURE'
-              : 'DRAFT - COMPLETE REQUIRED FIELDS BEFORE SIGNING'
-            : entry.status === 'amended'
-              ? 'AMENDED RECORD - SEALED IN HASH CHAIN'
-              : 'SIGNED RECORD - SEALED IN HASH CHAIN'
-        }
-        page={chainHashLabel}
-      />
-    </Screen>
+      </ScrollView>
+    </View>
   );
 }
 
-function truncateHash(value: string): string {
-  return `${value.slice(0, 16)}…${value.slice(-12)}`;
+// ──────────────────────────────────────────────────────────────────────────
+
+function DetailStat({ label, value }: { label: string; value: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ ...type.detailStat, color: tokens.text }} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
 }
 
-function DocRow({
-  label,
-  value,
-  mono = false,
-  last = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  last?: boolean;
-}) {
-  const { spacing, typography, tidewater } = useTheme();
-
+function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const { tokens } = useTheme();
   return (
     <View
       style={{
         flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs + 2,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: tidewater.hairFaint,
-        gap: spacing.sm,
+        gap: 12,
+        paddingVertical: 6,
+        borderBottomWidth: 1,
+        borderBottomColor: tokens.lineSoft,
       }}
     >
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, width: 96, letterSpacing: 1.5 }}>
-        {label}
+      <Text style={{ ...type.monoSm, color: tokens.textFaint, width: 96 }}>
+        {label.toUpperCase()}
       </Text>
       <Text
-        selectable
         style={{
+          ...(mono ? type.mono : type.cardSub),
+          color: tokens.text,
           flex: 1,
-          ...(mono ? typography.monoMd : typography.body),
-          color: tidewater.ink,
-          fontVariant: mono ? ['tabular-nums'] : undefined,
         }}
         numberOfLines={2}
+        selectable
       >
         {value}
       </Text>
@@ -892,48 +761,199 @@ function DocRow({
   );
 }
 
-function EmptyLine({ children }: { children: string }) {
-  const { spacing, typography, tidewater } = useTheme();
+// ──────────────────────────────────────────────────────────────────────────
 
+function SignatureBlock({
+  isDraft,
+  isReady,
+  entryId,
+  signature,
+}: {
+  isDraft: boolean;
+  isReady: boolean;
+  entryId: string;
+  signature: NonNullable<ReturnType<typeof useEntryDetail>['data']>['signature'] | null;
+}) {
+  const { tokens } = useTheme();
+  if (signature) {
+    return (
+      <Card padding={16}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>SIGNATURE</Text>
+          <Pill tone="ok" size="sm" icon={IconVerified}>
+            Verified
+          </Pill>
+        </View>
+        <SigFill name={signature.supervisor_name} />
+        <View style={{ marginTop: 12 }}>
+          <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+            {signature.supervisor_name}
+          </Text>
+          {signature.supervisor_cert_number ? (
+            <Text style={{ ...type.mono, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+              Cert {signature.supervisor_cert_number}
+            </Text>
+          ) : null}
+        </View>
+        <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 12 }} />
+        <View style={{ flexDirection: 'row', gap: 14 }}>
+          <DetailStat label="Signed at" value={formatDate(signature.signed_at)} />
+          <DetailStat label="Method" value={signature.method === 'local' ? 'In person' : 'Remote'} />
+        </View>
+        {signature.signature_path ? (
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ ...type.monoSm, color: tokens.textFaint, marginBottom: 6 }}>
+              DRAWN SIGNATURE
+            </Text>
+            <SignatureFrame value={signature.signature_path} />
+          </View>
+        ) : null}
+      </Card>
+    );
+  }
+
+  // Unsigned
   return (
-    <View
-      style={{
-        borderWidth: 1,
-        borderColor: tidewater.hairSoft,
-        borderStyle: 'dashed',
-        padding: spacing.md,
-      }}
-    >
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
-        {children.toUpperCase()}
+    <Card padding={16}>
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 8 }}>
+        SIGNATURE
       </Text>
-    </View>
+      <Text style={{ ...type.body, color: tokens.textDim, marginBottom: 12 }}>
+        This entry is unsigned. Once sealed, the signature locks the entry into the chain — it
+        cannot be edited afterward. Amendments are new entries that point back to this one.
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button
+          variant="primary"
+          full
+          disabled={isDraft && !isReady}
+          onPress={() => router.push(`/entry/${entryId}/sign` as never)}
+        >
+          Sign now
+        </Button>
+        <Button
+          variant="outline"
+          full
+          disabled={isDraft && !isReady}
+          onPress={() => router.push(`/entry/${entryId}/request-signature` as never)}
+        >
+          Request remote
+        </Button>
+      </View>
+    </Card>
   );
 }
 
-function SignatureFrame({ value }: { value: string }) {
-  const { tidewater } = useTheme();
-  const isImageSignature = value.startsWith('data:image/');
+// ──────────────────────────────────────────────────────────────────────────
 
+function FooterActions({
+  entryId,
+  entryStatus,
+  hasRemoteRequest,
+  isReady,
+  pdfPending,
+  exportPending,
+  onSharePdf,
+  onShareJson,
+}: {
+  entryId: string;
+  entryStatus: 'draft' | 'signed' | 'amended';
+  hasRemoteRequest: boolean;
+  isReady: boolean;
+  pdfPending: boolean;
+  exportPending: boolean;
+  onSharePdf: () => void;
+  onShareJson: () => void;
+}) {
+  const isDraft = entryStatus === 'draft';
+  const isSigned = entryStatus === 'signed' || entryStatus === 'amended';
+
+  if (isDraft && !hasRemoteRequest) {
+    return (
+      <View style={{ gap: 8, marginTop: 4 }}>
+        <Button
+          variant="primary"
+          full
+          onPress={() => router.push(`/entry/${entryId}/edit` as never)}
+        >
+          {isReady ? 'Edit draft' : 'Finish draft'}
+        </Button>
+      </View>
+    );
+  }
+
+  if (isSigned) {
+    return (
+      <View style={{ gap: 8, marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Button
+            variant="primary"
+            full
+            onPress={onSharePdf}
+            disabled={pdfPending || exportPending}
+          >
+            {pdfPending ? 'Building PDF…' : 'Share PDF'}
+          </Button>
+          <Button
+            variant="secondary"
+            full
+            onPress={onShareJson}
+            disabled={pdfPending || exportPending}
+          >
+            Audit packet
+          </Button>
+        </View>
+        {entryStatus === 'signed' ? (
+          <Button
+            variant="ghost"
+            full
+            onPress={() => router.push(`/entry/${entryId}/amend` as never)}
+          >
+            Amend entry
+          </Button>
+        ) : null}
+      </View>
+    );
+  }
+
+  return null;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+function SignatureFrame({ value }: { value: string }) {
+  const { tokens } = useTheme();
+  const isImage = value.startsWith('data:image/');
+  const frameStyle: ViewStyle = {
+    height: 112,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.lineSoft,
+    backgroundColor: tokens.surface2,
+    overflow: 'hidden',
+  };
   return (
-    <View
-      style={{
-        height: 112,
-        borderWidth: 1.5,
-        borderColor: tidewater.hair,
-        backgroundColor: tidewater.white,
-        overflow: 'hidden',
-      }}
-    >
-      {isImageSignature ? (
-        <NativeImage source={{ uri: value }} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+    <View style={frameStyle}>
+      {isImage ? (
+        <NativeImage
+          source={{ uri: value }}
+          resizeMode="contain"
+          style={{ width: '100%', height: '100%' }}
+        />
       ) : (
         <Svg width="100%" height="100%" viewBox="0 0 1000 400">
-          <Line x1={48} x2={952} y1={324} y2={324} stroke={tidewater.hairSoft} strokeWidth={3} />
+          <Line x1={48} x2={952} y1={324} y2={324} stroke={tokens.lineSoft} strokeWidth={3} />
           <Path
             d={value}
             fill="none"
-            stroke={tidewater.ink}
+            stroke={tokens.text}
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={3}
