@@ -16,7 +16,20 @@ describe('database migrations', () => {
       { id: 6, name: 'scheme-work-log-fields' },
       { id: 7, name: 'gear-catalog' },
       { id: 8, name: 'field-ops-foundation' },
+      { id: 9, name: 'entry-kind-and-rescue-context' },
     ]);
+  });
+
+  it('adds entry kind and rescue context fields (v3 hash bump)', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string; dflt_value: string | null }>(
+      'PRAGMA table_info(entries)',
+    );
+    const byName = new Map(columns.map((c) => [c.name, c]));
+
+    expect(byName.get('entry_kind')?.dflt_value).toBe("'work'");
+    expect(byName.has('rescue_cover')).toBe(true);
+    expect(byName.has('hazards')).toBe(true);
   });
 
   it('creates the local-first core tables', async () => {

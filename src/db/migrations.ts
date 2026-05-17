@@ -407,6 +407,44 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 9,
+    name: 'entry-kind-and-rescue-context',
+    async up(db) {
+      // Adds three fields that auditors expect on every work record but the
+      // schema couldn't represent:
+      //   entry_kind — separates work / training / assessment / rescue_drill
+      //                hours so SPRAT/IRATA progression math can be honest.
+      //                Defaults to 'work' so every existing row keeps its
+      //                meaning (the legacy assumption).
+      //   rescue_cover — who's standing rescue cover for the work, or the
+      //                  self-rescue plan summary. Free text, optional.
+      //   hazards — JSON-encoded array of hazard labels. Stored as TEXT so
+      //             SQLite stays happy; service layer parses on read.
+      //
+      // All three become part of what a signer attests to, so a hash-version
+      // bump (2 → 3) lands alongside this migration in the entry-hash module
+      // and edge function. Existing v2 signatures stay valid via the
+      // hash_version short-circuit in verifyChainHashFor; new entries hash
+      // under v3 with the new fields included.
+      const entryColumns = await db.getAll<{ name: string }>('PRAGMA table_info(entries)');
+      const names = new Set(entryColumns.map((column) => column.name));
+
+      if (!names.has('entry_kind')) {
+        await db.exec(
+          "ALTER TABLE entries ADD COLUMN entry_kind TEXT NOT NULL DEFAULT 'work' CHECK (entry_kind IN ('work', 'training', 'assessment', 'rescue_drill'));",
+        );
+      }
+
+      if (!names.has('rescue_cover')) {
+        await db.exec('ALTER TABLE entries ADD COLUMN rescue_cover TEXT;');
+      }
+
+      if (!names.has('hazards')) {
+        await db.exec('ALTER TABLE entries ADD COLUMN hazards TEXT;');
+      }
+    },
+  },
 ];
 
 export async function runMigrations(db: DbClient): Promise<void> {
