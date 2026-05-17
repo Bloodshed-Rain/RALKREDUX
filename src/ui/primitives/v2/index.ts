@@ -26,3 +26,4 @@ export { AnimatedNumber, type AnimatedNumberProps } from './animated-number';
 export { HashGlyph, type HashGlyphProps } from './hash-glyph';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { PullToRefresh, type PullToRefreshProps } from './pull-to-refresh';
+export { EntryRow, type EntryRowProps } from './entry-row';
