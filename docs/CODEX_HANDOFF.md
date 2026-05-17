@@ -1,6 +1,6 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-17 (step 12)
+Last updated: 2026-05-17 (step 13)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
@@ -53,6 +53,23 @@ Key shifts in v2:
   - **PullToRefresh** (`v2/pull-to-refresh.tsx`) — bespoke chain-icon-in-ring indicator, 72 px threshold, 3-stage label ("Pull to refresh" → "Release to sync" → "Syncing chain…"). Built on `PanResponder` + `Animated` (no reanimated/gesture-handler dependency — those are explicit non-installs; if motion polish is needed, swap in step 15). Supports both internal cycle (`onRefresh` returns a promise) and externally-driven `refreshing` prop.
 
   Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
+
+- **Step 13 — Audit export screen + ToggleRow.** Shipped 2026-05-17. New primitive + new screen + minimal domain-hook extension:
+
+  - `src/ui/primitives/v2/toggle-row.tsx` — 14 px-padded surface row (label + sub kicker) with a 40×24 pill switch on the right. The 20 px knob slides 16 px via `Animated.timing` over 200 ms on `cubic-bezier(.2,.7,.3,1.4)`; the track background interpolates from `surface2` → `accent`. `useReducedMotion()` snaps the animation. Supports `disabled` (dims to 0.6 + suppresses presses); `accessibilityRole` is `switch` with `accessibilityState.checked`.
+
+  - `app/export.tsx` new screen — small `TopBar` ("Audit export", back leading). Preview `Card` (concentric SVG rings top-right, embossed `IconBrand` watermark bottom-right at 6 % opacity rotated -8 deg, mono `AUDIT PACKET · V2` kicker, 26 px `{n} entries` headline, `{hours} signed hrs · chain verifiable` sub, hairline rule, `Chain valid` (ok+IconVerified) / `Hash v2` (chip+IconLock) / `{n} links` (chip+IconChain) `Pill` row, and a mono `HEAD · {first 8}…{last 4}` line when `useChainHead()` resolves). Options section: a Range `ChipSelect` (All time / This year / This quarter / Custom) — Custom reveals two `Field`s (From / To, ISO date). Three `ToggleRow`s: Include drafts (default off) · Include attachments (default on) · Embed chain proof (forced on, `disabled`). Format section: a 3-tile `FormatTile` grid (PDF / JSON / CSV) — selected tile uses `accentSoft` background + 1.5 px accent border. Primary lg `Button` with `IconExport` leading shows `Export {n} entries` (or `Nothing to export`, or `Building export…` during the mutation).
+
+  - Range filter is applied **in-screen** (no domain change beyond the hook tweak below). `inRange` keys on `entry.date_to` for `year` (≥ start of current local year) / `quarter` (≥ start of current local quarter, 0/3/6/9-month boundaries) and on the `customFrom`/`customTo` `Field`s for `custom`. `customRangeValid` allows open-ended single-sided ranges (only one of From/To set) and gates only when both are set + ordered. Submission re-filters the bundle returned by `useExportLogbook({ includeDrafts })`, optionally strips attachments per-entry when `Include attachments` is off, and re-runs `buildLogbookExportBundle(...)` so the summary counts + signed-hours match what was kept. PDF goes through `Print.printToFileAsync` + `Sharing.shareAsync`; JSON/CSV go through the `Share` API. Filename via `buildLogbookExportFileName`.
+
+  - Minimal domain-hook extension: `useExportLogbook` and `useExportLogbookCsv` now take an `ExportLogbookOptions` argument (default `{}`) instead of being argless — so the export screen can pass `{ includeDrafts: true }` through. No service signature change (the underlying methods already accepted options).
+
+  - Wiring updates:
+    - `app/(tabs)/records.tsx` — the export `IconBtn` in the `TopBar` now routes to `/export` instead of toggling the inline PDF/JSON/CSV row. The inline three-button row + its `sharePdf`/`shareJson`/`shareCsv` handlers + the `expo-print` / `expo-sharing` / `expo-file-system` / `Share` / `buildLogbookExportFileName` / `buildLogbookPdfHtml` imports are dropped from the screen (now centralised in `app/export.tsx`).
+    - `app/(tabs)/more.tsx` — the Audit-export `SettingsRow` `onPress` now routes to `/export`.
+    - `app/_layout.tsx` — registers `export` stack screen with `headerShown: false` (the screen owns its `TopBar`).
+
+  Typecheck clean. Jest 137/137 still green.
 
 - **Step 12 — Gear list + Gear detail + GearCard + CountdownDial.** Shipped 2026-05-17. Two new primitives + screen rewrites + a domain expansion:
 

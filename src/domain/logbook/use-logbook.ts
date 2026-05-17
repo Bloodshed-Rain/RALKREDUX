@@ -11,6 +11,7 @@ import {
   CreateEntryTemplateInput,
   CreateRemoteSignatureRequestInput,
   EntrySignature,
+  ExportLogbookOptions,
   LogbookEntry,
   RemoveGearFromEntryInput,
   SignEntryInput,
@@ -247,13 +248,15 @@ export function useAddEntryAttachment() {
 
 export function useExportLogbook() {
   return useMutation({
-    mutationFn: () => createLogbookService(getClient()).exportLogbook(),
+    mutationFn: (options: ExportLogbookOptions = {}) =>
+      createLogbookService(getClient()).exportLogbook(options),
   });
 }
 
 export function useExportLogbookCsv() {
   return useMutation({
-    mutationFn: () => createLogbookService(getClient()).exportLogbookCsv(),
+    mutationFn: (options: ExportLogbookOptions = {}) =>
+      createLogbookService(getClient()).exportLogbookCsv(options),
   });
 }
 

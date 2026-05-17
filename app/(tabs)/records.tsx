@@ -1,17 +1,8 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, Share, Text, View, type TextStyle } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View, type TextStyle } from 'react-native';
 import { router } from 'expo-router';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
-import { buildLogbookExportFileName, buildLogbookPdfHtml } from '@/src/domain/logbook/export';
 import { haptics } from '@/src/ui/haptics';
-import {
-  useDeleteDraftEntry,
-  useEntries,
-  useExportLogbook,
-  useExportLogbookCsv,
-} from '@/src/domain/logbook/use-logbook';
+import { useDeleteDraftEntry, useEntries } from '@/src/domain/logbook/use-logbook';
 import type { LogbookEntry } from '@/src/domain/logbook/types';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import {
@@ -101,15 +92,11 @@ function groupByMonth(entries: LogbookEntry[]): MonthGroup[] {
 
 export default function RecordsScreen() {
   const entries = useEntries();
-  const exportLogbook = useExportLogbook();
-  const exportLogbookCsv = useExportLogbookCsv();
   const deleteDraft = useDeleteDraftEntry();
   const { tokens } = useTheme();
 
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<FilterKey>('all');
-  const [pdfPending, setPdfPending] = React.useState(false);
-  const [exportOpen, setExportOpen] = React.useState(false);
 
   const entriesData = entries.data ?? [];
   const counts = React.useMemo(() => {
@@ -129,43 +116,6 @@ export default function RecordsScreen() {
   }, [entriesData, filter, query]);
 
   const monthGroups = React.useMemo(() => groupByMonth(filteredEntries), [filteredEntries]);
-
-  async function shareJson() {
-    const bundle = await exportLogbook.mutateAsync();
-    await Share.share({ title: 'RALB logbook export', message: JSON.stringify(bundle, null, 2) });
-  }
-
-  async function shareCsv() {
-    const csv = await exportLogbookCsv.mutateAsync();
-    await Share.share({ title: 'RALB logbook CSV', message: csv });
-  }
-
-  async function sharePdf() {
-    setPdfPending(true);
-    try {
-      const bundle = await exportLogbook.mutateAsync();
-      const { uri } = await Print.printToFileAsync({ html: buildLogbookPdfHtml(bundle) });
-      const fileName = buildLogbookExportFileName(bundle, 'pdf');
-      const namedUri = FileSystem.cacheDirectory ? `${FileSystem.cacheDirectory}${fileName}` : uri;
-      if (namedUri !== uri) {
-        await FileSystem.deleteAsync(namedUri, { idempotent: true });
-        await FileSystem.copyAsync({ from: uri, to: namedUri });
-      }
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(namedUri, {
-          dialogTitle: 'Share RALB audit logbook PDF',
-          mimeType: 'application/pdf',
-          UTI: 'com.adobe.pdf',
-        });
-      } else {
-        await Share.share({ title: 'RALB audit logbook PDF', message: namedUri });
-      }
-    } catch {
-      Alert.alert('Could not build PDF', 'The audit logbook PDF could not be generated.');
-    } finally {
-      setPdfPending(false);
-    }
-  }
 
   const sectionKickerStyle: TextStyle = {
     fontFamily: 'JetBrainsMono_600SemiBold',
@@ -192,7 +142,7 @@ export default function RecordsScreen() {
               icon={IconExport}
               label="Export"
               size="sm"
-              onPress={() => setExportOpen((v) => !v)}
+              onPress={() => router.push('/export' as never)}
             />
             <IconBtn icon={IconFilter} label="Filter" size="sm" />
           </View>
@@ -216,29 +166,6 @@ export default function RecordsScreen() {
           ]}
           onChange={setFilter}
         />
-        {exportOpen ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              gap: 8,
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: tokens.surface,
-              borderWidth: 1,
-              borderColor: tokens.lineSoft,
-            }}
-          >
-            <Button variant="primary" full onPress={sharePdf} disabled={pdfPending}>
-              {pdfPending ? 'Building PDF…' : 'PDF'}
-            </Button>
-            <Button variant="secondary" full onPress={shareJson}>
-              JSON
-            </Button>
-            <Button variant="secondary" full onPress={shareCsv}>
-              CSV
-            </Button>
-          </View>
-        ) : null}
       </View>
 
       <ScrollView

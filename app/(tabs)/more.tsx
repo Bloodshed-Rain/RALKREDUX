@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, Share, Text, TextInput, View, type TextStyle, type ViewStyle } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/backup/use-backup';
 import type { BackupSnapshot } from '@/src/domain/backup/types';
@@ -196,6 +197,7 @@ export default function ProfileScreen() {
             icon={IconExport}
             title="Audit export"
             sub="Generate auditor-ready packet (PDF / JSON / CSV)"
+            onPress={() => router.push('/export' as never)}
           />
           <SettingsRow
             icon={IconSync}
