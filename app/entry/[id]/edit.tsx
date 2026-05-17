@@ -389,7 +389,11 @@ export default function EditDraftScreen() {
           onPress={save}
           disabled={!canSave || updateDraft.isPending}
         >
-          {updateDraft.isPending ? 'Saving…' : isAuditReady ? 'Save audit-ready draft' : 'Save draft'}
+          {updateDraft.isPending
+            ? 'Saving…'
+            : canSave && isAuditReady
+              ? 'Save audit-ready draft'
+              : 'Save draft'}
         </Button>
       </View>
     </KeyboardAvoidingView>

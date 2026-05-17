@@ -218,6 +218,7 @@ export default function ProfileScreen() {
               restoreError={restoreError}
               backupPending={createBackup.isPending}
               restorePending={restoreBackup.isPending}
+              currentChainShort={chainShort}
               onShare={shareBackupSnapshot}
               onPreview={previewRestoreText}
               onRestore={restoreSnapshot}
@@ -358,6 +359,7 @@ function OperatorCard({ fullName, employerLine, active, sprat, irata }: Operator
 function CertCard({ scheme, slot }: { scheme: CertScheme; slot: CertSlot | null }) {
   const { tokens } = useTheme();
   const expiryDays = slot?.expiresOn ? daysFromTodayIso(slot.expiresOn) : null;
+  const expired = expiryDays != null && expiryDays <= 0;
   const warn = expiryDays != null && expiryDays > 0 && expiryDays < 120;
 
   return (
@@ -372,9 +374,12 @@ function CertCard({ scheme, slot }: { scheme: CertScheme; slot: CertSlot | null 
     >
       <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>{scheme.toUpperCase()}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Pill tone="chip" size="sm">
+        <Pill tone={expired ? 'danger' : 'chip'} size="sm">
           {slot?.level ? `Level ${slot.level}` : '—'}
         </Pill>
+        {expired ? (
+          <Pill tone="danger" size="sm">Expired</Pill>
+        ) : null}
       </View>
       <Text style={{ ...type.mono, color: tokens.text }} numberOfLines={1}>
         {slot?.certId ?? '—'}
@@ -382,11 +387,13 @@ function CertCard({ scheme, slot }: { scheme: CertScheme; slot: CertSlot | null 
       <Text
         style={{
           ...type.monoSm,
-          color: warn ? tokens.warn : tokens.textDim,
+          color: expired ? tokens.danger : warn ? tokens.warn : tokens.textDim,
         }}
       >
         {slot?.expiresOn
-          ? `Exp ${formatDateOrDash(slot.expiresOn)}${warn ? ` · ${expiryDays}d` : ''}`
+          ? expired
+            ? `Expired ${Math.abs(expiryDays!)}d ago`
+            : `Exp ${formatDateOrDash(slot.expiresOn)}${warn ? ` · ${expiryDays}d` : ''}`
           : 'No expiry set'}
       </Text>
     </View>
@@ -540,6 +547,7 @@ interface BackupInlinePanelProps {
   restoreError: string | null;
   backupPending: boolean;
   restorePending: boolean;
+  currentChainShort: string | null;
   onShare: () => void;
   onPreview: () => void;
   onRestore: () => void;
@@ -555,12 +563,21 @@ function BackupInlinePanel({
   restoreError,
   backupPending,
   restorePending,
+  currentChainShort,
   onShare,
   onPreview,
   onRestore,
   onClearPreview,
 }: BackupInlinePanelProps) {
   const { tokens } = useTheme();
+
+  // When a snapshot is loaded, derive its chain head from the last signature
+  // so the user can compare it to their current device head before restoring.
+  const snapshotSignatures = previewSnapshot?.data.signatures ?? [];
+  const snapshotLastSig = snapshotSignatures[snapshotSignatures.length - 1];
+  const snapshotChainShort = snapshotLastSig?.chain_hash
+    ? snapshotLastSig.chain_hash.slice(0, 8)
+    : null;
 
   return (
     <Card padding={16}>
@@ -587,7 +604,10 @@ function BackupInlinePanel({
       >
         <IconWarn size={16} color={tokens.warn} fill={tokens.warn} />
         <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
-          Replacing the local ledger is destructive. Share a backup first.
+          Replacing the local ledger is destructive. Signatures made since the snapshot
+          will become unreachable — the chain head moves backward to the snapshot's head.
+          {currentChainShort ? ` Current head: ${currentChainShort}…` : ''}
+          {' '}Share a backup first.
         </Text>
       </View>
 
@@ -633,6 +653,14 @@ function BackupInlinePanel({
           <SnapshotRow label="Entries" value={String(previewSnapshot.data.entries.length)} />
           <SnapshotRow label="Signatures" value={String(previewSnapshot.data.signatures.length)} />
           <SnapshotRow label="Gear items" value={String(previewSnapshot.data.gear_items.length)} />
+          <SnapshotRow
+            label="Chain head"
+            value={
+              snapshotChainShort
+                ? `${snapshotChainShort}…${currentChainShort && currentChainShort !== snapshotChainShort ? `  (now ${currentChainShort}…)` : ''}`
+                : 'no chain'
+            }
+          />
         </View>
       ) : null}
 
@@ -718,7 +746,7 @@ function SnapshotRow({ label, value }: { label: string; value: string }) {
 
 function ProfileFooter({ chainHash }: { chainHash: string | null }) {
   const { tokens } = useTheme();
-  const head = chainHash ? chainHash.slice(0, 8) : '00000000';
+  const head = chainHash ? chainHash.slice(0, 8) : '—';
   return (
     <View
       style={{
