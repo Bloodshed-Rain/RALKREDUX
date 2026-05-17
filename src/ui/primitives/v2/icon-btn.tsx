@@ -45,6 +45,10 @@ export function IconBtn({
               ? tokens.textDim
               : tokens.text;
 
+  // Expand the touch target to at least 44px without enlarging the visual chrome.
+  // Gloved-finger users hit the visual icon centroid; the hitSlop catches near-misses.
+  const slop = Math.max(0, Math.round((44 - spec.box) / 2));
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -52,6 +56,7 @@ export function IconBtn({
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
+      hitSlop={slop > 0 ? slop : undefined}
       style={({ pressed }) => [
         {
           width: spec.box,

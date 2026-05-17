@@ -317,7 +317,17 @@ export default function GearDetailScreen() {
             >
               {showInspect ? 'Close' : 'Record inspection'}
             </Button>
-            <IconBtn icon={IconLock} label="Retire gear" size="lg" />
+            <IconBtn
+              icon={IconLock}
+              label="Retire gear"
+              size="lg"
+              tone="danger"
+              onPress={() => {
+                haptics.warning();
+                setInspResult('fail');
+                setShowInspect(true);
+              }}
+            />
           </View>
         ) : null}
 

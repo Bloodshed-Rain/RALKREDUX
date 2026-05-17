@@ -49,6 +49,12 @@ export function Pill({ tone = 'chip', size = 'sm', icon: Icon, children }: PillP
   const { bg, fg } = toneColors(tone, tokens);
   const isHeliotype = theme.key === 'heliotype';
 
+  // On Heliotype, accent and danger collapse to the same oxblood. Distinguish them
+  // by SHAPE rather than color: danger swaps to an outlined ink-on-bone treatment
+  // (canvas-fill + oxblood text + 1.5px oxblood ring) while accent stays filled.
+  const heliotypeDangerOutline = isHeliotype && tone === 'danger';
+  const effectiveBg = heliotypeDangerOutline ? tokens.bg : bg;
+
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
     alignItems: 'center',
@@ -56,7 +62,7 @@ export function Pill({ tone = 'chip', size = 'sm', icon: Icon, children }: PillP
     paddingVertical: spec.paddingV,
     paddingHorizontal: spec.paddingH,
     borderRadius: 999,
-    backgroundColor: bg,
+    backgroundColor: effectiveBg,
     alignSelf: 'flex-start',
     borderWidth: isHeliotype ? 1.5 : 0,
     borderColor: isHeliotype ? fg : 'transparent',

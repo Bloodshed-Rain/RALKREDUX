@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
 import { IconClose } from '@/src/ui/icons';
 import { IconBtn } from './icon-btn';
 
@@ -36,6 +37,7 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
   const sheetHeight = Math.round(screenHeight * heightPercent);
+  const reducedMotion = useReducedMotion();
 
   const translateY = React.useRef(new Animated.Value(sheetHeight)).current;
   const scrimOpacity = React.useRef(new Animated.Value(0)).current;
@@ -44,6 +46,11 @@ export function Sheet({
   React.useEffect(() => {
     if (open) {
       setMounted(true);
+      if (reducedMotion) {
+        translateY.setValue(0);
+        scrimOpacity.setValue(1);
+        return;
+      }
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: 0,
@@ -59,6 +66,12 @@ export function Sheet({
         }),
       ]).start();
     } else if (mounted) {
+      if (reducedMotion) {
+        translateY.setValue(sheetHeight);
+        scrimOpacity.setValue(0);
+        setMounted(false);
+        return;
+      }
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: sheetHeight,
@@ -76,7 +89,7 @@ export function Sheet({
         if (finished) setMounted(false);
       });
     }
-  }, [open, mounted, sheetHeight, translateY, scrimOpacity]);
+  }, [open, mounted, sheetHeight, translateY, scrimOpacity, reducedMotion]);
 
   if (!mounted) return null;
 

@@ -79,13 +79,24 @@ export function Button({
       break;
     case 'danger':
       bg = tokens.danger;
-      fg = '#FFFFFF';
+      fg = tokens.accentInk;
       break;
   }
 
-  // Heliotype primary gets a 2px hard ink drop shadow (ink-on-paper print feel).
+  // On Heliotype, accent and danger share the same oxblood — distinguish the
+  // danger button by SHAPE: swap to outlined ink-on-bone (canvas-fill, oxblood
+  // text, 1.5px oxblood ring) so it doesn't render identical to primary.
+  if (isHeliotype && variant === 'danger') {
+    bg = tokens.bg;
+    fg = tokens.danger;
+    borderWidth = 1.5;
+    borderColor = tokens.danger;
+  }
+
+  // Heliotype primary AND danger get a 2px hard ink drop shadow (ink-on-paper
+  // print feel). Danger keeps the shadow even when outlined.
   const heliotypeShadow: ViewStyle =
-    isHeliotype && variant === 'primary'
+    isHeliotype && (variant === 'primary' || variant === 'danger')
       ? {
           shadowColor: '#1A1410',
           shadowOffset: { width: 0, height: 2 },

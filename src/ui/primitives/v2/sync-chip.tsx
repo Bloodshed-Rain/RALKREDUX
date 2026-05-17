@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View, Animated, Easing, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
 import { IconCheck, IconSync, IconOffline } from '@/src/ui/icons';
 
 export type SyncChipState = 'synced' | 'syncing' | 'queued' | 'offline';
@@ -55,12 +56,15 @@ function spec(state: SyncChipState, tokens: ReturnType<typeof useTheme>['tokens'
 }
 
 export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
-  const { tokens } = useTheme();
+  const { theme, tokens } = useTheme();
   const s = spec(state, tokens);
   const rotation = React.useRef(new Animated.Value(0)).current;
+  const reducedMotion = useReducedMotion();
+  const shouldSpin = s.spin && !reducedMotion;
+  const isHeliotype = theme.key === 'heliotype';
 
   React.useEffect(() => {
-    if (!s.spin) {
+    if (!shouldSpin) {
       rotation.setValue(0);
       return;
     }
@@ -74,7 +78,13 @@ export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
     );
     loop.start();
     return () => loop.stop();
-  }, [s.spin, rotation]);
+  }, [shouldSpin, rotation]);
+
+  // On Heliotype, accent and danger collapse to the same oxblood, so `syncing`
+  // and `offline` look identical. Distinguish offline by SHAPE: swap to outlined
+  // ink-on-bone (canvas-fill, oxblood text, 1.5px oxblood ring).
+  const heliotypeOfflineOutline = isHeliotype && state === 'offline';
+  const effectiveBg = heliotypeOfflineOutline ? tokens.bg : s.bg;
 
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
@@ -84,8 +94,10 @@ export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
     paddingHorizontal: 10,
     paddingLeft: 8,
     borderRadius: 999,
-    backgroundColor: s.bg,
+    backgroundColor: effectiveBg,
     alignSelf: 'flex-start',
+    borderWidth: heliotypeOfflineOutline ? 1.5 : 0,
+    borderColor: heliotypeOfflineOutline ? s.fg : 'transparent',
   };
 
   const labelStyle: TextStyle = {
@@ -104,7 +116,7 @@ export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
 
   const body = (
     <View style={containerStyle}>
-      <Animated.View style={{ width: 14, height: 14, transform: s.spin ? [{ rotate: spin }] : undefined }}>
+      <Animated.View style={{ width: 14, height: 14, transform: shouldSpin ? [{ rotate: spin }] : undefined }}>
         <s.Icon size={14} color={s.fg} fill={s.fg} />
       </Animated.View>
       <Text selectable={false} style={labelStyle}>
