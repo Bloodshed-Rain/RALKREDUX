@@ -37,7 +37,7 @@ export default (): ExpoConfig => ({
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-router', 'expo-sqlite', '@react-native-community/datetimepicker'],
+  plugins: ['expo-router', 'expo-sqlite'],
   extra: {
     appFlavor: 'codex-edition',
     eas: {
