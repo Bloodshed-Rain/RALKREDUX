@@ -149,8 +149,11 @@ export default function RemoteVerifyScreen() {
     }
   }, [request?.recipient_name, supervisorName]);
 
-  const certReady =
-    !requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5;
+  // Both SPRAT and IRATA verifiers must supply a card / member number — an
+  // unidentified signer breaks the audit trail.
+  const certReady = requiresCertNumber
+    ? irataNumberDigits(supervisorCertNumber).length === 5
+    : normalizeSpratNumber(supervisorCertNumber).length >= 2;
   const hasSignature = signaturePath.trim().length > 0;
   const hasName = supervisorName.trim().length > 1;
   const canSign =
@@ -481,13 +484,13 @@ export default function RemoteVerifyScreen() {
                       : normalizeSpratNumber(value),
                   );
                 }}
-                placeholder={requiresCertNumber ? '12345' : 'Optional'}
+                placeholder={requiresCertNumber ? '12345' : 'e.g. 1234'}
                 keyboardType="number-pad"
                 maxLength={requiresCertNumber ? 5 : 12}
                 helper={
                   requiresCertNumber
-                    ? `Required for IRATA. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
-                    : 'Optional for SPRAT.'
+                    ? `Required. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
+                    : 'Required — your SPRAT card number.'
                 }
               />
               {requiresCertNumber ? (

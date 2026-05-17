@@ -213,8 +213,14 @@ export function createLogbookService(db: DbClient) {
    * technician's certification on the entry. The signer is the one
    * authorizing the signature with their own card / member number.
    */
-  function requiresVerifierCertNumber(supervisorScheme: CertScheme): boolean {
-    return supervisorScheme === 'irata';
+  function requiresVerifierCertNumber(_supervisorScheme: CertScheme): boolean {
+    // Both SPRAT and IRATA supervisors must supply a card / member number.
+    // Signer authority — who actually authorized the signature — is the basis
+    // of the audit trail; an unidentified signer makes the signature
+    // unverifiable. SPRAT has no canonical format (free-text card number) so
+    // we just require non-empty after normalization, while IRATA still
+    // enforces the 5-digit format upstream of this check.
+    return true;
   }
 
   async function upsertSupervisorContact(input: {

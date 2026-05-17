@@ -136,12 +136,18 @@ export default function LocalSignScreen() {
   );
 
   const signatureReady = signaturePath.trim().length > 0;
+  // Both SPRAT and IRATA supervisors must supply a card / member number — an
+  // unidentified signer breaks the audit trail. IRATA keeps its strict
+  // 5-digit format; SPRAT just has to be non-empty after normalization.
+  const certNumberReady = requiresCertNumber
+    ? irataNumberDigits(supervisorCertNumber).length === 5
+    : normalizeSpratNumber(supervisorCertNumber).length >= 2;
   const canSign =
     Boolean(entryId) &&
     isDraft &&
     isReady &&
     supervisorName.trim().length > 1 &&
-    (!requiresCertNumber || irataNumberDigits(supervisorCertNumber).length === 5) &&
+    certNumberReady &&
     signatureReady &&
     attestationAccepted;
 
@@ -405,12 +411,12 @@ export default function LocalSignScreen() {
                     : normalizeSpratNumber(v),
                 );
               }}
-              placeholder={requiresCertNumber ? '12345' : 'Optional'}
+              placeholder={requiresCertNumber ? '12345' : 'e.g. 1234'}
               keyboardType="number-pad"
               helper={
                 requiresCertNumber
-                  ? `Required for IRATA. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
-                  : 'Optional for SPRAT — add it if the signer has a card number.'
+                  ? `Required. Saved as ${certLevelToDigit(supervisorIrataLevel)}/12345.`
+                  : 'Required — the signer\'s SPRAT card number.'
               }
             />
             {requiresCertNumber ? (

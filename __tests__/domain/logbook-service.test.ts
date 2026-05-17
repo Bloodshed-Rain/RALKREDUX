@@ -253,27 +253,33 @@ describe('logbook service', () => {
     expect(summary.signedHours).toBe(7.5);
   });
 
-  it('allows local signing when the supervisor has no certification number', async () => {
+  it('requires a verifier number for SPRAT local signing', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
     const entry = await service.createDraft(draftInput({ description: 'Supervisor reviewed work.', work_hours: 2 }));
 
+    await expect(
+      service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: 'Site Supervisor',
+        supervisor_scheme: 'sprat',
+        supervisor_cert_number: '',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('supervisor_cert_required');
+
+    // Non-empty SPRAT cert succeeds (existing IRATA test below covers that scheme).
     const detail = await service.signEntryLocal({
       entry_id: entry.id,
       supervisor_name: 'Site Supervisor',
       supervisor_scheme: 'sprat',
-      supervisor_cert_number: '',
+      supervisor_cert_number: 'SPRAT-9999',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
     });
-
     expect(detail.entry.status).toBe('signed');
-    expect(detail.signature).toEqual(
-      expect.objectContaining({
-        supervisor_name: 'Site Supervisor',
-        supervisor_cert_number: '',
-      }),
-    );
+    expect(detail.signature?.supervisor_cert_number).toBe('SPRAT-9999');
   });
 
   it('requires a verifier number for IRATA local signing', async () => {
@@ -663,7 +669,7 @@ describe('logbook service', () => {
     ).rejects.toThrow('remote_request_not_pending');
   });
 
-  it('completes a remote signature when the verifier has no certification number', async () => {
+  it('requires a verifier number for SPRAT remote signing', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
     const entry = await service.createDraft(draftInput({ description: 'Reviewed work area.', work_hours: 2 }));
@@ -674,12 +680,27 @@ describe('logbook service', () => {
     const requestCode = requested.remote_request?.request_code;
     const signingToken = buildRemoteSigningToken(requested.remote_request!);
 
+    await expect(
+      service.completeRemoteSignatureRequest({
+        request_code: requestCode!,
+        signing_token: signingToken,
+        supervisor_name: 'Site Supervisor',
+        supervisor_scheme: 'sprat',
+        supervisor_cert_number: '',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+        signer_attestation: 'Verified remotely.',
+        signed_at: '2026-05-08T12:00:00.000Z',
+      }),
+    ).rejects.toThrow('supervisor_cert_required');
+
+    // Non-empty SPRAT cert completes successfully.
     const signed = await service.completeRemoteSignatureRequest({
       request_code: requestCode!,
       signing_token: signingToken,
       supervisor_name: 'Site Supervisor',
       supervisor_scheme: 'sprat',
-      supervisor_cert_number: '',
+      supervisor_cert_number: 'SPRAT-1234',
       signature_path: 'M 100 200 L 300 160',
       attestation_accepted: true,
       signer_attestation: 'Verified remotely.',
@@ -690,7 +711,7 @@ describe('logbook service', () => {
     expect(signed.signature).toEqual(
       expect.objectContaining({
         supervisor_name: 'Site Supervisor',
-        supervisor_cert_number: '',
+        supervisor_cert_number: 'SPRAT-1234',
         method: 'remote',
       }),
     );
