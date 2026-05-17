@@ -9,6 +9,16 @@ export type HeightUnit = 'ft' | 'm';
 // to know how many were on real work vs training/assessment/rescue drills.
 export type EntryKind = 'work' | 'training' | 'assessment' | 'rescue_drill';
 
+export function entryKindLabel(kind: EntryKind): string {
+  switch (kind) {
+    case 'training': return 'Training';
+    case 'assessment': return 'Assessment';
+    case 'rescue_drill': return 'Rescue drill';
+    case 'work':
+    default: return 'Work';
+  }
+}
+
 export interface LogbookEntry {
   id: string;
   date_from: string;

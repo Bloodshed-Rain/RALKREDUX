@@ -16,10 +16,12 @@ import { captureOrPickPhoto } from '@/src/ui/photo-picker';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type {
   CreateEntryInput,
+  EntryKind,
   HeightUnit,
   SupervisorContact,
   UpdateDraftEntryInput,
 } from '@/src/domain/logbook/types';
+import { HAZARD_PRESETS } from '@/src/domain/logbook/hazards';
 import type { CertLevel } from '@/src/domain/profile/types';
 import {
   useAddEntryAttachment,
@@ -41,6 +43,7 @@ import {
   Card,
   ChipSelect,
   Field,
+  MultiChipSelect,
   Pill,
   PhotoStrip,
   type PhotoStripItem,
@@ -59,6 +62,12 @@ import type { GearCategory } from '@/src/domain/gear/types';
 const WORK_TASK_PRESETS = ['Inspection', 'Maintenance', 'Rescue standby', 'Training'];
 const ACCESS_METHOD_PRESETS = ['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'];
 const STRUCTURE_PRESETS = ['Tower', 'Tank', 'Bridge', 'Wind turbine', 'Building'];
+const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
+  { value: 'work', label: 'Work' },
+  { value: 'training', label: 'Training' },
+  { value: 'assessment', label: 'Assessment' },
+  { value: 'rescue_drill', label: 'Rescue drill' },
+];
 const HEIGHT_UNIT_OPTIONS = [
   { value: 'ft' as HeightUnit, label: 'ft' },
   { value: 'm' as HeightUnit, label: 'm' },
@@ -81,6 +90,10 @@ interface DraftState {
   spratLevel: CertLevel | null;
   irataLevel: CertLevel | null;
   selectedSupervisorId: string | null;
+  // v3 fields.
+  entryKind: EntryKind;
+  rescueCover: string;
+  hazards: string[];
 }
 
 function initialDraft(): DraftState {
@@ -101,6 +114,9 @@ function initialDraft(): DraftState {
     spratLevel: null,
     irataLevel: null,
     selectedSupervisorId: null,
+    entryKind: 'work',
+    rescueCover: '',
+    hazards: [],
   };
 }
 
@@ -145,6 +161,9 @@ function buildCreateInput(draft: DraftState): CreateEntryInput {
     height_unit: draft.heightUnit,
     sprat_level_snapshot: draft.spratLevel,
     irata_level_snapshot: draft.irataLevel,
+    entry_kind: draft.entryKind,
+    rescue_cover: draft.rescueCover,
+    hazards: draft.hazards,
   };
 }
 
@@ -637,6 +656,18 @@ function StepWhat({ draft, update }: StepProps) {
         />
       </View>
 
+      <View>
+        <SectionKicker>ENTRY KIND</SectionKicker>
+        <ChipSelect<EntryKind>
+          value={draft.entryKind}
+          options={ENTRY_KIND_OPTIONS}
+          onChange={(v) => update({ entryKind: v })}
+        />
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>
+          Auditors split training and assessment hours from on-rope work.
+        </Text>
+      </View>
+
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
           <Field
@@ -693,6 +724,26 @@ function StepWhat({ draft, update }: StepProps) {
         placeholder="What you did, conditions, anything notable"
         multiline
       />
+
+      <Field
+        label="Rescue cover"
+        value={draft.rescueCover}
+        onChangeText={(v) => update({ rescueCover: v })}
+        placeholder="e.g. Standing rescue — J. Lee, radio ch. 3"
+        helper="Who's standing rescue, or the self-rescue plan."
+      />
+
+      <View>
+        <SectionKicker>HAZARDS</SectionKicker>
+        <MultiChipSelect
+          values={draft.hazards}
+          options={[...HAZARD_PRESETS]}
+          onChange={(next) => update({ hazards: next })}
+        />
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>
+          Tap each hazard present on the job. Extra context goes in Description.
+        </Text>
+      </View>
 
       <View>
         <SectionKicker>GEAR USED</SectionKicker>

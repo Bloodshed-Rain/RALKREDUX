@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { HeightUnit } from '@/src/domain/logbook/types';
+import type { EntryKind, HeightUnit } from '@/src/domain/logbook/types';
+import { parseHazards } from '@/src/domain/logbook/types';
+import { HAZARD_PRESETS } from '@/src/domain/logbook/hazards';
 import { useCreateAmendment, useEntryDetail } from '@/src/domain/logbook/use-logbook';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
@@ -21,12 +23,20 @@ import {
   ChipSelect,
   Field,
   IconBtn,
+  MultiChipSelect,
   Pill,
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
 import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
+
+const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
+  { value: 'work', label: 'Work' },
+  { value: 'training', label: 'Training' },
+  { value: 'assessment', label: 'Assessment' },
+  { value: 'rescue_drill', label: 'Rescue drill' },
+];
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -73,6 +83,12 @@ export default function AmendEntryScreen() {
   const [heightUnit, setHeightUnit] = React.useState<HeightUnit>('ft');
   const [description, setDescription] = React.useState('');
   const [hours, setHours] = React.useState('');
+  // v3 fields — pre-filled from the signed source so the amendment starts
+  // with the same hours-bucket / rescue / hazards context unless the tech
+  // explicitly changes it.
+  const [entryKind, setEntryKind] = React.useState<EntryKind>('work');
+  const [rescueCover, setRescueCover] = React.useState('');
+  const [hazards, setHazards] = React.useState<string[]>([]);
   const entry = detail.data?.entry;
 
   React.useEffect(() => {
@@ -88,6 +104,9 @@ export default function AmendEntryScreen() {
     setHeightUnit(entry.height_unit);
     setDescription(entry.description);
     setHours(String(entry.work_hours));
+    setEntryKind(entry.entry_kind);
+    setRescueCover(entry.rescue_cover ?? '');
+    setHazards(parseHazards(entry.hazards));
   }, [entry, loadedId]);
 
   const parsedHours = Number(hours);
@@ -126,6 +145,9 @@ export default function AmendEntryScreen() {
         date_to: entry.date_to,
         sprat_level_snapshot: entry.sprat_level_snapshot,
         irata_level_snapshot: entry.irata_level_snapshot,
+        entry_kind: entryKind,
+        rescue_cover: rescueCover,
+        hazards,
       },
       {
         onSuccess: (draft) => {
@@ -275,6 +297,32 @@ export default function AmendEntryScreen() {
             multiline
             placeholder="Describe the correction or addition."
           />
+        </View>
+
+        <SectionH kicker="05 KIND & RESCUE" title="Hours bucket + safety context" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>ENTRY KIND</Text>
+            <ChipSelect<EntryKind>
+              value={entryKind}
+              options={ENTRY_KIND_OPTIONS}
+              onChange={setEntryKind}
+            />
+          </View>
+          <Field
+            label="Rescue cover"
+            value={rescueCover}
+            onChangeText={setRescueCover}
+            placeholder="e.g. Standing rescue — J. Lee, radio ch. 3"
+          />
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>HAZARDS</Text>
+            <MultiChipSelect
+              values={hazards}
+              options={[...HAZARD_PRESETS]}
+              onChange={setHazards}
+            />
+          </View>
         </View>
       </ScrollView>
 

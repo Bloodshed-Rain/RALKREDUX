@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { HeightUnit } from '@/src/domain/logbook/types';
+import type { EntryKind, HeightUnit } from '@/src/domain/logbook/types';
+import { parseHazards } from '@/src/domain/logbook/types';
+import { HAZARD_PRESETS } from '@/src/domain/logbook/hazards';
 import { useEntryDetail, useUpdateDraftEntry } from '@/src/domain/logbook/use-logbook';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
@@ -21,11 +23,19 @@ import {
   ChipSelect,
   Field,
   IconBtn,
+  MultiChipSelect,
   Pill,
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
 import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
+
+const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
+  { value: 'work', label: 'Work' },
+  { value: 'training', label: 'Training' },
+  { value: 'assessment', label: 'Assessment' },
+  { value: 'rescue_drill', label: 'Rescue drill' },
+];
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -101,6 +111,10 @@ export default function EditDraftScreen() {
   const [heightUnit, setHeightUnit] = React.useState<HeightUnit>('ft');
   const [description, setDescription] = React.useState('');
   const [hours, setHours] = React.useState('');
+  // v3 fields.
+  const [entryKind, setEntryKind] = React.useState<EntryKind>('work');
+  const [rescueCover, setRescueCover] = React.useState('');
+  const [hazards, setHazards] = React.useState<string[]>([]);
 
   const entry = detail.data?.entry;
   const hasPendingRequest = Boolean(detail.data?.remote_request || entry?.pending_signature_id);
@@ -120,6 +134,9 @@ export default function EditDraftScreen() {
     setHeightUnit(entry.height_unit);
     setDescription(entry.description);
     setHours(String(entry.work_hours));
+    setEntryKind(entry.entry_kind);
+    setRescueCover(entry.rescue_cover ?? '');
+    setHazards(parseHazards(entry.hazards));
   }, [entry, loadedId]);
 
   const parsedHours = Number(hours);
@@ -166,6 +183,9 @@ export default function EditDraftScreen() {
         date_to: dateTo || dateFrom,
         sprat_level_snapshot: entry.sprat_level_snapshot,
         irata_level_snapshot: entry.irata_level_snapshot,
+        entry_kind: entryKind,
+        rescue_cover: rescueCover,
+        hazards,
       },
       { onSuccess: (updated) => router.replace(`/entry/${updated.entry.id}`) },
     );
@@ -365,6 +385,39 @@ export default function EditDraftScreen() {
             multiline
             placeholder="What work was performed on rope?"
           />
+        </View>
+
+        <SectionH kicker="05 KIND & RESCUE" title="Hours bucket + safety context" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>ENTRY KIND</Text>
+            <ChipSelect<EntryKind>
+              value={entryKind}
+              options={ENTRY_KIND_OPTIONS}
+              onChange={setEntryKind}
+            />
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>
+              Auditors separate training and assessment hours from on-rope work.
+            </Text>
+          </View>
+          <Field
+            label="Rescue cover"
+            value={rescueCover}
+            onChangeText={setRescueCover}
+            placeholder="e.g. Standing rescue — J. Lee, radio ch. 3"
+            helper="Who's standing rescue, or the self-rescue plan."
+          />
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>HAZARDS</Text>
+            <MultiChipSelect
+              values={hazards}
+              options={[...HAZARD_PRESETS]}
+              onChange={setHazards}
+            />
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>
+              Tap each hazard present on the job. Extra context goes in Notes above.
+            </Text>
+          </View>
         </View>
       </ScrollView>
 

@@ -11,6 +11,7 @@ import {
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
 import { formatDateRange } from '@/src/domain/date-format';
+import { entryKindLabel, parseHazards } from '@/src/domain/logbook/types';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import {
   useEntryDetail,
@@ -290,36 +291,40 @@ export default function LocalSignScreen() {
               title={formatDateRange(entry.date_from, entry.date_to)}
             />
             <Card padding={14}>
-              <Row label="Hours" value={entry.work_hours.toFixed(1)} />
-              <Row label="Task" value={entry.work_task || '—'} />
-              <Row label="Access" value={entry.access_method || '—'} />
-              <Row label="Structure" value={entry.structure_type || '—'} />
-              <Row
-                label="Height"
-                value={
-                  !entry.max_height || entry.max_height <= 0
-                    ? '—'
-                    : `${entry.max_height.toFixed(0)} ${entry.height_unit}`
-                }
-                last={!entry.description}
-              />
-              {entry.description ? (
-                <View
-                  style={{
-                    marginTop: 12,
-                    paddingTop: 12,
-                    borderTopWidth: 1,
-                    borderTopColor: tokens.lineSoft,
-                  }}
-                >
-                  <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 4 }}>
-                    NOTES
-                  </Text>
-                  <Text selectable style={{ ...type.body, color: tokens.text }}>
-                    {entry.description}
-                  </Text>
-                </View>
-              ) : null}
+              {(() => {
+                const hazardsList = parseHazards(entry.hazards);
+                const hasRescue = !!entry.rescue_cover?.trim();
+                const hasHazards = hazardsList.length > 0;
+                const hasNotes = !!entry.description?.trim();
+                const hasBottom = hasRescue || hasHazards || hasNotes;
+                return (
+                  <>
+                    <Row label="Hours" value={entry.work_hours.toFixed(1)} />
+                    <Row label="Kind" value={entryKindLabel(entry.entry_kind)} />
+                    <Row label="Task" value={entry.work_task || '—'} />
+                    <Row label="Access" value={entry.access_method || '—'} />
+                    <Row label="Structure" value={entry.structure_type || '—'} />
+                    <Row
+                      label="Height"
+                      value={
+                        !entry.max_height || entry.max_height <= 0
+                          ? '—'
+                          : `${entry.max_height.toFixed(0)} ${entry.height_unit}`
+                      }
+                      last={!hasBottom}
+                    />
+                    {hasRescue ? (
+                      <WorkRecordBlock label="Rescue cover" body={entry.rescue_cover ?? ''} />
+                    ) : null}
+                    {hasHazards ? (
+                      <WorkRecordBlock label="Hazards" body={hazardsList.join(' · ')} />
+                    ) : null}
+                    {hasNotes ? (
+                      <WorkRecordBlock label="Notes" body={entry.description} />
+                    ) : null}
+                  </>
+                );
+              })()}
             </Card>
           </View>
         ) : null}
@@ -599,6 +604,30 @@ function Row({
         numberOfLines={2}
       >
         {value}
+      </Text>
+    </View>
+  );
+}
+
+// Multi-line block for the long-form fields in the Work Record card
+// (rescue cover, hazards, notes). Same kicker treatment as `Row` but the
+// body is full-width with no row-length truncation.
+function WorkRecordBlock({ label, body }: { label: string; body: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View
+      style={{
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: tokens.lineSoft,
+      }}
+    >
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 4 }}>
+        {label.toUpperCase()}
+      </Text>
+      <Text selectable style={{ ...type.body, color: tokens.text }}>
+        {body}
       </Text>
     </View>
   );

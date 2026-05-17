@@ -20,7 +20,7 @@ import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
 import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/logbook/logbook-service';
-import type { LogbookEntry } from '@/src/domain/logbook/types';
+import { entryKindLabel, parseHazards, type LogbookEntry } from '@/src/domain/logbook/types';
 import {
   useAddEntryAttachment,
   useAmendmentsOf,
@@ -324,7 +324,12 @@ export default function EntryDetailScreen() {
                   {[entry.client, entry.work_task].filter(Boolean).join(' · ') || '—'}
                 </Text>
               </View>
-              <StatusPill status={statusKey} size="md" />
+              <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                <StatusPill status={statusKey} size="md" />
+                <Pill tone={entry.entry_kind === 'work' ? 'chip' : 'accent'} size="sm">
+                  {entryKindLabel(entry.entry_kind)}
+                </Pill>
+              </View>
             </View>
 
             <EntryLineage entry={entry} amendments={amendments.data ?? []} />
@@ -362,6 +367,46 @@ export default function EntryDetailScreen() {
               </Text>
             </Card>
           ) : null}
+
+          {/* SAFETY — surfaces v3 rescue cover + hazards together so an
+              auditor opening the entry sees both at a glance. Card only
+              renders when at least one of the two is recorded. */}
+          {(() => {
+            const hazardsList = parseHazards(entry.hazards);
+            const rescue = entry.rescue_cover?.trim() ?? '';
+            if (!rescue && hazardsList.length === 0) return null;
+            return (
+              <Card padding={16}>
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 8 }}>
+                  SAFETY CONTEXT
+                </Text>
+                {rescue ? (
+                  <View style={{ marginBottom: hazardsList.length > 0 ? 10 : 0 }}>
+                    <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 2 }}>
+                      RESCUE COVER
+                    </Text>
+                    <Text selectable style={{ ...type.body, color: tokens.text }}>
+                      {rescue}
+                    </Text>
+                  </View>
+                ) : null}
+                {hazardsList.length > 0 ? (
+                  <View>
+                    <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
+                      HAZARDS
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {hazardsList.map((h) => (
+                        <Pill key={h} tone="warn" size="sm">
+                          {h}
+                        </Pill>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+              </Card>
+            );
+          })()}
 
           {/* GEAR */}
           {gearUsage.length > 0 || (isDraft && attachableGear.length > 0) ? (
