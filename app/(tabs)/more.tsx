@@ -1,25 +1,39 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, RotateCcw, Share2 } from 'lucide-react-native';
-import { Pressable, Share, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Share, Text, TextInput, View, type TextStyle, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/backup/use-backup';
-import { BackupSnapshot } from '@/src/domain/backup/types';
+import type { BackupSnapshot } from '@/src/domain/backup/types';
 import { formatDateOrDash } from '@/src/domain/date-format';
 import { daysFromTodayIso } from '@/src/domain/date-utils';
-import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
-import { useChainHead, useSupervisorContacts } from '@/src/domain/logbook/use-logbook';
-import type { SupervisorContact } from '@/src/domain/logbook/types';
+import { useChainHead } from '@/src/domain/logbook/use-logbook';
 import { useProfile } from '@/src/domain/profile/use-profile';
-import {
-  AnimatedStamp,
-  CheckboxRow,
-  Chip,
-  DocActionButton,
-  DocBand,
-  RowDoc,
-  Screen,
-  SectionH,
-} from '@/src/ui/primitives';
+import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { THEME_ORDER, THEMES, type Theme } from '@/src/ui/theme/themes';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  IconBtn,
+  Pill,
+  SectionH,
+  TopBar,
+} from '@/src/ui/primitives/v2';
+import {
+  IconBell,
+  IconBrand,
+  IconCamera,
+  IconChain,
+  IconChevron,
+  IconExport,
+  IconLock,
+  IconSettings,
+  IconSync,
+  IconVerified,
+  IconWarn,
+  type IconProps,
+} from '@/src/ui/icons';
 import {
   DEFAULT_TERMINAL_ACTION,
   PrefKeys,
@@ -30,27 +44,29 @@ import {
 } from '@/src/storage/local-prefs';
 import { haptics, setHapticsEnabled } from '@/src/ui/haptics';
 
-const TERMINAL_ACTION_LABELS: Record<TerminalActionPref, string> = {
-  sign: 'SIGN NOW',
-  request: 'REMOTE',
-  draft: 'DRAFT',
-};
+const TERMINAL_ACTION_OPTIONS: Array<{ value: TerminalActionPref; label: string }> = [
+  { value: 'sign', label: 'Sign now' },
+  { value: 'request', label: 'Remote' },
+  { value: 'draft', label: 'Save draft' },
+];
 
 export default function ProfileScreen() {
-  const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const profile = useProfile();
-  const supervisors = useSupervisorContacts();
   const chainHead = useChainHead();
+  const p = profile.data;
+
   const createBackup = useCreateBackupSnapshot();
   const restoreBackup = useRestoreBackupSnapshot();
   const [restoreText, setRestoreText] = React.useState('');
   const [restoreError, setRestoreError] = React.useState<string | null>(null);
-  const [showRestore, setShowRestore] = React.useState(false);
-  const [restoreConfirmed, setRestoreConfirmed] = React.useState(false);
+  const [showBackup, setShowBackup] = React.useState(false);
   const [previewSnapshot, setPreviewSnapshot] = React.useState<BackupSnapshot | null>(null);
+  const [restoreConfirmed, setRestoreConfirmed] = React.useState(false);
+
   const [terminalAction, setTerminalAction] = React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const [hapticsOn, setHapticsOn] = React.useState(true);
-  const p = profile.data;
 
   React.useEffect(() => {
     readPref<TerminalActionPref>(PrefKeys.defaultTerminalAction, DEFAULT_TERMINAL_ACTION).then(
@@ -69,28 +85,9 @@ export default function ProfileScreen() {
 
   function selectHaptics(value: boolean) {
     setHapticsOn(value);
-    // Persist + sync the wrapper's cached flag in one call.
     setHapticsEnabled(value);
-    // Confirm the change tactilely — only lands when turning haptics on.
     haptics.selection();
   }
-  const sortedSupervisors = React.useMemo(() => {
-    const items = supervisors.data ?? [];
-    return [...items].sort((a, b) => {
-      const aKey = a.last_signed_at ?? a.created_at;
-      const bKey = b.last_signed_at ?? b.created_at;
-      return bKey.localeCompare(aKey);
-    });
-  }, [supervisors.data]);
-  const chainHashTruncated = chainHead.data
-    ? `${chainHead.data.slice(0, 8)}…${chainHead.data.slice(-6)}`.toUpperCase()
-    : null;
-  const primaryCertNumber = p?.primary_scheme === 'sprat' ? p.sprat_id : p?.irata_id;
-  const primaryLevel = p?.primary_scheme === 'sprat' ? p.sprat_level : p?.irata_level;
-  const primaryExpires = p?.primary_scheme === 'sprat' ? p.sprat_expires_on : p?.irata_expires_on;
-  const certLabel = p
-    ? `${p.primary_scheme.toUpperCase()}${primaryLevel ? ` ${primaryLevel}` : ''}`
-    : 'NO CERT';
 
   async function shareBackupSnapshot() {
     const snapshot = await createBackup.mutateAsync();
@@ -131,7 +128,6 @@ export default function ProfileScreen() {
       setRestoreText('');
       setRestoreConfirmed(false);
       setPreviewSnapshot(null);
-      setShowRestore(false);
       haptics.success();
     } catch {
       setRestoreError('Restore failed. The local ledger is unchanged.');
@@ -145,580 +141,603 @@ export default function ProfileScreen() {
     setRestoreError(null);
   }
 
+  const chainShort = chainHead.data ? chainHead.data.slice(0, 8) : null;
+
   return (
-    <Screen padded={false} safeTop>
-      <DocBand
-        variant="top"
-        formId="CH.10 - PROFILE & BACKUP"
-        rev={p ? 'PROFILE ON FILE' : 'NO PROFILE'}
-        effective={`ENTRY-HASH v${ENTRY_HASH_VERSION}`}
-        rightLabel={certLabel}
+    <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+      <TopBar
+        title="Profile"
+        subtitle="Your record · your certifications"
+        large
+        trailing={<IconBtn icon={IconSettings} label="Open settings" size="sm" />}
       />
-
-      <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.lg }}>
-        {/* Header card */}
-        <View
-          style={{
-            borderWidth: hairlines.standard.width,
-            borderColor: hairlines.standard.color,
-            backgroundColor: tidewater.white,
-          }}
-        >
-          <View
-            style={{
-              padding: spacing.md,
-              borderBottomWidth: 1.5,
-              borderBottomColor: tidewater.hair,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: spacing.sm,
-              alignItems: 'flex-start',
-            }}
-          >
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                OPERATOR PROFILE
-              </Text>
-              <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
-                {p?.full_name || 'No profile'}
-              </Text>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink2 }}>
-                LOCAL LEDGER ON THIS DEVICE
-              </Text>
-            </View>
-            <AnimatedStamp tone={p ? 'green' : 'mute'} rotation="light">
-              {p ? 'ON FILE' : 'NONE'}
-            </AnimatedStamp>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
-            <Chip tone="ink">{certLabel}</Chip>
-            {primaryCertNumber ? <Chip tone="mute">{`# ${primaryCertNumber}`}</Chip> : null}
-            <Chip tone={primaryExpires ? 'green' : 'mute'}>
-              {primaryExpires ? `EXPIRES ${formatDateOrDash(primaryExpires).toUpperCase()}` : 'EXPIRY NOT SET'}
-            </Chip>
-            <Chip tone={chainHashTruncated ? 'green' : 'mute'}>
-              {chainHashTruncated ? `CHAIN ${chainHashTruncated}` : 'NO CHAIN YET'}
-            </Chip>
-          </View>
+      <ScrollView
+        contentContainerStyle={{
+          paddingBottom: 28 + insets.bottom + 72,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ paddingHorizontal: 20, gap: 18 }}>
+          <OperatorCard
+            fullName={p?.full_name ?? 'No profile'}
+            employerLine={
+              p ? `Local ledger · ${p.primary_scheme.toUpperCase()} primary` : 'Set up your profile to start logging'
+            }
+            active={!!p}
+            sprat={
+              p
+                ? {
+                    level: p.sprat_level,
+                    certId: p.sprat_id,
+                    expiresOn: p.sprat_expires_on,
+                  }
+                : null
+            }
+            irata={
+              p
+                ? {
+                    level: p.irata_level,
+                    certId: p.irata_id,
+                    expiresOn: p.irata_expires_on,
+                  }
+                : null
+            }
+          />
         </View>
 
-        {/* § 01 Linked supervisors */}
-        <View>
-          <SectionH
-            n="01"
-            right={`${sortedSupervisors.length} ON FILE`}
-          >
-            Linked supervisors
-          </SectionH>
-          {sortedSupervisors.length ? (
-            <View
-              style={{
-                borderWidth: hairlines.standard.width,
-                borderColor: hairlines.standard.color,
-                backgroundColor: tidewater.white,
-              }}
-            >
-              {sortedSupervisors.map((sup) => (
-                <SupervisorRow key={sup.id} supervisor={sup} />
-              ))}
-            </View>
-          ) : (
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: tidewater.hairSoft,
-                borderStyle: 'dashed',
-                padding: spacing.md,
-                gap: spacing.xs,
-              }}
-            >
-              <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                NO SUPERVISORS YET
-              </Text>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
-                ADD ONE FROM A SIGN OR REMOTE-REQUEST FLOW
-              </Text>
-            </View>
-          )}
+        <SectionH kicker="APPEARANCE" title="Theme" />
+        <View style={{ paddingHorizontal: 20 }}>
+          <ThemePicker />
         </View>
 
-        {/* § 02 Backup */}
-        <View>
-          <SectionH n="02" right="LOCAL LEDGER">
-            Backup and recovery
-          </SectionH>
-          <View
-            style={{
-              borderWidth: hairlines.standard.width,
-              borderColor: hairlines.standard.color,
-              backgroundColor: tidewater.white,
-              padding: spacing.md,
-              gap: spacing.md,
-            }}
-          >
-            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
-              Share a backup snapshot to keep a copy of this device's logbook off-device. Restoring replaces the local
-              ledger with the snapshot.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <DocActionButton
-                title={createBackup.isPending ? 'PREPARING' : 'SHARE BACKUP'}
-                icon={Share2}
-                onPress={shareBackupSnapshot}
-                loading={createBackup.isPending}
-                style={{ flex: 1 }}
-              />
-              <DocActionButton
-                title={showRestore ? 'CLOSE RESTORE' : 'RESTORE'}
-                icon={showRestore ? ChevronUp : ChevronDown}
-                variant="secondary"
-                onPress={() => {
-                  setRestoreConfirmed(false);
-                  setShowRestore((value) => !value);
-                }}
-                style={{ flex: 1 }}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* § 03 Restore (collapsible) */}
-        {showRestore ? (
-          <View>
-            <SectionH n="03" right="DESTRUCTIVE">
-              Restore from snapshot
-            </SectionH>
-            <View
-              style={{
-                borderWidth: 1.5,
-                borderColor: tidewater.yellowDeep,
-                backgroundColor: tidewater.yellowSoft,
-                padding: spacing.md,
-                gap: spacing.xs,
+        <SectionH kicker="MANAGE" title="Logbook" />
+        <View style={{ paddingHorizontal: 20, gap: 8 }}>
+          <SettingsRow
+            icon={IconExport}
+            title="Audit export"
+            sub="Generate auditor-ready packet (PDF / JSON / CSV)"
+          />
+          <SettingsRow
+            icon={IconSync}
+            title="Sync & backup"
+            sub={showBackup ? 'Tap to close' : 'Share or restore a recovery snapshot'}
+            onPress={() => setShowBackup((v) => !v)}
+          />
+          {showBackup ? (
+            <BackupInlinePanel
+              restoreText={restoreText}
+              setRestoreText={(v) => {
+                setRestoreText(v);
+                if (previewSnapshot) clearPreview();
               }}
-            >
-              <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                THIS REPLACES THE LOCAL LEDGER
-              </Text>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink2 }}>
-                Share a backup first if you need to keep the current data on this device.
-              </Text>
-            </View>
-            <View
-              style={{
-                marginTop: spacing.sm,
-                borderWidth: hairlines.standard.width,
-                borderColor: hairlines.standard.color,
-                backgroundColor: tidewater.white,
-                padding: spacing.md,
-                gap: spacing.md,
-              }}
-            >
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                  RECOVERY FILE TEXT
-                </Text>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
-                  Open the snapshot you shared earlier (Mail, Messages, Files) and paste its
-                  contents here. Preview first; the actual restore is a second confirmed step.
-                </Text>
-                <TextInput
-                  value={restoreText}
-                  onChangeText={(value) => {
-                    setRestoreText(value);
-                    if (previewSnapshot) clearPreview();
-                  }}
-                  editable={!previewSnapshot}
-                  multiline
-                  placeholder="Paste recovery file text"
-                  placeholderTextColor={tidewater.ink3}
-                  style={{
-                    borderWidth: 1.5,
-                    borderColor: tidewater.hair,
-                    backgroundColor: previewSnapshot ? tidewater.paper2 : tidewater.white,
-                    padding: spacing.sm,
-                    ...typography.body,
-                    color: tidewater.ink,
-                    minHeight: 120,
-                    textAlignVertical: 'top',
-                  }}
-                />
-              </View>
-
-              {previewSnapshot ? (
-                <View
-                  style={{
-                    borderWidth: 1.5,
-                    borderColor: tidewater.green,
-                    backgroundColor: tidewater.greenSoft,
-                    padding: spacing.sm,
-                    gap: spacing.xs,
-                  }}
-                >
-                  <Text style={{ ...typography.displaySm, color: tidewater.green, letterSpacing: 1.2 }}>
-                    SNAPSHOT PREVIEW
-                  </Text>
-                  <SnapshotSummaryRow
-                    label="EXPORTED"
-                    value={formatDateOrDash(previewSnapshot.exported_at)}
-                  />
-                  <SnapshotSummaryRow
-                    label="OPERATOR"
-                    value={previewSnapshot.data.profiles[0]?.full_name || '—'}
-                  />
-                  <SnapshotSummaryRow
-                    label="ENTRIES"
-                    value={String(previewSnapshot.data.entries.length)}
-                  />
-                  <SnapshotSummaryRow
-                    label="SIGNATURES"
-                    value={String(previewSnapshot.data.signatures.length)}
-                  />
-                  <SnapshotSummaryRow
-                    label="GEAR ITEMS"
-                    value={String(previewSnapshot.data.gear_items.length)}
-                  />
-                </View>
-              ) : null}
-
-              {previewSnapshot ? (
-                <>
-                  <View
-                    style={{
-                      borderWidth: 1.5,
-                      borderColor: restoreConfirmed ? tidewater.green : tidewater.hairSoft,
-                      backgroundColor: restoreConfirmed ? tidewater.greenSoft : tidewater.white,
-                      padding: spacing.sm,
-                    }}
-                  >
-                    <CheckboxRow
-                      checked={restoreConfirmed}
-                      label="I understand this will replace the local logbook on this device."
-                      onChange={setRestoreConfirmed}
-                    />
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                    <DocActionButton
-                      title="BACK TO PASTE"
-                      variant="secondary"
-                      onPress={clearPreview}
-                      disabled={restoreBackup.isPending}
-                      style={{ flex: 1 }}
-                    />
-                    <DocActionButton
-                      title={restoreBackup.isPending ? 'RESTORING' : 'RESTORE LEDGER'}
-                      icon={RotateCcw}
-                      onPress={restoreSnapshot}
-                      disabled={!restoreConfirmed || restoreBackup.isPending}
-                      loading={restoreBackup.isPending}
-                      style={{ flex: 1 }}
-                    />
-                  </View>
-                </>
-              ) : (
-                <DocActionButton
-                  title="PREVIEW SNAPSHOT"
-                  variant="secondary"
-                  onPress={previewRestoreText}
-                  disabled={!restoreText.trim()}
-                />
-              )}
-
-              {restoreError ? (
-                <Text style={{ ...typography.monoSm, color: tidewater.red, letterSpacing: 1.2 }}>
-                  {restoreError.toUpperCase()}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        {restoreBackup.isSuccess ? (
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.green,
-              backgroundColor: tidewater.greenSoft,
-              padding: spacing.md,
-            }}
-          >
-            <Text style={{ ...typography.displaySm, color: tidewater.green, letterSpacing: 1.2 }}>
-              RECOVERY FILE RESTORED
-            </Text>
-            <Text style={{ ...typography.monoSm, color: tidewater.ink2, marginTop: 4 }}>
-              The local logbook now reflects the snapshot.
-            </Text>
-          </View>
-        ) : null}
-
-        {/* § 04 Preferences */}
-        <View>
-          <SectionH n="04" right="THIS DEVICE">
-            Preferences
-          </SectionH>
-          <View
-            style={{
-              borderWidth: hairlines.standard.width,
-              borderColor: hairlines.standard.color,
-              backgroundColor: tidewater.white,
-              padding: spacing.md,
-              gap: spacing.sm,
-            }}
-          >
-            <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-              DEFAULT NEW-RECORD ACTION
-            </Text>
-            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
-              Which action the new-record wizard surfaces first on its final step. The other two
-              stay available — this never skips the review step.
-            </Text>
-            <View style={{ flexDirection: 'row', borderWidth: 1.5, borderColor: tidewater.hair }}>
-              {(Object.keys(TERMINAL_ACTION_LABELS) as TerminalActionPref[]).map((key, i) => {
-                const selected = key === terminalAction;
-                return (
-                  <Pressable
-                    key={key}
-                    onPress={() => selectTerminalAction(key)}
-                    accessibilityRole="button"
-                    accessibilityState={selected ? { selected: true } : {}}
-                    style={{
-                      flex: 1,
-                      minHeight: touchTarget.min,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingVertical: spacing.xs,
-                      backgroundColor: selected ? tidewater.accent : tidewater.white,
-                      borderLeftWidth: i === 0 ? 0 : 1.5,
-                      borderLeftColor: tidewater.hair,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        ...typography.monoSm,
-                        color: selected ? tidewater.paper : tidewater.ink2,
-                        letterSpacing: 1.4,
-                        fontWeight: selected ? '600' : '400',
-                      }}
-                    >
-                      {TERMINAL_ACTION_LABELS[key]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View
-              style={{
-                height: 1,
-                backgroundColor: tidewater.hairFaint,
-                marginVertical: spacing.xs,
-              }}
+              previewSnapshot={previewSnapshot}
+              restoreConfirmed={restoreConfirmed}
+              setRestoreConfirmed={setRestoreConfirmed}
+              restoreError={restoreError}
+              backupPending={createBackup.isPending}
+              restorePending={restoreBackup.isPending}
+              onShare={shareBackupSnapshot}
+              onPreview={previewRestoreText}
+              onRestore={restoreSnapshot}
+              onClearPreview={clearPreview}
             />
-            <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-              HAPTIC FEEDBACK
+          ) : null}
+          <SettingsRow
+            icon={IconChain}
+            title="Chain integrity"
+            sub={chainShort ? `Head ${chainShort}…` : 'No signed entries yet'}
+          />
+          <SettingsRow icon={IconLock} title="Security" sub="Device lock and signing settings" />
+        </View>
+
+        <SectionH kicker="PREFERENCES" title="This device" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          <Card>
+            <Text style={{ ...type.cardTitle, color: tokens.text }}>Default new-entry action</Text>
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4, marginBottom: 12 }}>
+              Which terminal action the new-entry wizard surfaces first. The other two stay reachable.
             </Text>
-            <Text style={{ ...typography.body, color: tidewater.ink2 }}>
-              Light taps on selections and confirmations. Turn off for gloved or
-              cold-weather work.
-            </Text>
-            <View style={{ flexDirection: 'row', borderWidth: 1.5, borderColor: tidewater.hair }}>
-              {([true, false] as const).map((value, i) => {
-                const selected = value === hapticsOn;
-                return (
-                  <Pressable
-                    key={value ? 'on' : 'off'}
-                    onPress={() => selectHaptics(value)}
-                    accessibilityRole="button"
-                    accessibilityState={selected ? { selected: true } : {}}
-                    style={{
-                      flex: 1,
-                      minHeight: touchTarget.min,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingVertical: spacing.xs,
-                      backgroundColor: selected ? tidewater.accent : tidewater.white,
-                      borderLeftWidth: i === 0 ? 0 : 1.5,
-                      borderLeftColor: tidewater.hair,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        ...typography.monoSm,
-                        color: selected ? tidewater.paper : tidewater.ink2,
-                        letterSpacing: 1.4,
-                        fontWeight: selected ? '600' : '400',
-                      }}
-                    >
-                      {value ? 'ON' : 'OFF'}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <ChipSelect<TerminalActionPref>
+              value={terminalAction}
+              options={TERMINAL_ACTION_OPTIONS}
+              onChange={selectTerminalAction}
+            />
+          </Card>
+          <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...type.cardTitle, color: tokens.text }}>Haptic feedback</Text>
+                <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
+                  Light taps on selections. Turn off for gloved or cold-weather work.
+                </Text>
+              </View>
+              <ChipSelect<'on' | 'off'>
+                value={hapticsOn ? 'on' : 'off'}
+                options={[
+                  { value: 'on', label: 'On' },
+                  { value: 'off', label: 'Off' },
+                ]}
+                onChange={(v) => selectHaptics(v === 'on')}
+              />
             </View>
-          </View>
+          </Card>
         </View>
 
-        {/* § 05 About this device */}
-        <View>
-          <SectionH n="05">About this device</SectionH>
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderColor: tidewater.hair,
-              backgroundColor: tidewater.white,
-            }}
-          >
-            <DocRow label="OPERATOR" value={p?.full_name || '—'} />
-            <DocRow label="PRIMARY" value={p ? `${p.primary_scheme.toUpperCase()} ${primaryLevel ?? '—'}` : '—'} />
-            <DocRow label="CERT NUMBER" value={primaryCertNumber || '—'} />
-            <DocRow label="EXPIRES" value={formatDateOrDash(primaryExpires)} />
-            <DocRow label="CHAIN HEAD" value={chainHashTruncated ?? 'NO CHAIN YET'} mono />
-            <DocRow label="LEDGER" value="LOCAL · OFFLINE-FIRST" mono last />
-          </View>
+        <SectionH kicker="SUPPORT" title="Notifications & data" />
+        <View style={{ paddingHorizontal: 20, gap: 8 }}>
+          <SettingsRow icon={IconBell} title="Notifications" sub="Gear deadlines and remote-signing updates" />
+          <SettingsRow icon={IconCamera} title="Attachments" sub="Manage entry photos and uploads" />
         </View>
-      </View>
 
-      <View style={{ marginTop: spacing.lg }}>
-        <DocBand
-          variant="footer"
-          text={
-            showRestore
-              ? 'RESTORE IS DESTRUCTIVE - SHARE A BACKUP BEFORE CONTINUING'
-              : 'LOCAL LEDGER ONLY - BACKUPS LEAVE THIS DEVICE WHEN YOU SHARE'
-          }
-          page={p?.primary_scheme.toUpperCase() ?? 'NO CERT'}
-        />
-      </View>
-    </Screen>
+        <ProfileFooter chainHash={chainHead.data ?? null} />
+      </ScrollView>
+    </View>
   );
 }
 
-function DocRow({
-  label,
-  value,
-  mono = false,
-  last = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  last?: boolean;
-}) {
-  const { spacing, typography, tidewater } = useTheme();
+// ──────────────────────────────────────────────────────────────────────────
+
+interface CertSlot {
+  level: CertLevel | null;
+  certId: string | null;
+  expiresOn: string | null;
+}
+
+interface OperatorCardProps {
+  fullName: string;
+  employerLine: string;
+  active: boolean;
+  sprat: CertSlot | null;
+  irata: CertSlot | null;
+}
+
+function OperatorCard({ fullName, employerLine, active, sprat, irata }: OperatorCardProps) {
+  const { tokens } = useTheme();
+  const initials = deriveInitials(fullName);
+
+  return (
+    <Card padding={18}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View
+          style={{
+            width: 58,
+            height: 58,
+            borderRadius: 16,
+            backgroundColor: tokens.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: 'Manrope_800ExtraBold',
+              fontSize: 20,
+              fontWeight: '800',
+              letterSpacing: -0.4,
+              color: tokens.accentInk,
+            }}
+          >
+            {initials}
+          </Text>
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text
+            style={{
+              fontFamily: 'Manrope_700Bold',
+              fontWeight: '700',
+              fontSize: 20,
+              lineHeight: 24,
+              letterSpacing: -0.4,
+              color: tokens.text,
+            }}
+            numberOfLines={1}
+          >
+            {fullName}
+          </Text>
+          <Text style={{ ...type.mono, color: tokens.textDim }} numberOfLines={1}>
+            {employerLine}
+          </Text>
+        </View>
+        <Pill tone={active ? 'accent' : 'chip'} size="sm">
+          {active ? 'Active' : 'No profile'}
+        </Pill>
+      </View>
+      <View
+        style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 18, marginHorizontal: -18 }}
+      />
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <CertCard scheme="sprat" slot={sprat} />
+        <CertCard scheme="irata" slot={irata} />
+      </View>
+    </Card>
+  );
+}
+
+function CertCard({ scheme, slot }: { scheme: CertScheme; slot: CertSlot | null }) {
+  const { tokens } = useTheme();
+  const expiryDays = slot?.expiresOn ? daysFromTodayIso(slot.expiresOn) : null;
+  const warn = expiryDays != null && expiryDays > 0 && expiryDays < 120;
 
   return (
     <View
       style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs + 2,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: tidewater.hairFaint,
-        gap: spacing.sm,
+        flex: 1,
+        backgroundColor: tokens.surface2,
+        borderRadius: 12,
+        padding: 12,
+        gap: 6,
       }}
     >
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, width: 96, letterSpacing: 1.5 }}>
-        {label}
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>{scheme.toUpperCase()}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Pill tone="chip" size="sm">
+          {slot?.level ? `Level ${slot.level}` : '—'}
+        </Pill>
+      </View>
+      <Text style={{ ...type.mono, color: tokens.text }} numberOfLines={1}>
+        {slot?.certId ?? '—'}
       </Text>
       <Text
-        selectable
         style={{
-          flex: 1,
-          ...(mono ? typography.monoMd : typography.body),
-          color: tidewater.ink,
+          ...type.monoSm,
+          color: warn ? tokens.warn : tokens.textDim,
         }}
-        numberOfLines={2}
       >
-        {value}
+        {slot?.expiresOn
+          ? `Exp ${formatDateOrDash(slot.expiresOn)}${warn ? ` · ${expiryDays}d` : ''}`
+          : 'No expiry set'}
       </Text>
     </View>
   );
 }
 
-function SupervisorRow({ supervisor }: { supervisor: SupervisorContact }) {
-  const { spacing, typography, tidewater } = useTheme();
-  const days = daysFromTodayIso(supervisor.last_signed_at);
-  const lastLabel =
-    supervisor.last_signed_at === null
-      ? 'NEVER SIGNED'
-      : days === null
-        ? 'LAST —'
-        : days === 0
-          ? 'LAST TODAY'
-          : days < 0
-            ? `LAST ${Math.abs(days)}D AGO`
-            : `LAST ${days}D AHEAD`;
-  const secondary = [supervisor.role, supervisor.company].filter(Boolean).join(' · ');
+// ──────────────────────────────────────────────────────────────────────────
+
+function ThemePicker() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      {THEME_ORDER.map((key) => (
+        <ThemeTile
+          key={key}
+          theme={THEMES[key]}
+          active={theme.key === key}
+          onPress={() => setTheme(key)}
+        />
+      ))}
+    </View>
+  );
+}
+
+function ThemeTile({ theme, active, onPress }: { theme: Theme; active: boolean; onPress: () => void }) {
+  const { tokens } = useTheme();
+  const containerStyle: ViewStyle = {
+    width: '47%',
+    flexGrow: 1,
+    minWidth: 140,
+    backgroundColor: tokens.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: active ? 2 : 1,
+    borderColor: active ? tokens.accent : tokens.lineSoft,
+  };
+  const swatchStyle: ViewStyle = { height: 28, flexDirection: 'row' };
+  const labelStyle: TextStyle = {
+    fontFamily: 'Manrope_700Bold',
+    fontWeight: '700',
+    fontSize: 14,
+    lineHeight: 18,
+    color: tokens.text,
+  };
+  const subStyle: TextStyle = {
+    fontFamily: 'Manrope_500Medium',
+    fontWeight: '500',
+    fontSize: 11,
+    lineHeight: 14,
+    color: tokens.textDim,
+    marginTop: 2,
+  };
 
   return (
-    <RowDoc
-      cols={[
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Switch to ${theme.name} theme`}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        containerStyle,
+        pressed ? { transform: [{ scale: 0.98 }] } : null,
+      ]}
+    >
+      <View style={swatchStyle}>
+        {theme.swatch.map((hex, i) => (
+          <View key={i} style={{ flex: 1, backgroundColor: hex }} />
+        ))}
+      </View>
+      <View style={{ padding: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={labelStyle}>{theme.name}</Text>
+          {active ? (
+            <IconVerified size={14} color={tokens.accent} fill={tokens.accent} fillOpacity={0.4} />
+          ) : null}
+        </View>
+        <Text style={subStyle} numberOfLines={1}>
+          {theme.sub}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+interface SettingsRowProps {
+  icon: React.ComponentType<IconProps>;
+  title: string;
+  sub?: string;
+  onPress?: () => void;
+}
+
+function SettingsRow({ icon: Icon, title, sub, onPress }: SettingsRowProps) {
+  const { tokens } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={({ pressed }) => [
         {
-          value: (
-            <View style={{ width: '100%', gap: 2 }}>
-              <Text
-                selectable
-                style={{ ...typography.body, color: tidewater.ink, fontWeight: '600' }}
-                numberOfLines={1}
-              >
-                {supervisor.name}
-              </Text>
-              {secondary ? (
-                <Text
-                  style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}
-                  numberOfLines={1}
-                >
-                  {secondary.toUpperCase()}
-                </Text>
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 14,
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          backgroundColor: tokens.surface,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: tokens.lineSoft,
+        },
+        pressed ? { transform: [{ scale: 0.99 }], borderColor: tokens.line } : null,
+      ]}
+    >
+      <View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          backgroundColor: tokens.surface2,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon size={20} color={tokens.text} fill={tokens.accent} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+          {title}
+        </Text>
+        {sub ? (
+          <Text style={{ ...type.cardSub, color: tokens.textDim }} numberOfLines={1}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+      <IconChevron size={18} color={tokens.textFaint} />
+    </Pressable>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+interface BackupInlinePanelProps {
+  restoreText: string;
+  setRestoreText: (v: string) => void;
+  previewSnapshot: BackupSnapshot | null;
+  restoreConfirmed: boolean;
+  setRestoreConfirmed: (v: boolean) => void;
+  restoreError: string | null;
+  backupPending: boolean;
+  restorePending: boolean;
+  onShare: () => void;
+  onPreview: () => void;
+  onRestore: () => void;
+  onClearPreview: () => void;
+}
+
+function BackupInlinePanel({
+  restoreText,
+  setRestoreText,
+  previewSnapshot,
+  restoreConfirmed,
+  setRestoreConfirmed,
+  restoreError,
+  backupPending,
+  restorePending,
+  onShare,
+  onPreview,
+  onRestore,
+  onClearPreview,
+}: BackupInlinePanelProps) {
+  const { tokens } = useTheme();
+
+  return (
+    <Card padding={16}>
+      <Text style={{ ...type.cardSub, color: tokens.textDim, marginBottom: 12 }}>
+        Share a recovery snapshot to keep a copy off-device. Restoring replaces the local
+        ledger with the snapshot.
+      </Text>
+      <Button variant="primary" full onPress={onShare} disabled={backupPending}>
+        {backupPending ? 'Preparing snapshot…' : 'Share backup'}
+      </Button>
+
+      <View style={{ height: 16 }} />
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
+        RESTORE FROM SNAPSHOT
+      </Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 8,
+          padding: 10,
+          borderRadius: 10,
+          backgroundColor: tokens.warnSoft,
+        }}
+      >
+        <IconWarn size={16} color={tokens.warn} fill={tokens.warn} />
+        <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+          Replacing the local ledger is destructive. Share a backup first.
+        </Text>
+      </View>
+
+      <TextInput
+        value={restoreText}
+        onChangeText={setRestoreText}
+        editable={!previewSnapshot}
+        multiline
+        placeholder="Paste recovery file text"
+        placeholderTextColor={tokens.textFaint}
+        style={{
+          marginTop: 10,
+          borderWidth: 1,
+          borderColor: tokens.lineSoft,
+          borderRadius: 10,
+          padding: 12,
+          minHeight: 100,
+          textAlignVertical: 'top',
+          backgroundColor: previewSnapshot ? tokens.surface2 : tokens.surface,
+          color: tokens.text,
+          fontFamily: 'JetBrainsMono_400Regular',
+          fontSize: 12,
+          lineHeight: 16,
+        }}
+      />
+
+      {previewSnapshot ? (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 10,
+            borderRadius: 10,
+            backgroundColor: tokens.okSoft,
+            gap: 4,
+          }}
+        >
+          <Text style={{ ...type.monoKicker, color: tokens.ok }}>SNAPSHOT PREVIEW</Text>
+          <SnapshotRow label="Exported" value={formatDateOrDash(previewSnapshot.exported_at)} />
+          <SnapshotRow
+            label="Operator"
+            value={previewSnapshot.data.profiles[0]?.full_name ?? '—'}
+          />
+          <SnapshotRow label="Entries" value={String(previewSnapshot.data.entries.length)} />
+          <SnapshotRow label="Signatures" value={String(previewSnapshot.data.signatures.length)} />
+          <SnapshotRow label="Gear items" value={String(previewSnapshot.data.gear_items.length)} />
+        </View>
+      ) : null}
+
+      {previewSnapshot ? (
+        <View style={{ marginTop: 12, gap: 10 }}>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: restoreConfirmed }}
+            onPress={() => setRestoreConfirmed(!restoreConfirmed)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              padding: 12,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: restoreConfirmed ? tokens.ok : tokens.lineSoft,
+              backgroundColor: restoreConfirmed ? tokens.okSoft : 'transparent',
+            }}
+          >
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 5,
+                borderWidth: 1.5,
+                borderColor: restoreConfirmed ? tokens.ok : tokens.line,
+                backgroundColor: restoreConfirmed ? tokens.ok : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {restoreConfirmed ? (
+                <IconVerified size={12} color={tokens.okSoft} fill={tokens.okSoft} />
               ) : null}
             </View>
-          ),
-          flex: 1,
-        },
-        {
-          value: (
-            <View style={{ width: '100%', alignItems: 'flex-end', gap: 2 }}>
-              <Text
-                style={{ ...typography.monoMd, color: tidewater.ink, letterSpacing: 1 }}
-                numberOfLines={1}
-              >
-                {supervisor.cert_number || '—'}
-              </Text>
-              <Text
-                style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}
-                numberOfLines={1}
-              >
-                {lastLabel}
-              </Text>
-            </View>
-          ),
-          width: 120,
-          align: 'right',
-        },
-      ]}
-    />
+            <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
+              I understand this replaces the local logbook on this device.
+            </Text>
+          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Button variant="ghost" full onPress={onClearPreview} disabled={restorePending}>
+              Back to paste
+            </Button>
+            <Button
+              variant="danger"
+              full
+              onPress={onRestore}
+              disabled={!restoreConfirmed || restorePending}
+            >
+              {restorePending ? 'Restoring…' : 'Restore ledger'}
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <View style={{ marginTop: 10 }}>
+          <Button variant="outline" full onPress={onPreview} disabled={!restoreText.trim()}>
+            Preview snapshot
+          </Button>
+        </View>
+      )}
+
+      {restoreError ? (
+        <Text style={{ ...type.cardSub, color: tokens.danger, marginTop: 8 }}>{restoreError}</Text>
+      ) : null}
+    </Card>
   );
 }
 
-function SnapshotSummaryRow({ label, value }: { label: string; value: string }) {
-  const { spacing, typography, tidewater } = useTheme();
+function SnapshotRow({ label, value }: { label: string; value: string }) {
+  const { tokens } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm }}>
-      <Text
-        style={{
-          ...typography.monoSm,
-          color: tidewater.ink3,
-          letterSpacing: 1.5,
-          width: 88,
-        }}
-      >
-        {label}
-      </Text>
-      <Text style={{ ...typography.bodyMed, color: tidewater.ink, flex: 1 }} numberOfLines={1}>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      <Text style={{ ...type.monoSm, color: tokens.textDim, width: 88 }}>{label.toUpperCase()}</Text>
+      <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }} numberOfLines={1}>
         {value}
       </Text>
     </View>
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+
+function ProfileFooter({ chainHash }: { chainHash: string | null }) {
+  const { tokens } = useTheme();
+  const head = chainHash ? chainHash.slice(0, 8) : '00000000';
+  return (
+    <View
+      style={{
+        alignItems: 'center',
+        gap: 6,
+        paddingTop: 36,
+        paddingBottom: 28,
+      }}
+    >
+      <IconBrand size={20} color={tokens.textFaint} fill={tokens.accent} fillOpacity={0.18} />
+      <Text style={{ ...type.monoSm, color: tokens.textFaint, textTransform: 'uppercase' }}>
+        {`RALB · v1.0 · chain ${head}`}
+      </Text>
+    </View>
+  );
+}
+
+function deriveInitials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '—';
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}

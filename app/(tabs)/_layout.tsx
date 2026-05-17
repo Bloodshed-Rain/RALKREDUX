@@ -1,5 +1,5 @@
 import { router, Tabs } from 'expo-router';
-import { BookOpen, HardHat, MoreHorizontal, Plus, Sun } from 'lucide-react-native';
+import { BookOpen, HardHat, Plus, Sun, User2 } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -204,10 +204,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
-          tabBarIcon: ({ color, size }) => (
-            <MoreHorizontal color={color} size={size} strokeWidth={1.8} />
-          ),
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => <User2 color={color} size={size} strokeWidth={1.8} />,
         }}
       />
     </Tabs>
