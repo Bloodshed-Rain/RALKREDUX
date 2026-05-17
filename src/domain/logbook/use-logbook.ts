@@ -50,6 +50,20 @@ export function useEntryDetail(entryId: string | null) {
   });
 }
 
+// Entries that amend `entryId`. Powers the "Amended by …" lineage chip on the
+// entry detail screen. Returns an empty array (not null) when none exist so
+// the consumer can render unconditionally without nullable guards.
+export function useAmendmentsOf(entryId: string | null) {
+  return useQuery<LogbookEntry[]>({
+    enabled: Boolean(entryId),
+    queryKey: ['amendmentsOf', entryId],
+    queryFn: () => {
+      if (!entryId) throw new Error('entry_id_required');
+      return createLogbookService(getClient()).listAmendmentsOf(entryId);
+    },
+  });
+}
+
 export function useRemoteSignatureRequestDetail(requestCode: string | null, signingToken?: string | null) {
   return useQuery({
     enabled: Boolean(requestCode && signingToken),
@@ -139,6 +153,8 @@ export function useCreateAmendment() {
       queryClient.invalidateQueries({ queryKey: ['careerStats'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', input.entry_id] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', entry.id] });
+      // The source entry's "Amended by …" chip needs to refresh.
+      queryClient.invalidateQueries({ queryKey: ['amendmentsOf', input.entry_id] });
     },
   });
 }

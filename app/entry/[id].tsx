@@ -20,8 +20,10 @@ import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
 import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/logbook/logbook-service';
+import type { LogbookEntry } from '@/src/domain/logbook/types';
 import {
   useAddEntryAttachment,
+  useAmendmentsOf,
   useAttachGearToEntry,
   useCancelRemoteSignatureRequest,
   useEntryChainValid,
@@ -84,6 +86,7 @@ export default function EntryDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
+  const amendments = useAmendmentsOf(entryId);
   const exportEntry = useExportEntryPacket();
   const gearItems = useGearItems();
   const attachGear = useAttachGearToEntry();
@@ -327,6 +330,8 @@ export default function EntryDetailScreen() {
               </View>
               <StatusPill status={statusKey} size="md" />
             </View>
+
+            <EntryLineage entry={entry} amendments={amendments.data ?? []} />
 
             <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 16 }} />
 
@@ -964,3 +969,61 @@ function SignatureFrame({ value }: { value: string }) {
   );
 }
 
+
+// Bidirectional amendment lineage chips for the entry hero card. An amendment
+// renders "Amends ..." pointing back to its source; a source entry whose
+// amendments have been drafted renders "Amended by ..." pointing forward to
+// the latest one (with a (+N) suffix when more than one exists). Either chip
+// taps through to the linked entry so the auditor can walk the chain.
+function EntryLineage({
+  entry,
+  amendments,
+}: {
+  entry: LogbookEntry;
+  amendments: LogbookEntry[];
+}) {
+  if (!entry.amends_entry_id && amendments.length === 0) return null;
+
+  const latestAmendment = amendments[amendments.length - 1] ?? null;
+  const extraAmendments = Math.max(0, amendments.length - 1);
+
+  return (
+    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+      {entry.amends_entry_id ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open source entry"
+          onPress={() => router.push(`/entry/${entry.amends_entry_id}` as never)}
+          hitSlop={6}
+        >
+          <Pill tone="chip" size="sm">
+            {`Amends ${shortEntryRef(entry.amends_entry_id)}`}
+          </Pill>
+        </Pressable>
+      ) : null}
+      {latestAmendment ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open latest amendment"
+          onPress={() => router.push(`/entry/${latestAmendment.id}` as never)}
+          hitSlop={6}
+        >
+          <Pill tone="accent" size="sm">
+            {extraAmendments > 0
+              ? `Amended by ${latestAmendment.date_to.slice(0, 10)} · ${shortEntryRef(latestAmendment.id)} (+${extraAmendments})`
+              : `Amended by ${latestAmendment.date_to.slice(0, 10)} · ${shortEntryRef(latestAmendment.id)}`}
+          </Pill>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+// Audit-friendly short entry reference: strip the createId prefix and surface
+// the first 8 chars of the UUID portion. Pairs with the entry date in
+// audit-context labels (e.g. "Amended by 2026-05-10 · A1B2C3D4").
+function shortEntryRef(id: string): string {
+  const parts = id.split('_');
+  const uuid = parts.length > 1 ? parts.slice(1).join('_') : id;
+  return uuid.slice(0, 8).toUpperCase();
+}

@@ -357,6 +357,17 @@ export function createLogbookService(db: DbClient) {
       );
     },
 
+    // Entries that point back to `entryId` via `amends_entry_id`. Lets a signed
+    // source entry surface "Amended by …" lineage without the UI doing a full
+    // table scan client-side. Ordered oldest-first so the chain reads in the
+    // order the amendments were drafted.
+    async listAmendmentsOf(entryId: string): Promise<LogbookEntry[]> {
+      return db.getAll<LogbookEntry>(
+        'SELECT * FROM entries WHERE amends_entry_id = ? ORDER BY created_at ASC',
+        [entryId],
+      );
+    },
+
     getEntryDetail,
 
     getRemoteSignatureRequestDetail,

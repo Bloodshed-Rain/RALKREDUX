@@ -349,6 +349,49 @@ describe('logbook service', () => {
     expect(summary.signedHours).toBe(6);
   });
 
+  it('lists amendments of a source entry in creation order', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const original = await service.createDraft(draftInput({ description: 'Original work.', work_hours: 8 }));
+
+    await service.signEntryLocal({
+      entry_id: original.id,
+      supervisor_name: 'Jordan Lee',
+      supervisor_scheme: 'sprat',
+      supervisor_cert_number: 'SPRAT-1234',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+    });
+
+    // No amendments yet — should return [].
+    expect(await service.listAmendmentsOf(original.id)).toEqual([]);
+
+    const amendmentInput = {
+      entry_id: original.id,
+      employer: 'Northwind Rope',
+      site: 'Bridge 12',
+      client: 'City Works',
+      description: 'Corrected hours.',
+      work_hours: 6,
+      work_task: 'Inspection',
+      access_method: 'Two-rope access',
+      structure_type: 'Bridge',
+      max_height: 120,
+      height_unit: 'ft' as const,
+      sprat_level_snapshot: 'II' as const,
+    };
+
+    const first = await service.createAmendmentDraft(amendmentInput);
+    const second = await service.createAmendmentDraft(amendmentInput);
+
+    const list = await service.listAmendmentsOf(original.id);
+    expect(list.map((e) => e.id)).toEqual([first.id, second.id]);
+    expect(list.every((e) => e.amends_entry_id === original.id)).toBe(true);
+
+    // An entry with no amendments should still return an empty array.
+    expect(await service.listAmendmentsOf(first.id)).toEqual([]);
+  });
+
   it('requires a drawn signature and accepted attestation before local signing', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
