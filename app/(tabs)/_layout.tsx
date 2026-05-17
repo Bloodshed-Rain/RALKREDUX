@@ -63,12 +63,14 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                 haptics.selection();
                 router.push('/entry/new');
               }}
-              style={({ pressed }) => ({
-                width: 84,
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                transform: pressed ? [{ scale: 0.94 }, { rotate: '-8deg' }] : undefined,
-              })}
+              style={({ pressed }) => [
+                {
+                  width: 84,
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                },
+                pressed ? { transform: [{ scale: 0.94 }, { rotate: '-8deg' }] } : null,
+              ]}
             >
               <View
                 style={{
@@ -132,14 +134,16 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             testID={options.tabBarButtonTestID}
             onPress={onPress}
             onLongPress={onLongPress}
-            style={({ pressed }) => ({
-              flex: 1,
-              alignItems: 'center',
-              paddingVertical: 8,
-              paddingHorizontal: 6,
-              borderRadius: 12,
-              transform: pressed ? [{ scale: 0.96 }] : undefined,
-            })}
+            style={({ pressed }) => [
+              {
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 6,
+                borderRadius: 12,
+              },
+              pressed ? { transform: [{ scale: 0.96 }] } : null,
+            ]}
           >
             {Icon ? <Icon size={22} color={color} fill={fill} /> : null}
             <Text selectable={false} numberOfLines={1} style={labelStyle}>

@@ -66,8 +66,12 @@ export function IconBtn({
           justifyContent: 'center',
           backgroundColor: pressed && !disabled ? tokens.surface2 : 'transparent',
           opacity: disabled ? 0.45 : 1,
-          transform: pressed && !disabled ? [{ scale: 0.94 }] : undefined,
         },
+        // Keep `transform` out of the base object so the key is absent when
+        // not pressed. Under Fabric, `transform: undefined` can serialize to
+        // `null` and trip `_validateTransforms` with "Cannot read property
+        // 'forEach' of null". Spread-conditional avoids the failure mode.
+        pressed && !disabled ? { transform: [{ scale: 0.94 }] } : null,
         style,
       ]}
     >

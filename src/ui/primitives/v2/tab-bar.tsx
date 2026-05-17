@@ -76,8 +76,8 @@ export function TabBar({ active, onChange, onNewPress }: TabBarProps) {
             width: 84,
             alignItems: 'center',
             justifyContent: 'center',
-            transform: pressed ? [{ scale: 0.94 }, { rotate: '-8deg' }] : undefined,
           },
+          pressed ? { transform: [{ scale: 0.94 }, { rotate: '-8deg' }] } : null,
         ]}
       >
         <View
@@ -151,8 +151,8 @@ function TabItem({ label, Icon, active, onPress }: TabItemProps) {
           paddingVertical: 8,
           paddingHorizontal: 6,
           borderRadius: 12,
-          transform: pressed ? [{ scale: 0.96 }] : undefined,
         },
+        pressed ? { transform: [{ scale: 0.96 }] } : null,
       ]}
     >
       <Icon size={22} color={color} fill={fill} />
