@@ -27,7 +27,30 @@ Key shifts in v2:
 
   **Hard-gate verification owed.** The user picked the hard gate ("every theme must look acceptable on every existing screen"). Visual check across all 6 palettes is owed once a theme switcher exists. Practical path: defer the visual sweep until step 7 (Profile → Appearance) lands a picker on-device; until then nothing in the app can switch off Tungsten anyway.
 
-- **Step 3 — Manrope + JetBrains Mono + Newsreader fonts.** Shipped 2026-05-17. Added `@expo-google-fonts/manrope` + `@expo-google-fonts/jetbrains-mono` to `package.json`. `src/providers/app-providers.tsx` now loads Manrope 400/500/600/700/800, JetBrains Mono 400/500/600/700, and Newsreader 600 italic alongside the legacy Inter/Archivo/IBM Plex Mono/Newsreader 500+700 families (legacy families stay loaded until paper-form primitives die in step 15). New typography scale at `src/ui/theme/type.ts` — `type.heroNumber / screenTitle / heroCardTitle / sectionTitle / cardTitle / cardSub / body / buttonLabel / monoKicker / monoKickerLg / monoSm / mono / monoMd / monoLg / detailStat / signatureScrawl`. Letter-spacing values converted from CSS em → RN points. Typecheck clean.
+- **Step 3 — Manrope + JetBrains Mono + Newsreader fonts.** Shipped 2026-05-17 (commit `065a697`). Added `@expo-google-fonts/manrope` + `@expo-google-fonts/jetbrains-mono` to `package.json`. `src/providers/app-providers.tsx` now loads Manrope 400/500/600/700/800, JetBrains Mono 400/500/600/700, and Newsreader 600 italic alongside the legacy Inter/Archivo/IBM Plex Mono/Newsreader 500+700 families (legacy families stay loaded until paper-form primitives die in step 15). New typography scale at `src/ui/theme/type.ts` — `type.heroNumber / screenTitle / heroCardTitle / sectionTitle / cardTitle / cardSub / body / buttonLabel / monoKicker / monoKickerLg / monoSm / mono / monoMd / monoLg / detailStat / signatureScrawl`. Letter-spacing values converted from CSS em → RN points. Typecheck clean.
+
+- **Step 2 — Port 38 duotone icons to react-native-svg.** Shipped 2026-05-17. New file `src/ui/icons/index.tsx` exports 40 icon components (handoff README under-counted; the icons.jsx source has 40). Each icon: shared `Icon` internal wrapper renders a 24×24 viewBox with an optional duotone fill `<G>` at 28% opacity over an ink shape `<G>`. Defaults resolve via `useTheme().tokens` (`color = tokens.text`, `fill = tokens.accent`); both overridable per-instance via `color` / `fill` / `fillOpacity` props. `GEAR_ICON: Record<GearCategory, IconComponent>` map covers all 10 categories with the handoff's fallbacks (ascender→carabiner, lanyard/sling→rope, pulley→descender, other→carabiner). Typecheck clean.
+
+- **Steps 4, 5, 6 — v2 primitives.** Shipped 2026-05-17. New folder `src/ui/primitives/v2/` houses every primitive the redesigned screens consume; v1 primitives in `src/ui/primitives/*.tsx` stay around until each redesigned screen drops its last legacy import (step 15 sweep). Don't mix v1 and v2 primitives in a single screen.
+
+  Inventory:
+  - **Button** (`v2/button.tsx`) — `variant: 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger'`, `size: 'sm' | 'md' | 'lg'`, leading + trailing icon, `full` width, disabled. Heliotype branch adds a 2 px hard ink drop shadow on `primary`.
+  - **IconBtn** (`v2/icon-btn.tsx`) — 28/36/44 px boxes, tone presets, press scales to 0.94.
+  - **Card** (`v2/card.tsx`) — `padding` (default 16), `interactive` opt-in for press scale, Heliotype branch bumps border to 1.5 px on `tokens.line` (instead of the 1 px `tokens.lineSoft` everywhere else).
+  - **Pill** + **StatusPill** (`v2/pill.tsx`) — `tone: 'chip' | 'accent' | 'ok' | 'warn' | 'danger'`, `size: 'sm' | 'md'`. Heliotype gets an inset 1.5 px currentColor border. `StatusPill` maps the entry-status enum (`draft/signed/amended/pending/void`) onto Pill + icon.
+  - **Field** (`v2/field.tsx`) — label kicker + bordered row + helper. Focus state swaps border to 1.5 px accent. Heliotype keeps the heavier 1.5 px line at rest.
+  - **ChipSelect** (`v2/chip-select.tsx`) — segmented chip row with `count` badges; generic over the option-value string type.
+  - **SectionH** (`v2/section-h.tsx`) — `kicker` + `title` + `action` slot, mono kicker.
+  - **TopBar** (`v2/top-bar.tsx`) — compact + large variants; large hides the centered title and renders a 32 px Manrope 800 hero title + subtitle.
+  - **TabBar** (`v2/tab-bar.tsx`) — 5-slot bar (Today / Records / [center "+"] / Gear / Profile); raised 60 px disk with accent-ring shadow; Heliotype switches to a hard ink-block shadow. Standalone primitive — Expo Router integration lands when screen redesigns start.
+  - **SyncChip** (`v2/sync-chip.tsx`) — `'synced' | 'syncing' | 'queued' | 'offline'`. Syncing state spins the icon via `Animated.loop` (1.6 s linear).
+  - **Sheet** (`v2/sheet.tsx`) — `Modal` + `Animated`-driven bottom sheet, 92% height by default, 280 ms cubic-bezier(.2,.7,.3,1.1) slide-up + 200 ms scrim fade.
+  - **AnimatedNumber** (`v2/animated-number.tsx`) — RAF-driven cubic-out interpolation (900 ms default), tabular-nums. Respects `useReducedMotion()` → snaps to final value.
+  - **HashGlyph** (`v2/hash-glyph.tsx`) — deterministic 8-bar visualization keyed by hex chars 0–7. Bars at index 0/3/6 paint accent; rest paint textDim. Height + opacity derive from char value.
+  - **EmptyState** (`v2/empty-state.tsx`) — 88 px tinted plate with concentric SVG rings (dashed outer at r=40, solid inner at r=30) + icon + title + sub + optional action.
+  - **PullToRefresh** (`v2/pull-to-refresh.tsx`) — bespoke chain-icon-in-ring indicator, 72 px threshold, 3-stage label ("Pull to refresh" → "Release to sync" → "Syncing chain…"). Built on `PanResponder` + `Animated` (no reanimated/gesture-handler dependency — those are explicit non-installs; if motion polish is needed, swap in step 15). Supports both internal cycle (`onRefresh` returns a promise) and externally-driven `refreshing` prop.
+
+  Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
 
 ## SUPERSEDED — paper-form identity (2026-05-11 to 2026-05-14)
 
