@@ -677,7 +677,7 @@ function AttestationRow({ accepted, onToggle }: { accepted: boolean; onToggle: (
     >
       <View style={boxStyle}>
         {accepted ? (
-          <IconCheck size={14} color={tokens.accentInk} fill={tokens.accentInk} />
+          <IconCheck size={14} color={tokens.bg} fill={tokens.bg} />
         ) : null}
       </View>
       <Text style={textStyle}>{ATTESTATION_TEXT}</Text>

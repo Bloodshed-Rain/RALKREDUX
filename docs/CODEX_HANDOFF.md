@@ -1,6 +1,6 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-17 (step 15 — v2 redesign complete)
+Last updated: 2026-05-17 (post-step-15 cross-palette sweep)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
@@ -53,6 +53,24 @@ Dual-cert SPRAT+IRATA support at setup landed in step 14 (2026-05-17). The new `
   - **PullToRefresh** (`v2/pull-to-refresh.tsx`) — bespoke chain-icon-in-ring indicator, 72 px threshold, 3-stage label ("Pull to refresh" → "Release to sync" → "Syncing chain…"). Built on `PanResponder` + `Animated` (no reanimated/gesture-handler dependency — those are explicit non-installs; if motion polish is needed, swap in step 15). Supports both internal cycle (`onRefresh` returns a promise) and externally-driven `refreshing` prop.
 
   Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
+
+- **Post-step-15 cross-palette static sweep.** 2026-05-17. Static audit across all six palettes (Tungsten / Mariner / Verdigris / Heliotype / Sandstone / Mercury) looking for token combinations that produce poor contrast or hardcoded colors that ignore the active palette. Surveyed every screen + v2 primitive.
+
+  Heliotype is the wildcard (light theme, `line` = `#1A1410` near-black ink, `accent` == `danger` == `#8B1F1A` oxblood, `accentSoft` == `dangerSoft`). All heliotype-specific border + shadow branches in primitives (Button, Card, Field, Pill, TabBar) verified — they're scoped to `theme.key === 'heliotype'` and apply the 1.5 px ink-on-paper treatment. The `accent`/`danger` color collapse on Heliotype is documented and intentional (oxblood is the only red the palette has).
+
+  Bugs found + fixed:
+  - `app/entry/[id]/sign.tsx` — attestation `IconCheck` was painted with `tokens.okSoft` over a `tokens.ok`-filled box. Soft tokens are pale-on-pale backgrounds, NOT foreground colors — the check rendered near-invisible on every palette. Patched to `tokens.bg` (cleanest contrast against any saturated fill: dark themes get dark check on light fill, light themes get cream check on dark fill).
+  - `app/(tabs)/more.tsx` — same bug on the restore-confirm `IconVerified`. Same fix.
+  - `app/verify/[code].tsx` — `AttestationRow`'s `IconCheck` was painted with `tokens.accentInk` over a `tokens.ok` fill. accentInk pairs with `accent`, not `ok`; cross-palette this was inconsistent (on Heliotype/Sandstone/Mercury accentInk is cream — fine on dark green; on Tungsten/Mariner/Verdigris accentInk is dark brown/navy — also fine, but mixing semantic tokens is fragile). Standardised to `tokens.bg` to match the sign + more screens.
+  - `app/(tabs)/gear.tsx` — `DeadlineRow` icon tile used a literal `rgba(0,0,0,0.05)` background, which was near-invisible on the already-dark `dangerSoft`/`warnSoft` row on dark themes. Swapped to `tokens.bg` so the embedded-tile feel reads on every palette.
+
+  Surveyed but left as-is:
+  - `app/entry/new.tsx` `ChoiceRow` emphasis uses `rgba(0,0,0,0.12)` for an inner icon tile on a saturated-accent row. The 12 % black inset reads as "depressed" on every accent hue (orange/cyan/gold/oxblood/terracotta/violet) so the local hex is intentional, not a cross-palette bug.
+  - Custom `borderWidth: 1` containers in a few screens (sticky headers, footer hairlines, choice rows). Primitives Card/Field/Pill correctly bump to 1.5 px on Heliotype; bumping every custom container would create a sprawling diff for marginal "ink-on-paper" feel. The primary surfaces (Cards, Buttons, Pills, Fields) carry the heavier border treatment, which is what reads as the Heliotype signature.
+
+  Pill / Button / Field / Card / Pill-on-soft-bg combinations were spot-checked across all six palettes' token tables — every tone pair (chip · accent · ok · warn · danger) renders with safe contrast on every palette.
+
+  Typecheck clean. Jest 137/137 still green.
 
 - **Step 15 — Final sweep: 4 screens migrated, all legacy primitives + fonts + compat deleted.** Shipped 2026-05-17. The remaining four screens that were still on the paper-form chrome were rewritten on v2 primitives, then every v1 surface was deleted:
 

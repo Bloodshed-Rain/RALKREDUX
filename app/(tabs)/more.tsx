@@ -666,7 +666,7 @@ function BackupInlinePanel({
               }}
             >
               {restoreConfirmed ? (
-                <IconVerified size={12} color={tokens.okSoft} fill={tokens.okSoft} />
+                <IconVerified size={12} color={tokens.bg} fill={tokens.bg} />
               ) : null}
             </View>
             <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>

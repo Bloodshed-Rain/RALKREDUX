@@ -382,7 +382,7 @@ function DeadlineRow({ detail, today }: { detail: GearItemDetail; today: Date })
           width: 30,
           height: 30,
           borderRadius: 8,
-          backgroundColor: 'rgba(0,0,0,0.05)',
+          backgroundColor: tokens.bg,
           alignItems: 'center',
           justifyContent: 'center',
         }}
