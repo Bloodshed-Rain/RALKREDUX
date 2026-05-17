@@ -3,7 +3,7 @@ import { BookOpen, HardHat, MoreHorizontal, Plus, Sun } from 'lucide-react-nativ
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, tidewater } from '@/src/ui/theme/tokens';
+import { useTheme } from '@/src/ui/theme/theme-provider';
 import { haptics } from '@/src/ui/haptics';
 
 const RAISED_BUTTON_SIZE = 56;
@@ -11,6 +11,7 @@ const RAISED_BUTTON_LIFT = 18;
 
 function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { colors, tidewater } = useTheme();
   const bottomInset = Math.max(insets.bottom, 8);
   const tabBarHeight = 72 + bottomInset;
 
@@ -163,6 +164,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
+  const { colors } = useTheme();
   return (
     <Tabs
       tabBar={(props) => <AppTabBar {...props} />}

@@ -1,158 +1,40 @@
-export const tidewater = {
-  ink: '#0e3a40',
-  ink2: '#1a525a',
-  ink3: '#5e7c80',
-  paper: '#e6ece8',
-  paper2: '#d6dfdb',
-  white: '#ffffff',
-  accent: '#5cb3c4',
-  accentSoft: '#d2ebf0',
-  yellow: '#d4a514',
-  yellowDeep: '#937007',
-  yellowSoft: '#eed8a3',
-  red: '#b03020',
-  redSoft: '#eccac2',
-  green: '#2c7256',
-  greenSoft: '#c8dccf',
-  hair: '#0e3a40',
-  hairSoft: 'rgba(14,58,64,0.22)',
-  hairFaint: 'rgba(14,58,64,0.10)',
-} as const;
+// Legacy compat shim — derives the original Tidewater token shape from the
+// active default theme (Tungsten) so existing primitives and static imports
+// keep working while the redesign migrates each screen to `useTheme().tokens`.
+//
+// New code should consume `useTheme().tokens` instead of importing from here.
+// This file disappears in the final-sweep task once no consumers remain.
 
-export const colors = {
-  bgApp: tidewater.paper,
-  bgSurface: tidewater.white,
-  bgMuted: tidewater.paper2,
-  border: tidewater.hairSoft,
-  divider: tidewater.hairFaint,
-  textPrimary: tidewater.ink,
-  textSecondary: tidewater.ink2,
-  textMuted: tidewater.ink3,
-  textInverse: tidewater.paper,
-  accentPrimary: tidewater.accent,
-  accentPressed: tidewater.ink2,
-  accentTint: tidewater.accentSoft,
-  navBar: tidewater.ink,
-  navBarActive: tidewater.accent,
-  statusOk: tidewater.green,
-  statusWarn: tidewater.yellowDeep,
-  statusErr: tidewater.red,
-  statusInfo: tidewater.ink2,
-  statusOkTint: tidewater.greenSoft,
-  statusWarnTint: tidewater.yellowSoft,
-  statusErrTint: tidewater.redSoft,
-  statusInfoTint: 'rgba(14,58,64,0.08)',
-  certL1: tidewater.accent,
-  certL2: tidewater.green,
-  certL3: tidewater.ink,
-  overlay: 'rgba(14,58,64,0.42)',
-} as const;
+import { DEFAULT_THEME_KEY, THEMES } from './themes';
+import {
+  deriveColors,
+  deriveDocBand,
+  deriveHairlines,
+  deriveStamp,
+  deriveTidewater,
+  radii as radiiTokens,
+  spacing as spacingTokens,
+  touchTarget as touchTargetTokens,
+  typography as typographyTokens,
+} from './compat';
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  base: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-} as const;
+const defaultTheme = THEMES[DEFAULT_THEME_KEY];
 
-export const radii = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  pill: 999,
-} as const;
-
-export const typography = {
-  // Inter-based — body, labels, generic titles (unchanged from prior tokens).
-  title1: { fontFamily: 'Inter_600SemiBold', fontSize: 28, lineHeight: 34, fontWeight: '600' },
-  title2: { fontFamily: 'Inter_600SemiBold', fontSize: 21, lineHeight: 28, fontWeight: '600' },
-  title3: { fontFamily: 'Inter_600SemiBold', fontSize: 17, lineHeight: 24, fontWeight: '600' },
-  body: { fontFamily: 'Inter_400Regular', fontSize: 16, lineHeight: 24, fontWeight: '400' },
-  bodyMed: { fontFamily: 'Inter_500Medium', fontSize: 16, lineHeight: 24, fontWeight: '500' },
-  bodyBold: { fontFamily: 'Inter_700Bold', fontSize: 16, lineHeight: 24, fontWeight: '700' },
-  label: { fontFamily: 'Inter_500Medium', fontSize: 14, lineHeight: 20, fontWeight: '500' },
-  caption: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 16, fontWeight: '400' },
-
-  // Archivo display — screen titles, all-caps form-name headers.
-  displayXl: { fontFamily: 'Archivo_900Black', fontSize: 40, lineHeight: 42, fontWeight: '900', letterSpacing: -0.4 },
-  displayLg: { fontFamily: 'Archivo_900Black', fontSize: 28, lineHeight: 32, fontWeight: '900', letterSpacing: -0.2 },
-  displayMd: { fontFamily: 'Archivo_800ExtraBold', fontSize: 20, lineHeight: 24, fontWeight: '800', letterSpacing: 0 },
-  displaySm: { fontFamily: 'Archivo_700Bold', fontSize: 14, lineHeight: 18, fontWeight: '700', letterSpacing: 1.2 },
-
-  // IBM Plex Mono — form IDs, status chips, numbers.
-  mono: { fontFamily: 'IBMPlexMono_400Regular', fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 1.2 },
-  monoMd: { fontFamily: 'IBMPlexMono_500Medium', fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 1 },
-  monoLg: { fontFamily: 'IBMPlexMono_600SemiBold', fontSize: 16, lineHeight: 20, fontWeight: '600', letterSpacing: 0.6 },
-  monoSm: { fontFamily: 'IBMPlexMono_400Regular', fontSize: 10, lineHeight: 14, fontWeight: '400', letterSpacing: 1.5 },
-
-  // Newsreader italic — stamps and signature flourish.
-  italicStamp: {
-    fontFamily: 'Newsreader_700Bold_Italic',
-    fontSize: 22,
-    lineHeight: 24,
-    fontWeight: '700',
-    fontStyle: 'italic',
-    letterSpacing: 3,
-  },
-  italicSig: {
-    fontFamily: 'Newsreader_500Medium_Italic',
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
-
-  // FORM nn-X · REV n · EFF YYYY.MM
-  formNumber: { fontFamily: 'IBMPlexMono_500Medium', fontSize: 11, lineHeight: 14, fontWeight: '500', letterSpacing: 1.8 },
-} as const;
-
-export const hairlines = {
-  standard: { width: 1, color: tidewater.hair },
-  soft: { width: 1, color: tidewater.hairSoft },
-  faint: { width: 1, color: tidewater.hairFaint },
-} as const;
-
-export const docBand = {
-  top: {
-    background: tidewater.ink,
-    foreground: tidewater.paper,
-    accent: tidewater.yellow,
-  },
-  footer: {
-    background: tidewater.paper2,
-    foreground: tidewater.ink2,
-    border: tidewater.hair,
-  },
-} as const;
-
-export const stamp = {
-  rotation: {
-    light: -3,
-    standard: -6,
-    heavy: -9,
-    forward: 6,
-  },
-  opacity: 0.78,
-  borderWidth: 2.5,
-  tones: {
-    green: tidewater.green,
-    yellow: tidewater.yellowDeep,
-    red: tidewater.red,
-    ink: tidewater.ink,
-    mute: tidewater.ink3,
-  },
-} as const;
+export const tidewater = deriveTidewater(defaultTheme.tokens);
+export const colors = deriveColors(defaultTheme);
+export const hairlines = deriveHairlines(defaultTheme.tokens);
+export const docBand = deriveDocBand(defaultTheme.tokens);
+export const stamp = deriveStamp(defaultTheme.tokens);
+export const spacing = spacingTokens;
+export const radii = radiiTokens;
+export const typography = typographyTokens;
 
 export const theme = {
   colors,
   spacing,
   radii,
   typography,
-  touchTarget: { min: 44, preferred: 48 },
+  touchTarget: touchTargetTokens,
   tidewater,
   hairlines,
   docBand,

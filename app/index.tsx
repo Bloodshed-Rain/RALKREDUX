@@ -2,10 +2,11 @@ import { Redirect } from 'expo-router';
 import { Text } from 'react-native';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { Screen } from '@/src/ui/primitives';
-import { colors, typography } from '@/src/ui/theme/tokens';
+import { useTheme } from '@/src/ui/theme/theme-provider';
 
 export default function IndexRoute() {
   const profile = useProfile();
+  const { colors, typography } = useTheme();
 
   if (profile.isLoading) {
     return (

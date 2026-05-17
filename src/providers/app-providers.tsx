@@ -18,8 +18,22 @@ import {
 } from '@expo-google-fonts/ibm-plex-mono';
 import {
   Newsreader_500Medium_Italic,
+  Newsreader_600SemiBold_Italic,
   Newsreader_700Bold_Italic,
 } from '@expo-google-fonts/newsreader';
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+} from '@expo-google-fonts/manrope';
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_600SemiBold,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from '@/src/db/initialize';
@@ -31,6 +45,21 @@ const queryClient = new QueryClient();
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [fontsLoaded] = useFonts({
+    // v2 redesign families — Manrope (display/body), JetBrains Mono
+    // (numbers/hashes/kickers), Newsreader 600 italic (signature scrawl).
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
+    Newsreader_600SemiBold_Italic,
+
+    // Legacy paper-form families — kept loaded until the last legacy
+    // primitive is deleted in the final-sweep task.
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

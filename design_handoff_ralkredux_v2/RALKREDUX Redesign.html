@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RALKREDUX — Redesign</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0c0c0e; color: #f5f4f1; }
+  body { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #root { width: 100%; height: 100vh; }
+  .phone-shell {
+    width: 390px; height: 844px; flex-shrink: 0;
+    overflow: hidden; border-radius: 48px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.05);
+    background: #000;
+  }
+  /* Hide horizontal scrollbars inside snapshot frames */
+  .phone-shell::-webkit-scrollbar { display: none; }
+</style>
+<link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="lib/ios-frame.jsx"></script>
+<script type="text/babel" src="lib/design-canvas.jsx"></script>
+<script type="text/babel" src="lib/tweaks-panel.jsx"></script>
+
+<script type="text/babel" src="src/themes.jsx"></script>
+<script type="text/babel" src="src/icons.jsx"></script>
+<script type="text/babel" src="src/data.jsx"></script>
+<script type="text/babel" src="src/components.jsx"></script>
+<script type="text/babel" src="src/screens-home.jsx"></script>
+<script type="text/babel" src="src/screens-records.jsx"></script>
+<script type="text/babel" src="src/screens-new.jsx"></script>
+<script type="text/babel" src="src/screens-aux.jsx"></script>
+<script type="text/babel" src="src/app.jsx"></script>
+
+<script type="text/babel">
+
+// A static snapshot of a screen, themed and rendered inside a phone shell.
+function Snapshot({ theme = 'obsidian', screen = 'today', entryId = 'e008', snapshotMode }) {
+  const frameRef = React.useRef(null);
+  // Map screen → forcedScreen prop
+  const forced =
+    screen === 'today' || screen === 'records' || screen === 'gear' || screen === 'profile'
+      ? { kind: 'tab', id: screen }
+      : screen === 'detail' ? { kind: 'detail', id: entryId }
+      : screen === 'sign' ? { kind: 'sign', id: 'e009' }
+      : screen === 'sealed' ? { kind: 'sealed', id: 'e009' }
+      : screen === 'new' ? { kind: 'new' }
+      : screen === 'export' ? { kind: 'export' }
+      : screen === 'gear-detail' ? { kind: 'gear-detail', id: 'g_helmet_vertex' }
+      : { kind: 'tab', id: 'today' };
+
+  return (
+    <div className="phone-shell" ref={frameRef}>
+      <window.PrototypeApp
+        initialTheme={theme}
+        forcedScreen={forced}
+        snapshot={snapshotMode}
+        frameRef={frameRef}
+        hideTabs={['detail', 'sign', 'sealed', 'export', 'new', 'gear-detail'].includes(screen)}
+      />
+      {/* status bar overlay */}
+      <StatusOverlay />
+      {/* home indicator */}
+      <div style={{
+        position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+        width: 134, height: 5, borderRadius: 100,
+        background: window.THEMES[theme].mode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.4)',
+        zIndex: 60,
+      }} />
+    </div>
+  );
+}
+
+function StatusOverlay() {
+  return (
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: 54,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 28px', zIndex: 50, pointerEvents: 'none',
+      color: 'var(--text)', fontSize: 15, fontWeight: 700,
+      fontFamily: '-apple-system, "SF Pro", system-ui, sans-serif',
+      letterSpacing: '-0.01em',
+    }}>
+      <span style={{ paddingTop: 12 }}>9:41</span>
+      <span style={{ paddingTop: 12, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+        <svg width="18" height="11" viewBox="0 0 18 11" fill="currentColor"><path d="M1 8h2v3H1zM5 6h2v5H5zM9 4h2v7H9zM13 2h2v9h-2z" opacity=".95"/></svg>
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 3a8 8 0 0 1 5.5 2.2.7.7 0 0 0 1-.04.7.7 0 0 0-.04-1A9.4 9.4 0 0 0 8 1.5 9.4 9.4 0 0 0 1.6 4.2a.7.7 0 0 0-.04 1 .7.7 0 0 0 1 .04A8 8 0 0 1 8 3Zm0 3.4a4.7 4.7 0 0 1 3.2 1.3.7.7 0 0 0 1-.02.7.7 0 0 0-.02-1A6.1 6.1 0 0 0 8 5a6.1 6.1 0 0 0-4.2 1.68.7.7 0 0 0-.02 1 .7.7 0 0 0 1 .02A4.7 4.7 0 0 1 8 6.4Z" opacity=".95"/><circle cx="8" cy="9.4" r="1.2" opacity=".95"/></svg>
+        <svg width="25" height="11" viewBox="0 0 25 11" fill="none"><rect x="0.5" y="0.5" width="21" height="10" rx="2.5" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor" opacity="0.9"/><rect x="22.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor" opacity="0.4"/></svg>
+      </span>
+    </div>
+  );
+}
+
+function ProtoFrame({ children, theme = 'tungsten' }) {
+  return (
+    <div className="phone-shell">
+      {children}
+      <StatusOverlay />
+      <div style={{
+        position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+        width: 134, height: 5, borderRadius: 100,
+        background: window.THEMES[theme].mode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.4)',
+        zIndex: 60,
+      }} />
+    </div>
+  );
+}
+
+// Theme strip: 6 swatches with theme name & description for the canvas
+function ThemeStrip() {
+  return (
+    <div style={{
+      width: 1200, padding: 32,
+      background: '#0c0c0e', borderRadius: 18,
+      display: 'flex', flexDirection: 'column', gap: 18,
+      color: '#fff', fontFamily: 'Manrope, ui-sans-serif, system-ui, sans-serif',
+    }}>
+      <div>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, letterSpacing: '0.16em', color: '#7a7a76', textTransform: 'uppercase' }}>
+          Theme system
+        </div>
+        <h2 style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>
+          Six palettes. Same skeleton.
+        </h2>
+        <p style={{ margin: '6px 0 0', color: '#94939a', fontSize: 14, lineHeight: 1.5, maxWidth: 720 }}>
+          Every screen reads from CSS custom properties set by a single React provider, so the user
+          can swap palettes from Profile → Appearance and the whole app re-skins in 280&nbsp;ms.
+        </p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {window.THEME_ORDER.map((k) => {
+          const t = window.THEMES[k];
+          return (
+            <div key={k} style={{
+              padding: 16, borderRadius: 14,
+              background: t.tokens.bg, color: t.tokens.text,
+              boxShadow: 'inset 0 0 0 1px ' + t.tokens.lineSoft,
+            }}>
+              <div style={{ display: 'flex', height: 36, borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
+                {t.swatch.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>{t.name}</div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.tokens.textDim }}>
+                  {t.mode}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: t.tokens.textDim, marginTop: 4 }}>{t.sub}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                <Chip bg={t.tokens.accentSoft} fg={t.tokens.accent}>Accent</Chip>
+                <Chip bg={t.tokens.okSoft} fg={t.tokens.ok}>Signed</Chip>
+                <Chip bg={t.tokens.warnSoft} fg={t.tokens.warn}>Draft</Chip>
+                <Chip bg={t.tokens.dangerSoft} fg={t.tokens.danger}>Void</Chip>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Chip({ children, bg, fg }) {
+  return (
+    <span style={{
+      padding: '3px 9px',
+      borderRadius: 999,
+      background: bg, color: fg,
+      fontSize: 11, fontWeight: 600,
+      letterSpacing: '0.01em',
+      fontFamily: 'JetBrains Mono, monospace',
+    }}>{children}</span>
+  );
+}
+
+// Icon system display
+function IconBoard() {
+  const families = [
+    { title: 'Navigation', ids: ['IconToday', 'IconRecords', 'IconNew', 'IconGear', 'IconProfile', 'IconBrand'] },
+    { title: 'Actions', ids: ['IconSign', 'IconStamp', 'IconChain', 'IconExport', 'IconSync', 'IconBolt'] },
+    { title: 'Status', ids: ['IconVerified', 'IconDraft', 'IconPending', 'IconVoid', 'IconWarn', 'IconLock'] },
+    { title: 'Gear', ids: ['IconHarness', 'IconHelmet', 'IconRope', 'IconCarabiner', 'IconDescender', 'IconBolt'] },
+    { title: 'Form', ids: ['IconCalendar', 'IconClock', 'IconHeight', 'IconLocation', 'IconCamera', 'IconSearch'] },
+    { title: 'Chrome', ids: ['IconChevron', 'IconArrowLeft', 'IconClose', 'IconPlus', 'IconCheck', 'IconMore'] },
+  ];
+  return (
+    <div style={{
+      width: 1200, padding: 32,
+      background: '#0e0e10', borderRadius: 18,
+      color: '#f5f4f1', fontFamily: 'Manrope, ui-sans-serif, system-ui, sans-serif',
+      // Apply Tungsten tokens so the icons render correctly inside this board
+      '--accent': '#E08F55', '--accentInk': '#1A0E06',
+    }}>
+      <div>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, letterSpacing: '0.16em', color: '#7a7a76', textTransform: 'uppercase' }}>
+          Iconography
+        </div>
+        <h2 style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>
+          38 bespoke duotone icons.
+        </h2>
+        <p style={{ margin: '6px 0 18px', color: '#94939a', fontSize: 14, lineHeight: 1.5, maxWidth: 720 }}>
+          Hand-drawn at 24px on a unit-aligned grid. A solid silhouette in ink-on-text plus a
+          tinted accent layer at 28% opacity. The accent layer picks up the active palette.
+        </p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+        {families.map((fam) => (
+          <div key={fam.title} style={{
+            padding: 18, borderRadius: 14,
+            background: '#16161a',
+            boxShadow: 'inset 0 0 0 1px #1f1f24',
+          }}>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, letterSpacing: '0.14em', color: '#7a7a76', textTransform: 'uppercase', marginBottom: 14 }}>
+              {fam.title}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+              {fam.ids.map((id) => {
+                const Icon = window[id];
+                if (!Icon) return null;
+                return (
+                  <div key={id} style={{
+                    aspectRatio: '1',
+                    background: '#0e0e10', borderRadius: 9,
+                    display: 'grid', placeItems: 'center',
+                    color: '#f5f4f1',
+                  }}>
+                    <Icon size={22} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Canvas() {
+  return (
+    <window.DesignCanvas minScale={0.18} maxScale={2}>
+      <window.DCSection id="prototype" title="Interactive prototype" subtitle="Tap around — 6 themes via Profile → Appearance. Auto-switch via the Tweaks panel.">
+        <window.DCArtboard id="proto-live" label="Live · all screens · Tungsten" width={420} height={874}>
+          <ProtoFrame theme="tungsten">
+            <window.PrototypeApp initialTheme="tungsten" startScreen="today" />
+          </ProtoFrame>
+        </window.DCArtboard>
+      </window.DCSection>
+
+      <window.DCSection id="today" title="Today — first-run sweep" subtitle="The home dashboard across all six palettes.">
+        {window.THEME_ORDER.map((tk) => (
+          <window.DCArtboard key={tk} id={'today-' + tk} label={'Today · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="today" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="records" title="Records list — themed" subtitle="Same screen, six palettes — proving the system holds.">
+        {window.THEME_ORDER.map((tk) => (
+          <window.DCArtboard key={tk} id={'records-' + tk} label={'Records · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="records" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="detail" title="Record detail + chain" subtitle="A signed entry, its supervisor signature, and its position in the chain.">
+        {window.THEME_ORDER.map((tk) => (
+          <window.DCArtboard key={tk} id={'detail-' + tk} label={'Detail · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="detail" entryId="e008" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="new" title="New entry · 3-step modal" subtitle="Site → activity → review. Designed for end-of-shift logging.">
+        {window.THEME_ORDER.slice(0, 4).map((tk) => (
+          <window.DCArtboard key={tk} id={'new-' + tk} label={'New · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="new" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="sign" title="Sign & seal" subtitle="The signature pad → sealing animation → chain hash. The signature moment.">
+        {['tungsten', 'mariner', 'verdigris', 'heliotype'].flatMap((tk) => [
+          <window.DCArtboard key={'sign-' + tk} id={'sign-' + tk} label={'Sign · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="sign" />
+          </window.DCArtboard>,
+          <window.DCArtboard key={'sealed-' + tk} id={'sealed-' + tk} label={'Sealed · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="sealed" />
+          </window.DCArtboard>,
+        ])}
+      </window.DCSection>
+
+      <window.DCSection id="gear" title="Gear / PPE inventory" subtitle="Inspection deadlines surfaced up top. Overdue & due-soon items first.">
+        {window.THEME_ORDER.map((tk) => (
+          <window.DCArtboard key={tk} id={'gear-' + tk} label={'Gear · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="gear" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="gear-detail" title="Gear detail" subtitle="Inspection countdown, history, and the entries this item rode on.">
+        {['tungsten', 'mariner', 'verdigris', 'heliotype'].map((tk) => (
+          <window.DCArtboard key={tk} id={'gd-' + tk} label={'Gear · detail · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="gear-detail" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="profile" title="Profile + theme switcher" subtitle="Operator card, certifications, and the appearance picker that drives the whole app.">
+        {window.THEME_ORDER.map((tk) => (
+          <window.DCArtboard key={tk} id={'profile-' + tk} label={'Profile · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="profile" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="export" title="Audit export" subtitle="Signed entries → PDF, JSON, or CSV. Chain hashes embedded; verifiable.">
+        {['tungsten', 'mariner', 'heliotype', 'mercury'].map((tk) => (
+          <window.DCArtboard key={tk} id={'export-' + tk} label={'Export · ' + window.THEMES[tk].name} width={420} height={874}>
+            <Snapshot theme={tk} screen="export" />
+          </window.DCArtboard>
+        ))}
+      </window.DCSection>
+
+      <window.DCSection id="brand" title="Brand system" subtitle="Theme tokens & the bespoke icon library.">
+        <window.DCArtboard id="themes" label="6 palettes" width={1260} height={760}>
+          <ThemeStrip />
+        </window.DCArtboard>
+        <window.DCArtboard id="icons" label="Icon library" width={1260} height={760}>
+          <IconBoard />
+        </window.DCArtboard>
+      </window.DCSection>
+    </window.DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Canvas />);
+</script>
+</body>
+</html>

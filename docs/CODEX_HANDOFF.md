@@ -1,10 +1,35 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-14
+Last updated: 2026-05-17
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
-## READ THIS FIRST — UI redesign incoming, audit complete
+## READ THIS FIRST — v2 redesign supersedes the paper-form identity (2026-05-17)
+
+A second high-fidelity redesign has dropped in `design_handoff_ralkredux_v2/` at the repo root. It is a **full reset away from the regulated paper-form identity** documented further down this file. Read `design_handoff_ralkredux_v2/README.md` end-to-end before doing UI work. The earlier paper-form motifs (doc-bands, FORM nn-X · REV n · EFF YYYY.MM, weave + watermark seal, rotated Newsreader-italic stamps) are **out** of the new direction.
+
+Key shifts in v2:
+
+- **Six interchangeable palettes** (Tungsten · Mariner · Verdigris · Heliotype · Sandstone · Mercury) replacing the single Tidewater preset. Switched live from Profile → Appearance.
+- **`useTheme()` return shape** is now `{ theme, tokens, setTheme, ...legacyCompat }`. New primitives consume `useTheme().tokens` (semantic keys: `bg`, `surface`, `text`, `accent`, `ok`, `warn`, `danger`, ...). Legacy primitives keep destructuring `{ colors, tidewater, docBand, stamp, ... }` — those compat fields are derived from the active theme's tokens in `src/ui/theme/compat.ts` and die when their last consumer ships.
+- **Typography target:** Manrope (display/body) + JetBrains Mono (numbers/hashes/kickers) + Newsreader italic (signature scrawl only). Inter / Archivo / IBM Plex Mono stay loaded during the migration; dropped in the final-sweep task.
+- **38 bespoke duotone icons** to port to `react-native-svg`.
+- **Six interchangeable palettes** mean status bar must adapt — provider already binds `expo-status-bar` style to `theme.mode`.
+- **Compliance copy guardrail unchanged.** Still no "SPRAT-accepted" / "IRATA-accepted" anywhere.
+
+### v2 implementation log
+
+15-step program tracked in this session's task list (1–15). Progress:
+
+- **Step 1 — Theme system + 6 palettes + provider + persistence.** Shipped 2026-05-17. New files: `src/ui/theme/themes.ts` (6 palettes verbatim from handoff + `Theme`/`ThemeTokens`/`ThemeKey` types + `THEMES` / `THEME_ORDER` / `DEFAULT_THEME_KEY` = `'tungsten'`), `src/ui/theme/compat.ts` (one-way legacy derivations). Rewrites: `src/ui/theme/tokens.ts` (now a thin compat shim over `compat.ts` for the default theme, no behavioural change for existing imports), `src/ui/theme/theme-provider.tsx` (state + `AsyncStorage` hydration on key `ralb:pref:theme-key` + reactive value, status bar binding). Static-import migration: `app/_layout.tsx`, `app/index.tsx`, `app/(tabs)/_layout.tsx` now consume `useTheme()` so they react to theme switches. Typecheck clean. Jest 136 tests in 15 suites all pass.
+
+  **Caveat:** Heliotype's 1.5px borders + 2px primary-button drop shadow are *primitive-level* per the handoff (line 122) — they get applied inside each rewritten primitive via `theme.key === 'heliotype'` branches in steps 4–6. They are deliberately not encoded into `ThemeTokens` (would bloat the shape for a single-theme treatment).
+
+  **Hard-gate verification owed.** The user picked the hard gate ("every theme must look acceptable on every existing screen"). Visual check across all 6 palettes is owed once a theme switcher exists. Practical path: defer the visual sweep until step 7 (Profile → Appearance) lands a picker on-device; until then nothing in the app can switch off Tungsten anyway.
+
+- **Step 3 — Manrope + JetBrains Mono + Newsreader fonts.** Shipped 2026-05-17. Added `@expo-google-fonts/manrope` + `@expo-google-fonts/jetbrains-mono` to `package.json`. `src/providers/app-providers.tsx` now loads Manrope 400/500/600/700/800, JetBrains Mono 400/500/600/700, and Newsreader 600 italic alongside the legacy Inter/Archivo/IBM Plex Mono/Newsreader 500+700 families (legacy families stay loaded until paper-form primitives die in step 15). New typography scale at `src/ui/theme/type.ts` — `type.heroNumber / screenTitle / heroCardTitle / sectionTitle / cardTitle / cardSub / body / buttonLabel / monoKicker / monoKickerLg / monoSm / mono / monoMd / monoLg / detailStat / signatureScrawl`. Letter-spacing values converted from CSS em → RN points. Typecheck clean.
+
+## SUPERSEDED — paper-form identity (2026-05-11 to 2026-05-14)
 
 The user has dropped a high-fidelity redesign spec in `design_handoff_ralkredux/` at the repo root. Open `design_handoff_ralkredux/README.md` end-to-end before doing UI work; the JSX files under `design_handoff_ralkredux/prototype/` and `design_handoff_ralkredux/brand/` are annotated reference implementations to mine for tokens/primitives/SVG. The folder can be edited (the earlier "do not modify" wording was just to keep it from being deleted during the handoff) but it remains the spec of record.
 
