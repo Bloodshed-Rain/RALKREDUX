@@ -10,6 +10,7 @@ import {
   irataNumberDigits,
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
+import { formatDateRange } from '@/src/domain/date-format';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import {
   useEntryDetail,
@@ -211,10 +212,12 @@ export default function LocalSignScreen() {
                 {entry?.site || 'Loading entry…'}
               </Text>
               <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
-                {entry ? `${entry.work_hours.toFixed(1)} hrs · ${entry.work_task || '—'}` : ''}
+                {entry
+                  ? `${[entry.employer, entry.client].filter(Boolean).join(' · ') || 'No employer / client on file'}`
+                  : ''}
               </Text>
             </View>
-            <StatusPill status={isDraft ? 'draft' : isReady === false ? 'pending' : 'draft'} />
+            <StatusPill status="draft" />
           </View>
           {isDraft && readiness && !isReady ? (
             <View
@@ -233,6 +236,50 @@ export default function LocalSignScreen() {
             </View>
           ) : null}
         </Card>
+
+        {/* WORK RECORD — full field parity with the verifier portal's WORK RECORD
+            card. Same fields, same labels, same order, so a supervisor signing in
+            person sees exactly what a remote verifier signs against. */}
+        {entry ? (
+          <View>
+            <SectionH
+              kicker="WORK RECORD"
+              title={formatDateRange(entry.date_from, entry.date_to)}
+            />
+            <Card padding={14}>
+              <Row label="Hours" value={entry.work_hours.toFixed(1)} />
+              <Row label="Task" value={entry.work_task || '—'} />
+              <Row label="Access" value={entry.access_method || '—'} />
+              <Row label="Structure" value={entry.structure_type || '—'} />
+              <Row
+                label="Height"
+                value={
+                  !entry.max_height || entry.max_height <= 0
+                    ? '—'
+                    : `${entry.max_height.toFixed(0)} ${entry.height_unit}`
+                }
+                last={!entry.description}
+              />
+              {entry.description ? (
+                <View
+                  style={{
+                    marginTop: 12,
+                    paddingTop: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: tokens.lineSoft,
+                  }}
+                >
+                  <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 4 }}>
+                    NOTES
+                  </Text>
+                  <Text selectable style={{ ...type.body, color: tokens.text }}>
+                    {entry.description}
+                  </Text>
+                </View>
+              ) : null}
+            </Card>
+          </View>
+        ) : null}
 
         {/* SUPERVISOR */}
         <View>
@@ -472,5 +519,45 @@ function attestationStyle(
     borderColor: accepted ? tokens.ok : tokens.lineSoft,
     backgroundColor: accepted ? tokens.okSoft : tokens.surface,
   };
+}
+
+function Row({
+  label,
+  value,
+  mono = false,
+  last = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  last?: boolean;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        paddingVertical: 8,
+        gap: 12,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: tokens.lineSoft,
+      }}
+    >
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, width: 92 }}>
+        {label.toUpperCase()}
+      </Text>
+      <Text
+        selectable
+        style={[
+          mono ? type.mono : type.body,
+          { color: tokens.text, flex: 1 },
+        ]}
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
+    </View>
+  );
 }
 
