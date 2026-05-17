@@ -1,55 +1,117 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import { Stack, router } from 'expo-router';
-import { CheckCircle2, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react-native';
-import { certLevelToDigit, formatIrataNumber, irataNumberDigits, normalizeSpratNumber } from '@/src/domain/cert-number';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  certLevelToDigit,
+  formatIrataNumber,
+  irataNumberDigits,
+  normalizeSpratNumber,
+} from '@/src/domain/cert-number';
 import { useCreateProfile } from '@/src/domain/profile/use-profile';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
-import { haptics } from '@/src/ui/haptics';
-import {
-  AnimatedStamp,
-  Chip,
-  DateField,
-  DocActionButton,
-  DocBand,
-  Field,
-  Screen,
-  SectionH,
-} from '@/src/ui/primitives';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  Field,
+  Pill,
+  SectionH,
+  TopBar,
+} from '@/src/ui/primitives/v2';
+import { IconCheck, IconClose, IconLock, IconPlus } from '@/src/ui/icons';
+import { haptics } from '@/src/ui/haptics';
 
-const schemes: CertScheme[] = ['sprat', 'irata'];
-const levels: CertLevel[] = ['I', 'II', 'III'];
+interface CertEntry {
+  level: CertLevel;
+  number: string;
+  expiresOn: string;
+}
+
+const emptyEntry = (): CertEntry => ({ level: 'II', number: '', expiresOn: '' });
+
+const LEVEL_OPTIONS: Array<{ value: CertLevel; label: string }> = [
+  { value: 'I', label: 'Level I' },
+  { value: 'II', label: 'Level II' },
+  { value: 'III', label: 'Level III' },
+];
+
+const SCHEME_OPTIONS: Array<{ value: CertScheme; label: string }> = [
+  { value: 'sprat', label: 'SPRAT' },
+  { value: 'irata', label: 'IRATA' },
+];
+
+function isIrataNumberValid(value: string) {
+  const digits = irataNumberDigits(value);
+  return digits.length === 5 || digits.length === 0;
+}
+
+function hasEntryDetails(entry: CertEntry) {
+  return entry.number.trim().length > 0 || entry.expiresOn.trim().length > 0;
+}
 
 export default function SetupScreen() {
-  const { spacing, typography, touchTarget, tidewater, hairlines } = useTheme();
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const createProfile = useCreateProfile();
-  const [fullName, setFullName] = React.useState('');
-  const [scheme, setScheme] = React.useState<CertScheme>('sprat');
-  const [level, setLevel] = React.useState<CertLevel>('II');
-  const [certId, setCertId] = React.useState('');
-  const [expiresOn, setExpiresOn] = React.useState('');
-  const [detailsOpen, setDetailsOpen] = React.useState(false);
 
-  const canContinue = fullName.trim().length > 1;
-  const hasCertDetails = certId.trim().length > 0 || expiresOn.trim().length > 0;
-  const certNumberInputValue = scheme === 'irata' ? irataNumberDigits(certId) : normalizeSpratNumber(certId);
-  const certNumberValid = scheme === 'sprat' || certNumberInputValue.length === 5 || certNumberInputValue.length === 0;
+  const [fullName, setFullName] = React.useState('');
+  const [primaryScheme, setPrimaryScheme] = React.useState<CertScheme>('sprat');
+  const [secondaryEnabled, setSecondaryEnabled] = React.useState(false);
+  const [sprat, setSprat] = React.useState<CertEntry>(emptyEntry);
+  const [irata, setIrata] = React.useState<CertEntry>(emptyEntry);
+
+  const secondaryScheme: CertScheme = primaryScheme === 'sprat' ? 'irata' : 'sprat';
+  const setEntry = primaryScheme === 'sprat' ? setSprat : setIrata;
+  const setSecondaryEntry = secondaryScheme === 'sprat' ? setSprat : setIrata;
+  const primaryEntry = primaryScheme === 'sprat' ? sprat : irata;
+  const secondaryEntry = secondaryScheme === 'sprat' ? sprat : irata;
+
+  const nameValid = fullName.trim().length > 1;
+  const primaryNumberValid = primaryScheme === 'sprat' || isIrataNumberValid(primaryEntry.number);
+  const secondaryNumberValid =
+    !secondaryEnabled || secondaryScheme === 'sprat' || isIrataNumberValid(secondaryEntry.number);
+  const canSubmit = nameValid && primaryNumberValid && secondaryNumberValid;
+
+  function enableSecondary() {
+    haptics.selection();
+    setSecondaryEnabled(true);
+  }
+
+  function removeSecondary() {
+    haptics.selection();
+    setSecondaryEnabled(false);
+    setSecondaryEntry(emptyEntry());
+  }
 
   function submit() {
-    if (!canContinue) return;
-    const spratNumber = normalizeSpratNumber(certId);
-    const irataNumber = formatIrataNumber(level, certId);
+    if (!canSubmit) return;
+    const includesSprat = primaryScheme === 'sprat' || secondaryEnabled;
+    const includesIrata = primaryScheme === 'irata' || secondaryEnabled;
+    const spratNumber = includesSprat ? normalizeSpratNumber(sprat.number) : '';
+    const irataNumber = includesIrata ? formatIrataNumber(irata.level, irata.number) : '';
+
     createProfile.mutate(
       {
         full_name: fullName,
-        primary_scheme: scheme,
-        sprat_id: scheme === 'sprat' ? spratNumber || null : null,
-        sprat_level: scheme === 'sprat' ? level : null,
-        sprat_expires_on: scheme === 'sprat' ? expiresOn || null : null,
-        irata_id: scheme === 'irata' ? irataNumber || null : null,
-        irata_level: scheme === 'irata' ? level : null,
-        irata_expires_on: scheme === 'irata' ? expiresOn || null : null,
+        primary_scheme: primaryScheme,
+        sprat_id: includesSprat ? spratNumber || null : null,
+        sprat_level: includesSprat ? sprat.level : null,
+        sprat_expires_on: includesSprat ? sprat.expiresOn || null : null,
+        irata_id: includesIrata ? irataNumber || null : null,
+        irata_level: includesIrata ? irata.level : null,
+        irata_expires_on: includesIrata ? irata.expiresOn || null : null,
       },
       {
         onSuccess: () => {
@@ -61,290 +123,275 @@ export default function SetupScreen() {
     );
   }
 
+  const screenStyle: ViewStyle = { flex: 1, backgroundColor: tokens.bg };
+  const heroKickerStyle: TextStyle = { ...type.monoKicker, color: tokens.textFaint };
+  const heroTitleStyle: TextStyle = {
+    fontFamily: 'Manrope_800ExtraBold',
+    fontWeight: '800',
+    fontSize: 26,
+    letterSpacing: -0.7,
+    lineHeight: 30,
+    color: tokens.text,
+    marginTop: 4,
+  };
+  const heroSubStyle: TextStyle = { ...type.cardSub, color: tokens.textDim, marginTop: 4 };
+
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false, title: 'Set up' }} />
-      <Screen
-        padded={false}
-        safeTop
-        footer={
-          <DocActionButton
-            title={canContinue ? 'CREATE LOGBOOK' : 'ADD YOUR NAME'}
-            icon={ShieldCheck}
-            onPress={submit}
-            disabled={!canContinue}
-            loading={createProfile.isPending}
-          />
-        }
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={screenStyle}
+    >
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+      <TopBar title="Set up" />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 96 + insets.bottom }}
+        keyboardShouldPersistTaps="handled"
       >
-        <DocBand
-          variant="top"
-          formId="CH.0 - LOGBOOK SETUP"
-          rev="FIRST RUN"
-          effective="ENTRY-HASH v2"
-          rightLabel={canContinue ? 'READY' : 'PENDING'}
-        />
-
-        <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.lg }}>
-          {/* Header card */}
-          <View
-            style={{
-              borderWidth: hairlines.standard.width,
-              borderColor: hairlines.standard.color,
-              backgroundColor: tidewater.white,
-            }}
-          >
-            <View
-              style={{
-                padding: spacing.md,
-                borderBottomWidth: 1.5,
-                borderBottomColor: tidewater.hair,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                gap: spacing.sm,
-                alignItems: 'flex-start',
-              }}
-            >
-              <View style={{ flex: 1, gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.8 }}>
-                  LOGBOOK SETUP
-                </Text>
-                <Text selectable style={{ ...typography.displayMd, color: tidewater.ink }} numberOfLines={2}>
-                  {fullName.trim() || 'Your logbook'}
-                </Text>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink2 }}>
-                  WELCOME · OFFLINE-FIRST ROPE ACCESS LEDGER
-                </Text>
-              </View>
-              <AnimatedStamp tone={canContinue ? 'green' : 'yellow'} rotation="light">
-                {canContinue ? 'READY' : 'PENDING'}
-              </AnimatedStamp>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, padding: spacing.md }}>
-              <Chip tone="ink">{`${scheme.toUpperCase()} ${level}`}</Chip>
-              <Chip tone="mute">{expiresOn.trim() ? `EXPIRES ${expiresOn}` : 'EXPIRY LATER'}</Chip>
-              {hasCertDetails ? <Chip tone="green">CERT DETAILS ADDED</Chip> : null}
-            </View>
-          </View>
-
-          {/* § 01 Identity */}
-          <View>
-            <SectionH n="01" right={canContinue ? 'OK' : 'REQUIRED'}>
-              Identity
-            </SectionH>
-            <Field
-              label="Full name"
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Alex Morgan"
-              invalid={!canContinue && fullName.length > 0}
-            />
-          </View>
-
-          {/* § 02 Certification */}
-          <View>
-            <SectionH n="02" right={scheme.toUpperCase()}>
-              Certification
-            </SectionH>
-            <View style={{ gap: spacing.md }}>
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                  PRIMARY SCHEME
-                </Text>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  {schemes.map((item) => (
-                    <SegmentButton
-                      key={item}
-                      label={item.toUpperCase()}
-                      selected={item === scheme}
-                      onPress={() => {
-                        if (item !== scheme) {
-                          setCertId('');
-                        } else {
-                          setCertId(
-                            item === 'irata' ? formatIrataNumber(level, certId) : normalizeSpratNumber(certId),
-                          );
-                        }
-                        setScheme(item);
-                      }}
-                    />
-                  ))}
-                </View>
-              </View>
-
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                  LEVEL
-                </Text>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  {levels.map((item) => (
-                    <SegmentButton
-                      key={item}
-                      label={`LEVEL ${item}`}
-                      selected={item === level}
-                      onPress={() => {
-                        setLevel(item);
-                        if (scheme === 'irata') {
-                          setCertId(formatIrataNumber(item, certId));
-                        }
-                      }}
-                    />
-                  ))}
-                </View>
-              </View>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setDetailsOpen((current) => !current)}
-                style={({ pressed }) => ({
-                  minHeight: touchTarget.min,
-                  borderWidth: 1.5,
-                  borderColor: hasCertDetails ? tidewater.green : tidewater.hair,
-                  backgroundColor: hasCertDetails ? tidewater.greenSoft : tidewater.white,
-                  opacity: pressed ? 0.82 : 1,
-                  paddingHorizontal: spacing.md,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: spacing.sm,
-                })}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
-                  <CheckCircle2
-                    size={18}
-                    color={hasCertDetails ? tidewater.green : tidewater.ink3}
-                    strokeWidth={2.2}
-                  />
-                  <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                    {hasCertDetails ? 'CERT DETAILS ADDED' : 'CERT DETAILS (OPTIONAL)'}
-                  </Text>
-                </View>
-                {detailsOpen ? (
-                  <ChevronUp size={18} color={tidewater.ink2} strokeWidth={2.2} />
-                ) : (
-                  <ChevronDown size={18} color={tidewater.ink2} strokeWidth={2.2} />
-                )}
-              </Pressable>
-
-              {detailsOpen ? (
-                <View style={{ gap: spacing.md }}>
-                  <Field
-                    label={scheme === 'irata' ? `IRATA number (${certLevelToDigit(level)}/12345)` : 'SPRAT number'}
-                    value={certNumberInputValue}
-                    onChangeText={(value) => {
-                      setCertId(scheme === 'irata' ? formatIrataNumber(level, value) : normalizeSpratNumber(value));
-                    }}
-                    placeholder={scheme === 'irata' ? '12345' : 'Optional'}
-                    keyboardType="number-pad"
-                    maxLength={scheme === 'irata' ? 5 : 12}
-                    invalid={!certNumberValid}
-                    hint={
-                      scheme === 'irata'
-                        ? `Required digits saved as ${certLevelToDigit(level)}/12345.`
-                        : 'Optional for SPRAT.'
-                    }
-                        />
-                  <DateField
-                    label="Expires on"
-                    value={expiresOn}
-                    onChange={setExpiresOn}
-                    placeholder="Expiry later"
-                    optional
-                  />
-                </View>
+        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <Card padding={18}>
+            <Text style={heroKickerStyle}>FIRST RUN · ENTRY-HASH V2</Text>
+            <Text style={heroTitleStyle} numberOfLines={2}>
+              {fullName.trim() || 'Set up your logbook'}
+            </Text>
+            <Text style={heroSubStyle}>
+              Offline-first ledger · hash-chained signatures · your record.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+              <Pill tone={nameValid ? 'ok' : 'warn'} icon={nameValid ? IconCheck : undefined}>
+                {nameValid ? 'Identity OK' : 'Name needed'}
+              </Pill>
+              <Pill tone="chip">
+                {secondaryEnabled
+                  ? `${primaryScheme.toUpperCase()} + ${secondaryScheme.toUpperCase()}`
+                  : primaryScheme.toUpperCase()}
+              </Pill>
+              {hasEntryDetails(primaryEntry) ||
+              (secondaryEnabled && hasEntryDetails(secondaryEntry)) ? (
+                <Pill tone="accent">Cert details added</Pill>
               ) : null}
             </View>
-          </View>
-
-          {/* § 03 What this builds */}
-          <View>
-            <SectionH n="03">What this builds</SectionH>
-            <View
-              style={{
-                borderWidth: 1.5,
-                borderColor: tidewater.hair,
-                backgroundColor: tidewater.white,
-                padding: spacing.md,
-                gap: spacing.xs,
-              }}
-            >
-              <BulletLine>Local-first SQLite ledger on your device.</BulletLine>
-              <BulletLine>Audit-grade signed entries with hash chain.</BulletLine>
-              <BulletLine>Local + remote signing flows for supervisors.</BulletLine>
-              <BulletLine>Gear inventory and inspection schedule.</BulletLine>
-            </View>
-          </View>
+          </Card>
         </View>
 
-        <View style={{ marginTop: spacing.lg }}>
-          <DocBand
-            variant="footer"
-            text={
-              canContinue
-                ? 'PROFILE WILL SEED THE LOCAL LEDGER - HASH-CHAIN STARTS AT GENESIS'
-                : 'SETUP HOLD - ADD YOUR NAME BEFORE CREATING THE LOGBOOK'
-            }
-            page="FIRST RUN"
+        <SectionH kicker="01 IDENTITY" title="Who's logging?" />
+        <View style={{ paddingHorizontal: 20 }}>
+          <Field
+            label="Full name"
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Alex Morgan"
+            autoCapitalize="words"
+            helper="As it should appear on signed entries and exports."
           />
         </View>
-      </Screen>
-    </>
-  );
-}
 
-function SegmentButton({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const { spacing, typography, touchTarget, tidewater } = useTheme();
+        <SectionH kicker="02 CERTIFICATION" title="Your scheme" />
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
+          <View>
+            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
+              {secondaryEnabled ? 'PRIMARY SCHEME' : 'SCHEME'}
+            </Text>
+            <ChipSelect<CertScheme>
+              value={primaryScheme}
+              options={SCHEME_OPTIONS}
+              onChange={setPrimaryScheme}
+            />
+            {secondaryEnabled ? (
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>
+                Primary appears first in headers and exports.
+              </Text>
+            ) : null}
+          </View>
 
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={() => {
-        haptics.selection();
-        onPress();
-      }}
-      style={({ pressed }) => ({
-        flex: 1,
-        minHeight: touchTarget.min,
-        borderWidth: 1.5,
-        borderColor: selected ? tidewater.accent : tidewater.hair,
-        backgroundColor: selected ? tidewater.accent : tidewater.white,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: spacing.md,
-        opacity: pressed ? 0.82 : 1,
-      })}
-    >
-      <Text
-        selectable={false}
+          <CertCard
+            scheme={primaryScheme}
+            entry={primaryEntry}
+            onChange={(next) => setEntry(next)}
+            badge={secondaryEnabled ? 'PRIMARY' : null}
+          />
+
+          {!secondaryEnabled ? (
+            <Button variant="outline" full icon={IconPlus} onPress={enableSecondary}>
+              {`Add ${secondaryScheme.toUpperCase()} cert`}
+            </Button>
+          ) : (
+            <CertCard
+              scheme={secondaryScheme}
+              entry={secondaryEntry}
+              onChange={(next) => setSecondaryEntry(next)}
+              badge="SECONDARY"
+              onRemove={removeSecondary}
+            />
+          )}
+        </View>
+
+        <SectionH kicker="03 WHAT THIS BUILDS" title="On your device" />
+        <View style={{ paddingHorizontal: 20 }}>
+          <Card padding={16}>
+            <Bullet text="Local-first SQLite ledger, fully offline." />
+            <Bullet text="Audit-grade signed entries with hash chain." />
+            <Bullet text="Local + remote signing flows for supervisors." />
+            <Bullet text="Gear inventory and inspection schedule." />
+          </Card>
+        </View>
+      </ScrollView>
+
+      <View
         style={{
-          ...typography.displaySm,
-          color: selected ? tidewater.paper : tidewater.ink2,
-          letterSpacing: 1.5,
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 12,
+          backgroundColor: tokens.bg,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
         }}
       >
-        {label}
-      </Text>
-    </Pressable>
+        <Button
+          variant="primary"
+          size="lg"
+          full
+          icon={IconLock}
+          onPress={submit}
+          disabled={!canSubmit || createProfile.isPending}
+        >
+          {createProfile.isPending
+            ? 'Creating logbook…'
+            : nameValid
+              ? 'Create logbook'
+              : 'Add your name'}
+        </Button>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
-function BulletLine({ children }: { children: string }) {
-  const { spacing, typography, tidewater } = useTheme();
+interface CertCardProps {
+  scheme: CertScheme;
+  entry: CertEntry;
+  onChange: (next: CertEntry) => void;
+  badge: string | null;
+  onRemove?: () => void;
+}
+
+function CertCard({ scheme, entry, onChange, badge, onRemove }: CertCardProps) {
+  const { tokens } = useTheme();
+  const numberInputValue =
+    scheme === 'irata' ? irataNumberDigits(entry.number) : normalizeSpratNumber(entry.number);
+  const numberValid =
+    scheme === 'sprat' || numberInputValue.length === 0 || numberInputValue.length === 5;
+
+  function setLevel(level: CertLevel) {
+    onChange({
+      ...entry,
+      level,
+      number:
+        scheme === 'irata' ? formatIrataNumber(level, entry.number) : entry.number,
+    });
+  }
+
+  function setNumber(value: string) {
+    onChange({
+      ...entry,
+      number:
+        scheme === 'irata' ? formatIrataNumber(entry.level, value) : normalizeSpratNumber(value),
+    });
+  }
+
+  function setExpiry(value: string) {
+    onChange({ ...entry, expiresOn: value });
+  }
+
+  const headerStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  };
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm }}>
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>·</Text>
-      <Text style={{ ...typography.body, color: tidewater.ink, flex: 1 }}>{children}</Text>
+    <Card padding={16}>
+      <View style={headerStyle}>
+        <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
+          {scheme.toUpperCase()}
+        </Text>
+        {badge ? <Pill tone={badge === 'PRIMARY' ? 'accent' : 'chip'}>{badge}</Pill> : null}
+        <View style={{ flex: 1 }} />
+        {onRemove ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove secondary scheme"
+            onPress={onRemove}
+            hitSlop={10}
+            style={({ pressed }) => ({
+              padding: 4,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <IconClose size={16} color={tokens.textDim} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={{ gap: 10 }}>
+        <View>
+          <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
+            LEVEL
+          </Text>
+          <ChipSelect<CertLevel>
+            value={entry.level}
+            options={LEVEL_OPTIONS}
+            onChange={setLevel}
+          />
+        </View>
+        <Field
+          label={
+            scheme === 'irata' ? `IRATA number (${certLevelToDigit(entry.level)}/12345)` : 'SPRAT number'
+          }
+          value={numberInputValue}
+          onChangeText={setNumber}
+          placeholder={scheme === 'irata' ? '12345' : 'Optional'}
+          keyboardType="number-pad"
+          maxLength={scheme === 'irata' ? 5 : 12}
+          helper={
+            scheme === 'irata' && !numberValid
+              ? '5 digits required.'
+              : scheme === 'irata'
+                ? `Saved as ${certLevelToDigit(entry.level)}/12345.`
+                : 'Optional for SPRAT.'
+          }
+          autoCapitalize="none"
+        />
+        <Field
+          label="Expires on"
+          value={entry.expiresOn}
+          onChangeText={setExpiry}
+          placeholder="YYYY-MM-DD (optional)"
+          autoCapitalize="none"
+        />
+      </View>
+    </Card>
+  );
+}
+
+function Bullet({ text }: { text: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginVertical: 4 }}>
+      <View
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: tokens.accent,
+          marginTop: 8,
+        }}
+      />
+      <Text style={{ ...type.body, color: tokens.text, flex: 1 }}>{text}</Text>
     </View>
   );
 }
-

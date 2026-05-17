@@ -1,6 +1,6 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-17 (step 13)
+Last updated: 2026-05-17 (step 14)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
@@ -21,7 +21,7 @@ Key shifts in v2:
 
 15-step program tracked in this session's task list (1–15). Progress:
 
-**Pending requirement to fold into the next onboarding-redesign step (whichever step lands the new signup flow):** users must be able to register **both** SPRAT *and* IRATA credentials at setup — one designated as primary (used in headers + exports first), the other as secondary. A draft of this on the legacy paper-form primitives (`app/(onboarding)/setup.tsx`) was prototyped and reverted on 2026-05-17 because the v2 onboarding redesign hasn't shipped yet; the *feature* must be re-implemented on v2 primitives. Shape to preserve: per-scheme `{ level, number, expiresOn }` triple; IRATA number validation = 5 digits or empty; `primary_scheme` profile field decides ordering; the existing `createProfile` shape already accepts both `sprat_*` and `irata_*` fields simultaneously, so the domain layer needs no change.
+Dual-cert SPRAT+IRATA support at setup landed in step 14 (2026-05-17). The new `app/(onboarding)/setup.tsx` exposes a primary scheme `ChipSelect` plus an "Add SPRAT/IRATA cert" outline button that materialises a second `CertCard` so the technician can register both credentials in one pass.
 
 - **Step 1 — Theme system + 6 palettes + provider + persistence.** Shipped 2026-05-17. New files: `src/ui/theme/themes.ts` (6 palettes verbatim from handoff + `Theme`/`ThemeTokens`/`ThemeKey` types + `THEMES` / `THEME_ORDER` / `DEFAULT_THEME_KEY` = `'tungsten'`), `src/ui/theme/compat.ts` (one-way legacy derivations). Rewrites: `src/ui/theme/tokens.ts` (now a thin compat shim over `compat.ts` for the default theme, no behavioural change for existing imports), `src/ui/theme/theme-provider.tsx` (state + `AsyncStorage` hydration on key `ralb:pref:theme-key` + reactive value, status bar binding). Static-import migration: `app/_layout.tsx`, `app/index.tsx`, `app/(tabs)/_layout.tsx` now consume `useTheme()` so they react to theme switches. Typecheck clean. Jest 136 tests in 15 suites all pass.
 
@@ -53,6 +53,22 @@ Key shifts in v2:
   - **PullToRefresh** (`v2/pull-to-refresh.tsx`) — bespoke chain-icon-in-ring indicator, 72 px threshold, 3-stage label ("Pull to refresh" → "Release to sync" → "Syncing chain…"). Built on `PanResponder` + `Animated` (no reanimated/gesture-handler dependency — those are explicit non-installs; if motion polish is needed, swap in step 15). Supports both internal cycle (`onRefresh` returns a promise) and externally-driven `refreshing` prop.
 
   Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
+
+- **Step 14 — Splash + 3-card Onboarding intro + dual-cert Setup rewrite.** Shipped 2026-05-17. Three pieces:
+
+  - `app/index.tsx` rewritten as the **v2 Splash**. Centered `IconBrand` (80 px) over a Manrope 800 "RALB" wordmark and a mono "Rope Access Logbook" caption (tracked 2.4 px). Below: a 140×3 indeterminate progress bar — a 56 px accent block sweeps from -56 → 140 px via `Animated.loop(timing(... 1300 ms inOut(ease)))`. The screen always holds for a minimum of 1800 ms (regardless of how fast `useProfile()` resolves); once both the min-hold elapses AND the profile + `onboardingSeen` pref reads are in, it redirects: profile present → `/today`; profile missing + `onboardingSeen` → `/setup`; otherwise → `/intro`. Honors `useReducedMotion()` — sweep doesn't start, but the 1800 ms hold still applies (per the v2 reduced-motion note).
+
+  - `app/(onboarding)/intro.tsx` new **3-card onboarding** before setup. Pages: "Your logbook, in your pocket." (`IconBrand`) → "Tamper-evident by design." (`IconChain`) → "Works off-rope, works off-grid." (`IconOffline`). Each card: mono `01 / 03` step kicker (top-left), `Skip` text button (top-right), 96 px square accent-filled hero plate with the slide's icon, 32 px Manrope 800 title (whitespace-preserved with `\n`), 15 px dim sub-copy, 24×6 active-dot indicator at bottom, primary `Button` ("Continue" → "Continue" → "Get started"). Hero plate pops via two-stage `scale(0.6 → 1.05 → 1)` + opacity (600 ms `cubic-bezier(.2,.7,.3,1.4)`); text rises 8 px after 80 ms delay (480 ms ease-out). Skip and final-card press both write `PrefKeys.onboardingSeen = true` and route to `/setup`. Honors reduced motion.
+
+  - `app/(onboarding)/setup.tsx` rewritten on v2 primitives **with dual-cert support**. Layout: small `TopBar` ("Set up") → hero `Card` (mono `FIRST RUN · ENTRY-HASH V2` kicker, 26 px Manrope 800 headline that echoes the typed name, sub line, status `Pill`s: Identity OK/warn + scheme combo + Cert details added). Section `01 IDENTITY` (Full name `Field`). Section `02 CERTIFICATION` — primary scheme `ChipSelect` (sprat/irata), then a `CertCard` for the primary scheme. When secondary isn't enabled, an outline `Button` ("Add IRATA/SPRAT cert") reveals a second `CertCard` with a `PRIMARY` / `SECONDARY` `Pill` and an `X` close button on the secondary card. Each `CertCard` has its own level `ChipSelect` (I/II/III), number `Field` (IRATA digit-normalised + folded into `formatIrataNumber(level, ...)` with a 5-digit `maxLength`; SPRAT normalised via `normalizeSpratNumber`), and optional expiry `Field`. Section `03 WHAT THIS BUILDS` — a `Card` with four accent-bullet rows. Pinned footer with the primary `Button` (`IconLock` leading, label flips "Add your name" → "Create logbook" → "Creating logbook…"). On submit, `createProfile.mutate(...)` is called with `primary_scheme` set to the selected primary and both `sprat_*` and `irata_*` field groups populated whenever their scheme is included (primary or secondary).
+
+  - New primitive enhancement: `Field` gained a passthrough `maxLength` prop (used by the setup screen's IRATA cert-number input). No call-site changes elsewhere.
+
+  - New AsyncStorage pref `PrefKeys.onboardingSeen` (key `ralb:pref:onboarding-seen`) so re-opens after a partial setup don't loop the user through the intro cards again.
+
+  - Stack registration: `app/_layout.tsx` adds `(onboarding)/intro` (`headerShown: false`).
+
+  Typecheck clean. Jest 137/137 still green.
 
 - **Step 13 — Audit export screen + ToggleRow.** Shipped 2026-05-17. New primitive + new screen + minimal domain-hook extension:
 

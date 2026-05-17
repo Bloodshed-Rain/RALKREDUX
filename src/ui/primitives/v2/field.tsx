@@ -23,6 +23,7 @@ export interface FieldProps {
   autoCapitalize?: TextInputProps['autoCapitalize'];
   autoComplete?: TextInputProps['autoComplete'];
   secureTextEntry?: boolean;
+  maxLength?: number;
   style?: ViewStyle;
 }
 
@@ -40,6 +41,7 @@ export function Field({
   autoCapitalize,
   autoComplete,
   secureTextEntry,
+  maxLength,
   style,
 }: FieldProps) {
   const { theme, tokens } = useTheme();
@@ -121,6 +123,7 @@ export function Field({
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
           secureTextEntry={secureTextEntry}
+          maxLength={maxLength}
           style={inputStyle}
           numberOfLines={multiline ? 3 : 1}
         />
