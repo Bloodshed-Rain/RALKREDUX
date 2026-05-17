@@ -179,6 +179,27 @@ export function createGearService(db: DbClient) {
       };
     },
 
+    async getGearItemDetailById(id: string, asOf: string = todayLocalIsoDate()): Promise<GearItemDetail | null> {
+      const item = await getGearItemById(id);
+      if (!item) return null;
+      return {
+        item,
+        latest_inspection: await getLatestInspection(id),
+        status: getGearStatus(item, asOf),
+      };
+    },
+
+    async listInspectionsForGear(gearId: string, limit = 8): Promise<GearInspection[]> {
+      return db.getAll<GearInspection>(
+        `SELECT id, gear_id, inspected_on, result, notes, created_at
+         FROM gear_inspections
+         WHERE gear_id = ?
+         ORDER BY inspected_on DESC, created_at DESC
+         LIMIT ?`,
+        [gearId, Math.max(1, Math.min(limit, 50))],
+      );
+    },
+
     async getGearSummary(asOf: string = todayLocalIsoDate()): Promise<GearSummary> {
       const details = await listGearItems(asOf);
       return {

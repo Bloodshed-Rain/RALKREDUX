@@ -1,827 +1,403 @@
 import React from 'react';
-import { ClipboardCheck, Plus, Save, XCircle } from 'lucide-react-native';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
-import { formatDate } from '@/src/domain/date-format';
-import { daysFromTodayIso, todayLocalIsoDate } from '@/src/domain/date-utils';
-import type { GearCatalogEntry, GearCategory, GearInspectionResult, GearStatus } from '@/src/domain/gear/types';
 import {
-  useCreateGearItem,
-  useGearCatalogSearch,
-  useGearItems,
-  useGearSummary,
-  useRecordGearInspection,
-} from '@/src/domain/gear/use-gear';
-import {
-  AnimatedCounter,
-  Chip,
-  DateField,
-  DocActionButton,
-  DocBand,
-  Field,
-  RowDoc,
-  Screen,
-  SectionH,
-  Stamp,
-} from '@/src/ui/primitives';
-import type { ChipTone, StampTone } from '@/src/ui/primitives';
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { GearCategory, GearItemDetail, GearStatus } from '@/src/domain/gear/types';
+import { useCreateGearItem, useGearItems, useGearSummary } from '@/src/domain/gear/use-gear';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  Field,
+  GearCard,
+  IconBtn,
+  SectionH,
+  TopBar,
+} from '@/src/ui/primitives/v2';
+import { GEAR_ICON, IconChevron, IconPlus, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
-type GearFilter = 'all' | GearStatus;
+type CategoryFilter = 'all' | GearCategory;
 
-const CATEGORIES: Array<{ value: GearCategory; label: string }> = [
+const CATEGORY_FILTERS: Array<{ value: CategoryFilter; label: string }> = [
+  { value: 'all', label: 'All' },
   { value: 'harness', label: 'Harness' },
   { value: 'helmet', label: 'Helmet' },
   { value: 'rope', label: 'Rope' },
-  { value: 'lanyard', label: 'Lanyard' },
-  { value: 'sling', label: 'Sling' },
   { value: 'descender', label: 'Descender' },
   { value: 'ascender', label: 'Ascender' },
   { value: 'carabiner', label: 'Carabiner' },
+  { value: 'lanyard', label: 'Lanyard' },
+  { value: 'sling', label: 'Sling' },
   { value: 'pulley', label: 'Pulley' },
   { value: 'other', label: 'Other' },
 ];
 
-const STATUS_FILTERS: Array<{ value: GearFilter; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'current', label: 'Current' },
-  { value: 'due_soon', label: 'Due' },
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'unscheduled', label: 'No date' },
-  { value: 'retired', label: 'Retired' },
-];
+const CREATE_CATEGORIES: Array<{ value: GearCategory; label: string }> = CATEGORY_FILTERS.slice(1)
+  .filter((c) => c.value !== 'all')
+  .map((c) => ({ value: c.value as GearCategory, label: c.label }));
 
-function resultLabel(result: GearInspectionResult): string {
-  switch (result) {
-    case 'pass_with_concerns':
-      return 'Concerns';
-    case 'fail':
-      return 'Fail';
-    default:
-      return 'Pass';
+const MS_PER_DAY = 86_400_000;
+
+function startOfLocalDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function parseLocalDate(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(iso)) {
+    const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d).getTime();
   }
+  const ts = Date.parse(iso);
+  return Number.isFinite(ts) ? ts : null;
 }
 
-function dueOffsetChip(
-  daysUntilDue: number | null,
-  status: GearStatus,
-): { label: string; tone: ChipTone } {
-  if (status === 'retired') return { label: 'RETIRED', tone: 'mute' };
-  if (daysUntilDue === null) return { label: 'NO DATE', tone: 'yellow' };
-  if (daysUntilDue < 0) return { label: `OVR ${Math.abs(daysUntilDue)}D`, tone: 'red' };
-  if (daysUntilDue === 0) return { label: 'TODAY', tone: 'yellow' };
-  if (daysUntilDue <= 30) return { label: `DUE ${daysUntilDue}D`, tone: 'yellow' };
-  return { label: `${daysUntilDue}D`, tone: 'mute' };
+interface CycleInfo {
+  days: number | null;
+  progress: number;
 }
 
-function statusBadge(
-  status: GearStatus,
-): { kind: 'stamp'; label: string; tone: StampTone } | { kind: 'chip'; label: string; tone: ChipTone } {
-  switch (status) {
-    case 'overdue':
-      return { kind: 'stamp', label: 'OVR', tone: 'red' };
-    case 'due_soon':
-      return { kind: 'stamp', label: 'DUE', tone: 'yellow' };
-    case 'retired':
-      return { kind: 'chip', label: 'RET', tone: 'mute' };
-    case 'unscheduled':
-      return { kind: 'chip', label: 'N/A', tone: 'yellow' };
-    default:
-      return { kind: 'chip', label: 'OK', tone: 'green' };
+function computeCycle(detail: GearItemDetail, today: Date): CycleInfo {
+  const nextDue = parseLocalDate(detail.item.next_inspection_due);
+  if (nextDue == null) return { days: null, progress: 0 };
+  const lastInspection =
+    parseLocalDate(detail.latest_inspection?.inspected_on) ?? parseLocalDate(detail.item.created_at);
+  const todayStart = startOfLocalDay(today);
+  const dueDays = Math.round((nextDue - todayStart) / MS_PER_DAY);
+  if (lastInspection == null) {
+    // No anchor — show 0 progress until first inspection lands.
+    return { days: dueDays, progress: dueDays < 0 ? 1 : 0 };
   }
+  if (nextDue <= lastInspection) {
+    return { days: dueDays, progress: 1 };
+  }
+  if (dueDays < 0) return { days: dueDays, progress: 1 };
+  const cycle = nextDue - lastInspection;
+  const elapsed = todayStart - lastInspection;
+  return { days: dueDays, progress: Math.max(0, Math.min(1, elapsed / cycle)) };
 }
 
-function splitMakeModel(value: string): { manufacturer: string | null; model: string | null } {
-  const trimmed = value.trim();
-  if (!trimmed) return { manufacturer: null, model: null };
-  const splitAt = trimmed.indexOf(' ');
-  if (splitAt < 1) return { manufacturer: trimmed, model: null };
-  return {
-    manufacturer: trimmed.slice(0, splitAt),
-    model: trimmed.slice(splitAt + 1),
-  };
-}
-
-function categoryLabel(value: GearCategory): string {
-  return CATEGORIES.find((item) => item.value === value)?.label ?? value;
+function statusToCardStatus(status: GearStatus): 'ok' | 'due_soon' | 'overdue' | 'unscheduled' | 'retired' {
+  if (status === 'current') return 'ok';
+  return status;
 }
 
 export default function GearScreen() {
-  const { spacing, typography, tidewater, hairlines } = useTheme();
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const gearItems = useGearItems();
   const summary = useGearSummary();
   const createGearItem = useCreateGearItem();
-  const recordInspection = useRecordGearInspection();
-  const [category, setCategory] = React.useState<GearCategory>('harness');
-  const [makeModel, setMakeModel] = React.useState('');
-  const [selectedCatalogEntry, setSelectedCatalogEntry] = React.useState<GearCatalogEntry | null>(null);
-  const [customName, setCustomName] = React.useState('');
-  const [serialNumber, setSerialNumber] = React.useState('');
-  const [nextInspectionDue, setNextInspectionDue] = React.useState('');
-  const [selectedGearId, setSelectedGearId] = React.useState<string | null>(null);
-  const [inspectionResult, setInspectionResult] = React.useState<GearInspectionResult>('pass');
-  const [inspectedOn, setInspectedOn] = React.useState(todayLocalIsoDate());
-  const [inspectionNotes, setInspectionNotes] = React.useState('');
-  const [inspectionNextDue, setInspectionNextDue] = React.useState('');
-  const [showAddGear, setShowAddGear] = React.useState(false);
-  const [showInspection, setShowInspection] = React.useState(false);
-  const [filter, setFilter] = React.useState<GearFilter>('all');
 
+  const [filter, setFilter] = React.useState<CategoryFilter>('all');
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [newCategory, setNewCategory] = React.useState<GearCategory>('harness');
+  const [newName, setNewName] = React.useState('');
+  const [newSerial, setNewSerial] = React.useState('');
+  const [newNextDue, setNewNextDue] = React.useState('');
+
+  const today = React.useMemo(() => new Date(), []);
   const allItems = gearItems.data ?? [];
-  const activeItems = React.useMemo(
-    () => allItems.filter(({ status }) => status !== 'retired'),
-    [allItems],
-  );
-  const filteredItems = filter === 'all' ? allItems : allItems.filter(({ status }) => status === filter);
-  const groupedItems = CATEGORIES
-    .map((categoryItem) => ({
-      category: categoryItem.value,
-      label: categoryItem.label,
-      items: filteredItems.filter(({ item }) => item.category === categoryItem.value),
-    }))
-    .filter((group) => group.items.length > 0);
-  const catalogSearch = useGearCatalogSearch(makeModel, category);
-  const showCatalogSuggestions = !selectedCatalogEntry && Boolean(catalogSearch.data?.length);
-  const canCreate = makeModel.trim().length > 0;
-  const canInspect = Boolean(selectedGearId) && inspectedOn.trim().length > 0;
+  const filteredItems =
+    filter === 'all' ? allItems : allItems.filter(({ item }) => item.category === filter);
 
-  const activeCount = summary.data?.activeItems ?? 0;
-  const overdueCount = summary.data?.overdueItems ?? 0;
-  const dueSoonCount = summary.data?.dueSoonItems ?? 0;
-  const retiredCount = summary.data?.retiredItems ?? 0;
-  const dueCount = overdueCount + dueSoonCount;
+  const overdueItems = allItems.filter(({ status }) => status === 'overdue');
+  const dueSoonItems = allItems.filter(({ status }) => status === 'due_soon');
+  const totalActive = summary.data?.activeItems ?? 0;
+  const deadlinesItems = [...overdueItems, ...dueSoonItems].slice(0, 3);
 
-  React.useEffect(() => {
-    if (selectedGearId && !activeItems.some(({ item }) => item.id === selectedGearId)) {
-      setSelectedGearId(null);
-    }
-  }, [activeItems, selectedGearId]);
-
-  function addGearItem() {
-    if (!canCreate) return;
-    const freeformParts = splitMakeModel(makeModel);
-    const manufacturer = selectedCatalogEntry?.manufacturer ?? freeformParts.manufacturer;
-    const model = selectedCatalogEntry?.model ?? freeformParts.model;
-    const resolvedName = customName.trim() || [manufacturer, model].filter(Boolean).join(' ') || makeModel.trim();
-
+  async function addGearItem() {
+    if (newName.trim().length === 0) return;
     createGearItem.mutate(
       {
-        name: resolvedName,
-        category,
-        manufacturer,
-        model,
-        serial_number: serialNumber || null,
-        next_inspection_due: nextInspectionDue || null,
-      },
-      {
-        onSuccess: (item) => {
-          haptics.success();
-          setMakeModel('');
-          setSelectedCatalogEntry(null);
-          setCustomName('');
-          setSerialNumber('');
-          setNextInspectionDue('');
-          setSelectedGearId(item.id);
-          setShowAddGear(false);
-          setShowInspection(true);
-        },
-        onError: () => haptics.error(),
-      },
-    );
-  }
-
-  function performSave() {
-    if (!canInspect || !selectedGearId) return;
-    recordInspection.mutate(
-      {
-        gear_id: selectedGearId,
-        result: inspectionResult,
-        inspected_on: inspectedOn,
-        notes: inspectionNotes || null,
-        next_inspection_due: inspectionNextDue || null,
+        name: newName.trim(),
+        category: newCategory,
+        serial_number: newSerial.trim() || null,
+        next_inspection_due: newNextDue.trim() || null,
       },
       {
         onSuccess: () => {
           haptics.success();
-          setInspectionResult('pass');
-          setInspectionNotes('');
-          setInspectionNextDue('');
-          setInspectedOn(todayLocalIsoDate());
-          setShowInspection(false);
+          setNewName('');
+          setNewSerial('');
+          setNewNextDue('');
+          setShowAdd(false);
         },
-        onError: () => haptics.error(),
+        onError: (err) => {
+          haptics.error();
+          Alert.alert('Could not add gear', err instanceof Error ? err.message : String(err));
+        },
       },
     );
   }
 
-  function logInspection() {
-    if (!canInspect || !selectedGearId) return;
-    if (inspectionResult === 'fail') {
-      const gearName = activeItems.find(({ item }) => item.id === selectedGearId)?.item.name ?? 'this gear';
-      haptics.warning();
-      Alert.alert(
-        'Retire gear?',
-        `Saving a failed inspection retires ${gearName} from active use. This cannot be undone from the app — re-add the item if it's later restored to service.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Retire on fail', style: 'destructive', onPress: performSave },
-        ],
-      );
-      return;
-    }
-    performSave();
-  }
+  const subLine = `${totalActive} active · ${overdueItems.length} overdue · ${dueSoonItems.length} due ≤14d`;
 
   return (
-    <Screen padded={false} safeTop>
-      <DocBand
-        variant="top"
-        formId="CH.4 - GEAR INVENTORY"
-        rev={`KIT ${String(activeCount).padStart(2, '0')}`}
-        effective={`DUE ${String(dueCount).padStart(2, '0')}`}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
+    >
+      <TopBar
+        title="Gear"
+        subtitle={subLine}
+        large
+        trailing={
+          <IconBtn
+            icon={IconPlus}
+            label={showAdd ? 'Close add gear' : 'Add gear'}
+            size="sm"
+            onPress={() => setShowAdd((v) => !v)}
+          />
+        }
       />
 
-      <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.base, gap: spacing.lg }}>
-        {/* Summary tiles */}
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <KpiTile
-            label="ACTIVE"
-            value={activeCount}
-            tone="ink"
-            selected={filter === 'all'}
-            onPress={() => setFilter('all')}
-          />
-          <KpiTile
-            label="DUE"
-            value={dueCount}
-            tone={overdueCount > 0 ? 'red' : dueSoonCount > 0 ? 'yellow' : 'ink'}
-            selected={filter === 'overdue' || filter === 'due_soon'}
-            onPress={() => setFilter(overdueCount > 0 ? 'overdue' : 'due_soon')}
-          />
-          <KpiTile
-            label="RETIRED"
-            value={retiredCount}
-            tone="mute"
-            selected={filter === 'retired'}
-            onPress={() => setFilter('retired')}
-          />
-        </View>
-
-        {/* Primary action row */}
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <DocActionButton
-            title={showAddGear ? 'CLOSE' : 'ADD GEAR'}
-            icon={showAddGear ? XCircle : Plus}
-            variant={showAddGear ? 'secondary' : 'primary'}
-            onPress={() => setShowAddGear((value) => !value)}
-            style={{ flex: 1 }}
-          />
-          <DocActionButton
-            title={showInspection ? 'CLOSE' : 'INSPECT'}
-            icon={showInspection ? XCircle : ClipboardCheck}
-            variant="secondary"
-            onPress={() => setShowInspection((value) => !value)}
-            disabled={!activeItems.length}
-            style={{ flex: 1 }}
-          />
-        </View>
-
-        {/* § 30 Add gear */}
-        {showAddGear ? (
-          <View>
-            <SectionH n="01" right={selectedCatalogEntry ? 'CATALOG MATCH' : 'NEW ENTRY'}>
-              Add gear
-            </SectionH>
-            <View
-              style={{
-                borderWidth: hairlines.standard.width,
-                borderColor: hairlines.standard.color,
-                backgroundColor: tidewater.white,
-                padding: spacing.md,
-                gap: spacing.md,
-              }}
-            >
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                  CATEGORY
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                  {CATEGORIES.map((item) => {
-                    const selected = item.value === category;
-                    return (
-                      <Pressable
-                        key={item.value}
-                        onPress={() => {
-                          setCategory(item.value);
-                          setSelectedCatalogEntry(null);
-                        }}
-                        style={({ pressed }) => ({
-                          borderWidth: 1.5,
-                          borderColor: selected ? tidewater.accent : tidewater.hair,
-                          backgroundColor: selected ? tidewater.accentSoft : 'transparent',
-                          paddingHorizontal: spacing.sm,
-                          paddingVertical: 6,
-                          opacity: pressed ? 0.8 : 1,
-                        })}
-                      >
-                        <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                          {item.label.toUpperCase()}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <Field
-                label="Make / model"
-                value={makeModel}
-                onChangeText={(value) => {
-                  setMakeModel(value);
-                  setSelectedCatalogEntry(null);
-                }}
-                placeholder="Petzl Avao"
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
-              {showCatalogSuggestions ? (
-                <View style={{ borderWidth: 1.5, borderColor: tidewater.hairSoft }}>
-                  {catalogSearch.data?.map((entry, index, arr) => (
-                    <Pressable
-                      key={entry.id}
-                      accessibilityRole="button"
-                      onPress={() => {
-                        setSelectedCatalogEntry(entry);
-                        setCategory(entry.category);
-                        setMakeModel(`${entry.manufacturer} ${entry.model}`);
-                      }}
-                      style={({ pressed }) => ({
-                        paddingHorizontal: spacing.sm,
-                        paddingVertical: spacing.xs + 2,
-                        borderBottomWidth: index < arr.length - 1 ? 1 : 0,
-                        borderBottomColor: tidewater.hairFaint,
-                        backgroundColor: pressed ? tidewater.paper2 : tidewater.white,
-                        gap: 2,
-                      })}
-                    >
-                      <Text style={{ ...typography.bodyMed, color: tidewater.ink }}>
-                        {entry.manufacturer} {entry.model}
-                      </Text>
-                      <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
-                        {entry.category.toUpperCase()}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              <Field
-                label="Name"
-                value={customName}
-                onChangeText={setCustomName}
-                placeholder="Optional display name"
-              />
-              <Field
-                label="Serial"
-                value={serialNumber}
-                onChangeText={setSerialNumber}
-                placeholder="Optional"
-              />
-              <DateField
-                label="Next due"
-                value={nextInspectionDue}
-                onChange={setNextInspectionDue}
-                placeholder="No date"
-                optional
-              />
-              <DocActionButton
-                title={createGearItem.isPending ? 'SAVING' : 'SAVE GEAR'}
-                icon={Plus}
-                onPress={addGearItem}
-                disabled={!canCreate}
-                loading={createGearItem.isPending}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {/* § 31 Inspection */}
-        {activeItems.length > 0 && showInspection ? (
-          <View>
-            <SectionH n="02" right={inspectionResult === 'fail' ? 'WILL RETIRE' : 'RECORD'}>
-              Inspection
-            </SectionH>
-            <View
-              style={{
-                borderWidth: hairlines.standard.width,
-                borderColor: hairlines.standard.color,
-                backgroundColor: tidewater.white,
-                padding: spacing.md,
-                gap: spacing.md,
-              }}
-            >
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                  {selectedGearId ? 'GEAR' : 'PICK GEAR TO INSPECT'}
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                  {activeItems.map(({ item }) => {
-                    const selected = item.id === selectedGearId;
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => setSelectedGearId(item.id)}
-                        style={({ pressed }) => ({
-                          borderWidth: 1.5,
-                          borderColor: selected ? tidewater.accent : tidewater.hair,
-                          backgroundColor: selected ? tidewater.accentSoft : 'transparent',
-                          paddingHorizontal: spacing.sm,
-                          paddingVertical: 6,
-                          opacity: pressed ? 0.8 : 1,
-                        })}
-                      >
-                        <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                          {item.name.toUpperCase()}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-              {selectedGearId ? (
-                <>
-                  {inspectionResult === 'fail' ? (
-                    <View
-                      style={{
-                        borderWidth: 1.5,
-                        borderColor: tidewater.red,
-                        backgroundColor: tidewater.redSoft,
-                        padding: spacing.sm,
-                      }}
-                    >
-                      <Text style={{ ...typography.monoSm, color: tidewater.red, letterSpacing: 1.2 }}>
-                        SAVING A FAILED INSPECTION RETIRES THIS GEAR
-                      </Text>
-                    </View>
-                  ) : null}
-                  <View style={{ gap: spacing.xs }}>
-                    <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                      RESULT
-                    </Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                      {(['pass', 'pass_with_concerns', 'fail'] as const).map((result) => {
-                        const selected = result === inspectionResult;
-                        const isFail = result === 'fail';
-                        return (
-                          <Pressable
-                            key={result}
-                            onPress={() => {
-                              setInspectionResult(result);
-                              if (result === 'fail') setInspectionNextDue('');
-                            }}
-                            style={({ pressed }) => ({
-                              borderWidth: 1.5,
-                              borderColor: selected ? (isFail ? tidewater.red : tidewater.accent) : tidewater.hair,
-                              backgroundColor: selected
-                                ? isFail
-                                  ? tidewater.redSoft
-                                  : tidewater.accentSoft
-                                : 'transparent',
-                              paddingHorizontal: spacing.sm,
-                              paddingVertical: 6,
-                              opacity: pressed ? 0.8 : 1,
-                            })}
-                          >
-                            <Text
-                              style={{
-                                ...typography.displaySm,
-                                color: selected && isFail ? tidewater.red : tidewater.ink,
-                                letterSpacing: 1.2,
-                              }}
-                            >
-                              {resultLabel(result).toUpperCase()}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                  <DateField label="Inspected" value={inspectedOn} onChange={setInspectedOn} />
-                  {inspectionResult === 'fail' ? (
-                    <View
-                      style={{
-                        borderWidth: 1.5,
-                        borderColor: tidewater.hairSoft,
-                        borderStyle: 'dashed',
-                        padding: spacing.sm,
-                      }}
-                    >
-                      <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
-                        RETIREMENT — NEXT-DUE NOT NEEDED
-                      </Text>
-                    </View>
-                  ) : (
-                    <DateField
-                      label="Next due"
-                      value={inspectionNextDue}
-                      onChange={setInspectionNextDue}
-                      placeholder="MM/DD/YYYY"
-                      optional
-                    />
-                  )}
-                  <View style={{ gap: spacing.xs }}>
-                    <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                      NOTES
-                    </Text>
-                    <TextInput
-                      value={inspectionNotes}
-                      onChangeText={setInspectionNotes}
-                      multiline
-                      placeholder="Condition, defects, follow-up"
-                      placeholderTextColor={tidewater.ink3}
-                      style={{
-                        borderWidth: 1.5,
-                        borderColor: tidewater.hair,
-                        backgroundColor: tidewater.white,
-                        padding: spacing.sm,
-                        ...typography.body,
-                        color: tidewater.ink,
-                        minHeight: 92,
-                        textAlignVertical: 'top',
-                      }}
-                    />
-                  </View>
-                  <DocActionButton
-                    title={recordInspection.isPending ? 'SAVING' : 'SAVE INSPECTION'}
-                    icon={Save}
-                    onPress={logInspection}
-                    disabled={!canInspect}
-                    loading={recordInspection.isPending}
-                  />
-                </>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        {/* Status filter */}
-        <View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
-            {STATUS_FILTERS.map((item) => {
-              const selected = item.value === filter;
-              return (
-                <Pressable
-                  key={item.value}
-                  onPress={() => setFilter(item.value)}
-                  style={({ pressed }) => ({
-                    borderWidth: 1.5,
-                    borderColor: selected ? tidewater.accent : tidewater.hair,
-                    backgroundColor: selected ? tidewater.accentSoft : 'transparent',
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: 6,
-                    opacity: pressed ? 0.8 : 1,
-                  })}
-                >
-                  <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                    {item.label.toUpperCase()}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 132 + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {showAdd ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 10 }}>
+            <Card padding={14}>
+              <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 10 }}>
+                ADD GEAR
+              </Text>
+              <View style={{ gap: 10 }}>
+                <Field
+                  label="Name"
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Petzl Avao Bod"
+                  autoCapitalize="words"
+                />
+                <View>
+                  <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
+                    CATEGORY
                   </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* § 32 Inventory list */}
-          <SectionH n="03" right={`${filteredItems.length} ITEM${filteredItems.length === 1 ? '' : 'S'}`}>
-            Inventory
-          </SectionH>
-          {gearItems.isLoading ? (
-            <EmptyLine>Loading gear…</EmptyLine>
-          ) : gearItems.isError ? (
-            <View
-              style={{
-                borderWidth: 1.5,
-                borderColor: tidewater.red,
-                backgroundColor: tidewater.redSoft,
-                padding: spacing.md,
-                gap: spacing.sm,
-              }}
-            >
-              <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                GEAR COULD NOT LOAD
-              </Text>
-              <DocActionButton
-                title="TRY AGAIN"
-                variant="secondary"
-                onPress={() => gearItems.refetch()}
-              />
-            </View>
-          ) : groupedItems.length ? (
-            <View style={{ gap: spacing.md }}>
-              {groupedItems.map((group) => (
-                <View key={group.category}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'baseline',
-                      marginBottom: spacing.xs,
-                    }}
-                  >
-                    <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                      {group.label.toUpperCase()}
-                    </Text>
-                    <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>
-                      {group.items.length} {group.items.length === 1 ? 'ITEM' : 'ITEMS'}
-                    </Text>
+                  <ChipSelect<GearCategory>
+                    value={newCategory}
+                    options={CREATE_CATEGORIES}
+                    onChange={setNewCategory}
+                  />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Field
+                      label="Serial #"
+                      value={newSerial}
+                      onChangeText={setNewSerial}
+                      placeholder="Optional"
+                      autoCapitalize="characters"
+                    />
                   </View>
-                  <View
-                    style={{
-                      borderWidth: 1.5,
-                      borderColor: tidewater.hair,
-                      backgroundColor: tidewater.white,
-                    }}
-                  >
-                    {group.items.map(({ item, latest_inspection, status }) => {
-                      const metaParts = [
-                        item.serial_number ? `SN ${item.serial_number}` : null,
-                        latest_inspection
-                          ? `LAST ${resultLabel(latest_inspection.result).toUpperCase()} ${formatDate(latest_inspection.inspected_on).toUpperCase()}`
-                          : 'NEVER INSPECTED',
-                      ].filter(Boolean);
-                      const daysUntilDue =
-                        status === 'retired' ? null : daysFromTodayIso(item.next_inspection_due);
-                      const offset = dueOffsetChip(daysUntilDue, status);
-                      const badge = statusBadge(status);
-                      return (
-                        <RowDoc
-                          key={item.id}
-                          cols={[
-                            {
-                              value: (
-                                <View style={{ width: '100%', gap: 2 }}>
-                                  <Text
-                                    selectable
-                                    style={{
-                                      ...typography.body,
-                                      color: tidewater.ink,
-                                      fontWeight: '600',
-                                    }}
-                                    numberOfLines={1}
-                                  >
-                                    {item.name}
-                                  </Text>
-                                  <Text
-                                    style={{
-                                      ...typography.monoSm,
-                                      color: tidewater.ink3,
-                                      letterSpacing: 1.2,
-                                    }}
-                                    numberOfLines={1}
-                                  >
-                                    {metaParts.join(' · ')}
-                                  </Text>
-                                </View>
-                              ),
-                              flex: 1,
-                            },
-                            {
-                              value: <Chip tone={offset.tone}>{offset.label}</Chip>,
-                              width: 76,
-                              align: 'right',
-                            },
-                            {
-                              value:
-                                badge.kind === 'stamp' ? (
-                                  <Stamp tone={badge.tone} rotation="light">
-                                    {badge.label}
-                                  </Stamp>
-                                ) : (
-                                  <Chip tone={badge.tone}>{badge.label}</Chip>
-                                ),
-                              width: 56,
-                              align: 'right',
-                            },
-                          ]}
-                        />
-                      );
-                    })}
+                  <View style={{ flex: 1 }}>
+                    <Field
+                      label="Next inspection"
+                      value={newNextDue}
+                      onChangeText={setNewNextDue}
+                      placeholder="YYYY-MM-DD"
+                      autoCapitalize="none"
+                    />
                   </View>
                 </View>
-              ))}
-            </View>
+                <Button
+                  variant="primary"
+                  full
+                  onPress={addGearItem}
+                  disabled={newName.trim().length === 0 || createGearItem.isPending}
+                >
+                  {createGearItem.isPending ? 'Adding…' : 'Add gear'}
+                </Button>
+              </View>
+            </Card>
+          </View>
+        ) : null}
+
+        {deadlinesItems.length > 0 ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+            <Card padding={14}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  marginBottom: 10,
+                }}
+              >
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    backgroundColor: overdueItems.length > 0 ? tokens.dangerSoft : tokens.warnSoft,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <IconWarn
+                    size={18}
+                    color={overdueItems.length > 0 ? tokens.danger : tokens.warn}
+                    fill={overdueItems.length > 0 ? tokens.danger : tokens.warn}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
+                    INSPECTION DEADLINES
+                  </Text>
+                  <Text style={{ ...type.cardTitle, color: tokens.text, marginTop: 2 }}>
+                    {`${overdueItems.length} overdue · ${dueSoonItems.length} due ≤14d`}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ gap: 6 }}>
+                {deadlinesItems.map((detail) => (
+                  <DeadlineRow key={detail.item.id} detail={detail} today={today} />
+                ))}
+              </View>
+            </Card>
+          </View>
+        ) : null}
+
+        <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6 }}
+          >
+            <ChipSelect<CategoryFilter>
+              value={filter}
+              options={CATEGORY_FILTERS}
+              onChange={setFilter}
+            />
+          </ScrollView>
+        </View>
+
+        <SectionH
+          kicker="ALL GEAR"
+          title={filter === 'all' ? `${allItems.length} items` : `${filteredItems.length} ${CATEGORY_FILTERS.find((c) => c.value === filter)?.label.toLowerCase() ?? ''}`}
+        />
+
+        <View style={{ paddingHorizontal: 20, gap: 10 }}>
+          {filteredItems.length === 0 ? (
+            <Card padding={20}>
+              <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
+                No gear in this category
+              </Text>
+              <Text
+                style={{
+                  ...type.cardSub,
+                  color: tokens.textDim,
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                Tap the + in the top bar to add an item.
+              </Text>
+            </Card>
           ) : (
-            <View
-              style={{
-                borderWidth: 1.5,
-                borderColor: tidewater.hairSoft,
-                borderStyle: 'dashed',
-                padding: spacing.md,
-                gap: spacing.sm,
-              }}
-            >
-              <Text style={{ ...typography.displaySm, color: tidewater.ink, letterSpacing: 1.2 }}>
-                {filter === 'all' ? 'NO GEAR LOGGED YET' : 'NO GEAR MATCHES FILTER'}
-              </Text>
-              <Text style={{ ...typography.monoSm, color: tidewater.ink3 }}>
-                {filter === 'all'
-                  ? 'Add your harness, ropes, helmet, and other kit before tracking inspections.'
-                  : 'Try a different filter or show all.'}
-              </Text>
-              {filter !== 'all' ? (
-                <DocActionButton title="SHOW ALL" variant="secondary" onPress={() => setFilter('all')} />
-              ) : null}
-            </View>
+            filteredItems.map((detail) => {
+              const cycle = computeCycle(detail, today);
+              return (
+                <GearCard
+                  key={detail.item.id}
+                  category={detail.item.category}
+                  name={detail.item.name}
+                  manufacturer={detail.item.manufacturer}
+                  serialNumber={detail.item.serial_number}
+                  days={cycle.days}
+                  progress={cycle.progress}
+                  status={statusToCardStatus(detail.status)}
+                  onPress={() => router.push(`/gear/${detail.item.id}` as never)}
+                />
+              );
+            })
           )}
         </View>
-      </View>
-
-      <View style={{ marginTop: spacing.lg }}>
-        <DocBand
-          variant="footer"
-          text={
-            overdueCount > 0
-              ? `${overdueCount} ITEM${overdueCount === 1 ? '' : 'S'} OVERDUE - INSPECT BEFORE USE`
-              : dueSoonCount > 0
-                ? `${dueSoonCount} ITEM${dueSoonCount === 1 ? '' : 'S'} DUE SOON`
-                : 'KIT CURRENT - INSPECTION SCHEDULE ON TRACK'
-          }
-          page={`KIT ${String(activeCount + retiredCount).padStart(3, '0')}`}
-        />
-      </View>
-    </Screen>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-function KpiTile({
-  label,
-  value,
-  tone,
-  selected,
-  onPress,
-}: {
-  label: string;
-  value: number;
-  tone: 'ink' | 'yellow' | 'red' | 'mute';
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const { spacing, typography, tidewater } = useTheme();
-  const accent =
-    tone === 'red'
-      ? tidewater.red
-      : tone === 'yellow'
-        ? tidewater.yellowDeep
-        : tone === 'mute'
-          ? tidewater.ink3
-          : tidewater.ink;
+function DeadlineRow({ detail, today }: { detail: GearItemDetail; today: Date }) {
+  const { tokens } = useTheme();
+  const cycle = computeCycle(detail, today);
+  const Icon = GEAR_ICON[detail.item.category];
+  const overdue = detail.status === 'overdue';
+  const bg = overdue ? tokens.dangerSoft : tokens.warnSoft;
+  const fg = overdue ? tokens.danger : tokens.warn;
+  const days = cycle.days;
+
+  const captionText =
+    days == null
+      ? 'No date'
+      : days < 0
+        ? `${Math.abs(days)}d overdue`
+        : days === 0
+          ? 'Due today'
+          : `${days}d to go`;
+
+  const rowStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: bg,
+  };
+
+  const titleStyle: TextStyle = {
+    ...type.cardTitle,
+    color: tokens.text,
+  };
+
+  const captionStyle: TextStyle = {
+    ...type.monoSm,
+    color: fg,
+    letterSpacing: 0.5,
+  };
 
   return (
     <Pressable
-      onPress={onPress}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
-      style={({ pressed }) => ({
-        flex: 1,
-        borderWidth: 1.5,
-        borderColor: selected ? tidewater.accent : tidewater.hair,
-        backgroundColor: selected ? tidewater.accentSoft : tidewater.white,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        opacity: pressed ? 0.85 : 1,
-        gap: 2,
-      })}
+      onPress={() => router.push(`/gear/${detail.item.id}` as never)}
+      style={({ pressed }) => [rowStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
     >
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.5 }}>{label}</Text>
-      <AnimatedCounter
-        cacheKey={`gear-tile-${label}`}
-        text={String(value)}
-        fontFamily="Archivo_900Black"
-        fontSize={28}
-        fontWeight="900"
-        letterSpacing={-0.4}
-        color={accent}
-        height={30}
-        width={21}
-      />
+      <View
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 8,
+          backgroundColor: 'rgba(0,0,0,0.05)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon size={18} color={fg} fill={fg} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={titleStyle} numberOfLines={1}>
+          {detail.item.name}
+        </Text>
+        <Text style={captionStyle} numberOfLines={1}>
+          {captionText}
+        </Text>
+      </View>
+      <IconChevron size={14} color={fg} />
     </Pressable>
   );
 }
-
-function EmptyLine({ children }: { children: string }) {
-  const { spacing, typography, tidewater } = useTheme();
-  return (
-    <View
-      style={{
-        borderWidth: 1,
-        borderColor: tidewater.hairSoft,
-        borderStyle: 'dashed',
-        padding: spacing.md,
-      }}
-    >
-      <Text style={{ ...typography.monoSm, color: tidewater.ink3, letterSpacing: 1.2 }}>
-        {children.toUpperCase()}
-      </Text>
-    </View>
-  );
-}
-
-

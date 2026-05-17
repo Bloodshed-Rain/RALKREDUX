@@ -17,6 +17,22 @@ export function useGearSummary() {
   });
 }
 
+export function useGearItemDetail(gearId: string | null | undefined) {
+  return useQuery({
+    enabled: !!gearId,
+    queryKey: ['gearItem', gearId],
+    queryFn: () => createGearService(getClient()).getGearItemDetailById(gearId!),
+  });
+}
+
+export function useGearInspections(gearId: string | null | undefined, limit = 8) {
+  return useQuery({
+    enabled: !!gearId,
+    queryKey: ['gearInspections', gearId, limit],
+    queryFn: () => createGearService(getClient()).listInspectionsForGear(gearId!, limit),
+  });
+}
+
 export function useGearCatalogSearch(query: string, category: GearCategory | null) {
   return useQuery({
     enabled: query.trim().length >= 2,
@@ -46,9 +62,11 @@ export function useRecordGearInspection() {
   return useMutation({
     mutationFn: (input: RecordGearInspectionInput) =>
       createGearService(getClient()).recordInspection(input),
-    onSuccess: () => {
+    onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['gearItems'] });
       queryClient.invalidateQueries({ queryKey: ['gearSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['gearItem', detail.item.id] });
+      queryClient.invalidateQueries({ queryKey: ['gearInspections', detail.item.id] });
     },
   });
 }

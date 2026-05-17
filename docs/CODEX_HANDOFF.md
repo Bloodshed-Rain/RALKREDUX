@@ -1,6 +1,6 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-17
+Last updated: 2026-05-17 (step 12)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
@@ -20,6 +20,8 @@ Key shifts in v2:
 ### v2 implementation log
 
 15-step program tracked in this session's task list (1–15). Progress:
+
+**Pending requirement to fold into the next onboarding-redesign step (whichever step lands the new signup flow):** users must be able to register **both** SPRAT *and* IRATA credentials at setup — one designated as primary (used in headers + exports first), the other as secondary. A draft of this on the legacy paper-form primitives (`app/(onboarding)/setup.tsx`) was prototyped and reverted on 2026-05-17 because the v2 onboarding redesign hasn't shipped yet; the *feature* must be re-implemented on v2 primitives. Shape to preserve: per-scheme `{ level, number, expiresOn }` triple; IRATA number validation = 5 digits or empty; `primary_scheme` profile field decides ordering; the existing `createProfile` shape already accepts both `sprat_*` and `irata_*` fields simultaneously, so the domain layer needs no change.
 
 - **Step 1 — Theme system + 6 palettes + provider + persistence.** Shipped 2026-05-17. New files: `src/ui/theme/themes.ts` (6 palettes verbatim from handoff + `Theme`/`ThemeTokens`/`ThemeKey` types + `THEMES` / `THEME_ORDER` / `DEFAULT_THEME_KEY` = `'tungsten'`), `src/ui/theme/compat.ts` (one-way legacy derivations). Rewrites: `src/ui/theme/tokens.ts` (now a thin compat shim over `compat.ts` for the default theme, no behavioural change for existing imports), `src/ui/theme/theme-provider.tsx` (state + `AsyncStorage` hydration on key `ralb:pref:theme-key` + reactive value, status bar binding). Static-import migration: `app/_layout.tsx`, `app/index.tsx`, `app/(tabs)/_layout.tsx` now consume `useTheme()` so they react to theme switches. Typecheck clean. Jest 136 tests in 15 suites all pass.
 
@@ -51,6 +53,22 @@ Key shifts in v2:
   - **PullToRefresh** (`v2/pull-to-refresh.tsx`) — bespoke chain-icon-in-ring indicator, 72 px threshold, 3-stage label ("Pull to refresh" → "Release to sync" → "Syncing chain…"). Built on `PanResponder` + `Animated` (no reanimated/gesture-handler dependency — those are explicit non-installs; if motion polish is needed, swap in step 15). Supports both internal cycle (`onRefresh` returns a promise) and externally-driven `refreshing` prop.
 
   Heliotype primitive branches live in their respective files via `theme.key === 'heliotype'` checks; nothing is encoded into `ThemeTokens`. Typecheck clean. Jest 136/136 still green.
+
+- **Step 12 — Gear list + Gear detail + GearCard + CountdownDial.** Shipped 2026-05-17. Two new primitives + screen rewrites + a domain expansion:
+
+  - `src/ui/primitives/v2/gear-card.tsx` — 48 px square icon plate · name + mono `manufacturer · serial · category` sub · right-side `Pill` whose tone + label encode the inspection state (`overdue` / `due soon` / `due today` / `Nd` / `Retired` / `No date`) · 4 px progress bar pinned to the card's bottom edge that fills based on the fraction of the inspection cycle elapsed. Press scales to 0.99. Pulls the category icon from `GEAR_ICON`.
+
+  - `src/ui/primitives/v2/countdown-dial.tsx` — 76 px (size-configurable) SVG ring with a soft background ring + an accent stroke whose `strokeDashoffset` encodes the elapsed-cycle fraction. Center prints the days-remaining (or `Nd` overdue / `TODAY` / `—`) plus a mono `TO GO` / `OVERDUE` / `DUE` / `RETIRED` caption. Color palette branches on status (`overdue` → danger, `due_soon` → warn, `retired`/`unscheduled` → faint, else accent).
+
+  - `app/(tabs)/gear.tsx` rewritten — large `TopBar` ("Gear" + `${n} active · ${n} overdue · ${n} due ≤14d` sub) with a trailing `+` `IconBtn` that toggles an inline Add-gear `Card` (name `Field` + category `ChipSelect` + Serial/Next-due 2-col `Field`s + primary submit `Button`). Below: an Inspection-Deadlines summary `Card` (only rendered when any overdue or due-soon exist) showing up to 3 highlighted rows with `dangerSoft`/`warnSoft` backgrounds + countdown captions + chevron. Then a horizontally-scrolling category-filter `ChipSelect` (All + 10 categories) and a `SectionH` ("ALL GEAR" · count). Body renders the `GearCard` list; an inline empty-state `Card` appears when the filter has no matches. Each `GearCard` routes to `/gear/${id}`.
+
+  - `app/gear/[id].tsx` new screen — small `TopBar` (category as title, back leading). Hero `Card` (64 px square icon + mono manufacturer/model kicker + 20 px name + mono `S/N` line + status `Pill`), hairline rule, then a 2-col row: `CountdownDial` (76 px) + right-column "NEXT INSPECTION" mono kicker + 20 px date + colored remaining/overdue caption. Below the hero: a primary "Record inspection" `Button` + a ghost `IconLock` retire `IconBtn`. The Record-inspection button toggles an inline `NEW INSPECTION` `Card` with a result `ChipSelect` (Pass / Concerns / Fail — retire), 2-col Inspected-on + Next-due `Field`s, Notes multiline `Field`, and a primary submit. `Fail` triggers a destructive confirm dialog (retires the gear); `Pass with concerns` and `Pass` save inline. Inspection History section uses a `SectionH` + a `Card` listing up to 4 history rows with 32 px tinted-bg result icons (`IconCheck` / `IconWarn` / `IconVoid`). `useGearItemDetail(id)` + `useGearInspections(id, 8)` are new React Query hooks; the screen is registered in `app/_layout.tsx` as `gear/[id]` with `headerShown: false` so the `TopBar` owns the chrome.
+
+  - Domain layer: `src/domain/gear/gear-service.ts` gains `getGearItemDetailById(id, asOf?)` (resolves a single item's `GearItemDetail`) and `listInspectionsForGear(gearId, limit?)` (newest first, capped 1..50). `src/domain/gear/use-gear.ts` adds `useGearItemDetail` and `useGearInspections` (both `enabled` on truthy id) and extends the `useRecordGearInspection` `onSuccess` invalidator to bust `['gearItem', id]` + `['gearInspections', id]`. New test in `__tests__/domain/gear-service.test.ts` covers the history ordering, the explicit `limit`, the detail resolver's status derivation, and the not-found path.
+
+  Dropped from this iteration vs. the legacy gear screen (~1074 lines → 404): the paper-form `DocBand` chrome, the per-item `RowDoc` rendering, the inline inspection-recording sheet inside the list screen (now lives on the detail screen), the catalog-search affordance (still reachable via the existing `useGearCatalogSearch` hook — surface in a sub-screen later if needed), and per-row gear-edit fields (renames + serial edits will return on a dedicated edit screen). The `Linked entries` block from the v2 spec is deferred — the domain layer doesn't yet expose "entries that used this gear" and adding it is a separate Phase A-style task.
+
+  Typecheck clean. Jest 137/137 (was 136/136; +1 from the new gear-service history test).
 
 - **Step 11 — Sign screen + SealAnim.** Shipped 2026-05-17. Two new primitives + screen rewrite:
 

@@ -135,4 +135,51 @@ describe('gear service', () => {
     );
     expect(ropeMatches).toEqual([]);
   });
+
+  it('lists inspection history newest first and resolves a single item detail', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const item = await service.createGearItem({
+      name: 'Rope A',
+      category: 'rope',
+      next_inspection_due: '2026-09-01',
+    });
+
+    await service.recordInspection({
+      gear_id: item.id,
+      result: 'pass',
+      inspected_on: '2026-03-01',
+      next_inspection_due: '2026-06-01',
+    });
+    await service.recordInspection({
+      gear_id: item.id,
+      result: 'pass_with_concerns',
+      inspected_on: '2026-04-15',
+      notes: 'Slight glaze on left',
+      next_inspection_due: '2026-07-15',
+    });
+    await service.recordInspection({
+      gear_id: item.id,
+      result: 'pass',
+      inspected_on: '2026-05-10',
+      next_inspection_due: '2026-08-10',
+    });
+
+    const history = await service.listInspectionsForGear(item.id);
+    expect(history.map((i) => i.inspected_on)).toEqual(['2026-05-10', '2026-04-15', '2026-03-01']);
+    expect(history[1].result).toBe('pass_with_concerns');
+    expect(history[1].notes).toBe('Slight glaze on left');
+
+    const limited = await service.listInspectionsForGear(item.id, 2);
+    expect(limited.map((i) => i.inspected_on)).toEqual(['2026-05-10', '2026-04-15']);
+
+    const detail = await service.getGearItemDetailById(item.id, '2026-05-12');
+    expect(detail).not.toBeNull();
+    expect(detail?.item.next_inspection_due).toBe('2026-08-10');
+    expect(detail?.status).toBe('current');
+    expect(detail?.latest_inspection?.inspected_on).toBe('2026-05-10');
+
+    const missing = await service.getGearItemDetailById('does-not-exist');
+    expect(missing).toBeNull();
+  });
 });

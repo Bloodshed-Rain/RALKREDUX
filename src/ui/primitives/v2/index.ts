@@ -32,3 +32,5 @@ export { SigFill, type SigFillProps } from './sig-fill';
 export { PhotoStrip, type PhotoStripItem, type PhotoStripProps } from './photo-strip';
 export { SigPad, type SigPadProps, type SigPadHandle } from './sig-pad';
 export { SealAnim, type SealAnimProps } from './seal-anim';
+export { GearCard, type GearCardProps } from './gear-card';
+export { CountdownDial, type CountdownDialProps, type CountdownStatus } from './countdown-dial';
