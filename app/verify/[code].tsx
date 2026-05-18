@@ -450,12 +450,48 @@ export default function RemoteVerifyScreen() {
           <>
             <SectionH kicker="AUTHORIZATION" title="Sign as verifier" />
             <View style={{ paddingHorizontal: 20, gap: 12 }}>
+              {/* Identity reconcile: the request's `recipient_name` (who was
+                  asked) and the signature's `supervisor_name` (who actually
+                  signs) are persisted separately. Make that distinction
+                  legible in the UI so the auditor can compare them in the
+                  export later. */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  borderRadius: 10,
+                  backgroundColor: tokens.surface2,
+                  borderWidth: 1,
+                  borderColor: tokens.lineSoft,
+                }}
+              >
+                <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>SENT TO</Text>
+                <Text
+                  style={{ ...type.body, color: tokens.text, flex: 1, fontWeight: '600' }}
+                  numberOfLines={1}
+                >
+                  {request.recipient_name}
+                </Text>
+                {supervisorName.trim().length > 0
+                  && supervisorName.trim().toLowerCase() !== request.recipient_name.trim().toLowerCase()
+                  ? <Pill tone="warn" size="sm">Different signer</Pill>
+                  : null}
+              </View>
               <Field
-                label="Verifier name"
+                label="I am signing as"
                 value={supervisorName}
                 onChangeText={setSupervisorName}
-                placeholder="Jordan Lee"
+                placeholder="Your full name"
                 autoCapitalize="words"
+                helper={
+                  supervisorName.trim().length > 0
+                    && supervisorName.trim().toLowerCase() !== request.recipient_name.trim().toLowerCase()
+                    ? 'Both your name and the requested verifier name are recorded.'
+                    : 'Type your name as it appears on your cert. Both this and the requested name are recorded.'
+                }
               />
               <View>
                 <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
