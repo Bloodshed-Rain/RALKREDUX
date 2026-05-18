@@ -1,10 +1,67 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-17 (post-step-15 cross-palette sweep)
+Last updated: 2026-05-18 (full-app audit + v3 hash bundle + gear catalog browser)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
-## READ THIS FIRST — v2 redesign supersedes the paper-form identity (2026-05-17)
+## READ THIS FIRST — v3 hash + audit-grade sweep (2026-05-17 → 2026-05-18)
+
+A full-app audit pass and a series of audit-grade fixes shipped on top of the v2 redesign across two days, 26 commits, 35+ items closed. Everything below is live on `main`, hosted Edge Functions deployed, typecheck + 141/141 jest green.
+
+**`ENTRY_HASH_VERSION` is now 3.** The new fields on `entries` that signers attest to:
+- `entry_kind` — 'work' | 'training' | 'assessment' | 'rescue_drill'. Defaults to 'work' at the SQL layer so pre-v3 rows keep their meaning.
+- `rescue_cover` — free-text rescue-cover summary, nullable.
+- `hazards` — sorted-JSON-stringified TEXT (`canonicalizeHazards` normalises on write; `parseHazards` reads). Nullable.
+
+`canonicalizeEntry` and the edge function's `canonicalizeEntryPayload` were updated in lockstep. The edge function rejects v2 payloads with `hash_version_invalid`. Existing v2 signatures stay valid via the `verifyChainHashFor` short-circuit (`if (signature.hash_version !== ENTRY_HASH_VERSION) return true`) — we trust their stored chain hash because we can't recompute against an older shape.
+
+**If you bump the hash version again, the lockstep update points are:**
+1. `src/domain/logbook/entry-hash.ts` — `ENTRY_HASH_VERSION` constant + `canonicalizeEntry` field list
+2. `supabase/functions/_shared/remote-signing.ts` — same constant + `canonicalizeEntryPayload`
+3. `__tests__/domain/entry-hash.test.ts` — factory `entry()` shape
+4. `__tests__/domain/logbook-service.test.ts` — assertions that read the constant directly
+5. Edge function redeploys: `supabase functions deploy remote-signing-request remote-signing-complete remote-signing-cancel`
+
+**Edge Functions are deployed** at version 2 on Supabase project `zooxewiwaurbfmulkwia` as of 2026-05-17. All three (`remote-signing-request`, `remote-signing-complete`, `remote-signing-cancel`) carry the v3 hash check. A pre-existing config bug was fixed in this session: `remote-signing-cancel` was missing its `[functions.remote-signing-cancel]` block in `supabase/config.toml` — re-deploys were silently falling back to default settings (no import_map, JWT verification on). The block is in place now; future deploys work cleanly.
+
+**`@expo/ngrok` is now a declared devDependency.** The CLI prompts to install on first tunnel use, and the prompt only fires in TTY mode — in CI / background invocations it would silently fail with a confusing "Cannot read properties of undefined (reading 'body')". Declaring it explicitly avoids that.
+
+### Audit-grade items closed in this sweep
+
+Roughly grouped by theme. Commit IDs are pinned for quick navigation.
+
+**Schema + hash discipline (the v3 bundle)** — `5f5a9b6` → `ab10b1a` → `b4aa2bb` + edge function deploy + `56ea4b9` (cancel config fix). Migration 9 adds the three entry-attestation fields; entry hash bumps 2→3; service INSERT/UPDATE/AMEND all wired; edge function in lockstep. UI surfaces (new-entry wizard, edit, amend, sign, verifier portal, entry detail) all set and display the new fields.
+
+**Schema additions, no hash bump** — Migration 10 (`db96211`) adds `inspector_name` + `inspector_cert_number` to `gear_inspections`; service throws `inspector_identity_required` when missing; UI inspection form requires the name and disables submit until typed. Migration 11 (`c0c6585`) adds optional `image_url` to `gear_catalog` — schema-ready for a future licensed image set without breaking anything today.
+
+**Audit-grade rope-access fixes** — Sign-vs-verify field parity (`d99a368`: local sign screen now shows the full Work Record card the remote verifier always saw — same labels, same order, same attestation text binds identical evidence). Amendment lineage chips on entry detail (`a23edd3`: "Amends YYYY-MM-DD · A1B2C3D4" and "Amended by …" navigate in both directions; new `listAmendmentsOf(entryId)` service method). SPRAT cert number now required for signers (`0a42003`: was IRATA-only; service-level enforcement plus UI helper text). Verifier identity reconcile (`06e7c1a`: requested vs actual signer surfaced as distinct fields with a "Different signer" warn pill when they diverge). Amendment "what changed" diff (`612d73c`: live was→is comparison on the amend hero card).
+
+**v2 primitives + a11y + Fabric crash** — Heliotype `danger` differentiation on Pill / Button / SyncChip (`1fcb47e`: the palette's `accent === danger === #8B1F1A` oxblood collapse — now distinguished by SHAPE, danger goes outlined ink-on-bone). IconBtn 44px hit-target via `hitSlop` (no visual change). `useReducedMotion()` on Sheet + SyncChip spin. Retire-gear dead button wired. Sealing screen tap-to-skip (`852cce8`: 3s setTimeout was forced wait). **Fabric crash fix** (`283429e`): `style={({pressed}) => ({ ..., transform: pressed ? [...] : undefined })}` serializes `undefined` to `null` on the native side under new arch, tripping `_validateTransforms`. Pattern-fixed across 5 sites — spread-conditional transform key (`pressed ? { transform: [...] } : null` in a style array). If a new screen / primitive sets `transform: undefined` inline, it will crash; use the spread pattern.
+
+**UX polish** — Tap-to-skip seal, deep-link filters from Today tiles (`?filter=pending` / `?filter=drafts`), dated AMENDS label that strips the `entry_` prefix, expiry-cert "Expired" pill, restore chain-rewind warning showing current vs snapshot head, "Embed chain proof" toggle replaced with a static "Always" indicator, loading-vs-empty distinguishing on Today and Records, double-header fix on six screens that render their own `TopBar` (`4bfcc48`), explicit delete affordance on draft entry rows in Records.
+
+**Field-context** — Camera-first photo capture (`e96098d`: shared `captureOrPickPhoto()` helper in `src/ui/photo-picker.ts`; both `entry/new.tsx` and `entry/[id].tsx` use it. Library fallback still available via the action sheet). Today QuickLog "Same as last" preload (`29d0fe0`: `/entry/new?seed=last` reads the most recent entry and pre-fills site / employer / client / task / access / structure / height / kind / rescue / hazards; date / hours / description stay blank).
+
+**Gear catalog browser** (`c0c6585`) — `/gear/catalog` route with debounced search (200ms), category filter, tap-to-pick. Handoff back to the gear tab via `src/storage/gear-catalog-pick.ts` (transient AsyncStorage slot consumed by `useFocusEffect` on the Add-gear form). The legacy catalog autocomplete was dropped in step 12; this brings it back as a dedicated screen. `image_url` column ready for future licensed images; UI falls back to the category icon when null.
+
+### Things explicitly NOT done — pushback on file
+
+**Hotlinking manufacturer product images** — the user asked about pulling images from corresponding manufacturer websites. Pushed back: copyright grey-area (Petzl / DMM / Beal / Camp all enforce), per-vendor scraping is fragile (no standard URL pattern), trashes the offline-first budget. Schema is ready (`gear_catalog.image_url` column) for a future curated, license-cleared image set; that's a procurement workstream, not a code one. Don't add a scraper or hotlinker; if a curated set ever lands, it can drop into the existing column and the UI picks it up without changes.
+
+### Things still on the audit board
+
+Lower priority but documented for the next session:
+
+- **Restore document picker** — needs `expo-document-picker` package; currently paste-only via the Profile → Sync & backup card.
+- **Setup expiry date picker** — needs a date-picker package decision (we just dropped `@react-native-community/datetimepicker` because it wasn't being used).
+- **Gear lifecycle gaps** — manufacture date, in-service date, lot/batch on `gear_items`; quarantine state between active and retired (a `quarantined_at TEXT` column to support "withdrawn pending second opinion"). Migration 12 territory.
+- **Typography drift across 13 screens** — every screen still hand-rolling `fontFamily/fontWeight/fontSize` instead of consuming `type.*` from `src/ui/theme/type.ts`. Mechanical refactor.
+
+### Tunnel + dev server notes
+
+`npx expo start --tunnel --port 8082` is the canonical invocation. The randomness `hdIUe_o` is pinned in `.expo/settings.json`, so the tunnel URL is stable across restarts: `exp://hdiue_o-bloodshed_ra1n-8082.exp.direct`. Don't use `CI=1` for dev work — it disables file-watcher and suppresses QR/URL output. The `--non-interactive` flag is not recognized by Expo CLI; pass `--port 8082` explicitly to avoid the "use 8083 instead?" prompt that hangs background invocations.
+
+## READ THIS NEXT — v2 redesign supersedes the paper-form identity (2026-05-17)
 
 A second high-fidelity redesign has dropped in `design_handoff_ralkredux_v2/` at the repo root. It is a **full reset away from the regulated paper-form identity** documented further down this file. Read `design_handoff_ralkredux_v2/README.md` end-to-end before doing UI work. The earlier paper-form motifs (doc-bands, FORM nn-X · REV n · EFF YYYY.MM, weave + watermark seal, rotated Newsreader-italic stamps) are **out** of the new direction.
 
