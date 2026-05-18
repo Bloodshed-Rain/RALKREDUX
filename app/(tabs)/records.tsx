@@ -15,7 +15,7 @@ import {
   Pill,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { IconExport, IconFilter, IconSearch } from '@/src/ui/icons';
+import { IconExport, IconFilter, IconSearch, IconVoid } from '@/src/ui/icons';
 
 type FilterKey = 'all' | 'drafts' | 'pending' | 'signed' | 'amended';
 
@@ -144,6 +144,34 @@ export default function RecordsScreen() {
 
   const monthGroups = React.useMemo(() => groupByMonth(filteredEntries), [filteredEntries]);
 
+  function confirmDeleteDraft(entry: LogbookEntry) {
+    haptics.warning();
+    Alert.alert(
+      'Delete draft?',
+      `Permanently remove the draft for ${entry.site || 'this draft'}. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteDraft.mutate(entry.id, {
+              onError: (err) => {
+                const reason =
+                  err instanceof Error && err.message === 'entry_has_pending_remote_request'
+                    ? 'A remote signature request is still pending. Resolve it before deleting this draft.'
+                    : err instanceof Error
+                      ? err.message
+                      : 'Could not delete the draft.';
+                Alert.alert('Could not delete draft', reason);
+              },
+            });
+          },
+        },
+      ],
+    );
+  }
+
   const sectionKickerStyle: TextStyle = {
     fontFamily: 'JetBrainsMono_600SemiBold',
     fontWeight: '600',
@@ -243,33 +271,7 @@ export default function RecordsScreen() {
             groups={monthGroups}
             kickerStyle={sectionKickerStyle}
             onEntryPress={(id) => router.push(`/entry/${id}` as never)}
-            onDraftLongPress={(entry) => {
-              haptics.warning();
-              Alert.alert(
-                'Delete draft?',
-                `Permanently remove the draft for ${entry.site || 'this draft'}. This cannot be undone.`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => {
-                      deleteDraft.mutate(entry.id, {
-                        onError: (err) => {
-                          const reason =
-                            err instanceof Error && err.message === 'entry_has_pending_remote_request'
-                              ? 'A remote signature request is still pending. Resolve it before deleting this draft.'
-                              : err instanceof Error
-                                ? err.message
-                                : 'Could not delete the draft.';
-                          Alert.alert('Could not delete draft', reason);
-                        },
-                      });
-                    },
-                  },
-                ],
-              );
-            }}
+            onDeleteDraft={confirmDeleteDraft}
           />
         )}
       </ScrollView>
@@ -281,10 +283,10 @@ interface RecordsListProps {
   groups: MonthGroup[];
   kickerStyle: TextStyle;
   onEntryPress: (id: string) => void;
-  onDraftLongPress: (entry: LogbookEntry) => void;
+  onDeleteDraft: (entry: LogbookEntry) => void;
 }
 
-function RecordsList({ groups, kickerStyle, onEntryPress, onDraftLongPress }: RecordsListProps) {
+function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: RecordsListProps) {
   const { tokens } = useTheme();
 
   return (
@@ -306,24 +308,40 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDraftLongPress }: Re
               <Pill tone="chip" size="sm">{`${group.entries.length}`}</Pill>
             </View>
             <View style={{ gap: 8 }}>
-              {group.entries.map((entry) => (
-                <Pressable
-                  key={entry.id}
-                  onLongPress={() => {
-                    if (entry.status === 'draft') onDraftLongPress(entry);
-                  }}
-                >
-                  <EntryRow
-                    status={rowStatus(entry)}
-                    date={entry.date_to}
-                    site={entry.site}
-                    task={entry.work_task}
-                    hours={entry.work_hours}
-                    chainHash={entry.id}
-                    onPress={() => onEntryPress(entry.id)}
-                  />
-                </Pressable>
-              ))}
+              {group.entries.map((entry) => {
+                const isDraft = entry.status === 'draft';
+                return (
+                  <Pressable
+                    key={entry.id}
+                    onLongPress={() => {
+                      // Power-user shortcut — explicit IconBtn below is the
+                      // discoverable affordance per the audit fix.
+                      if (isDraft) onDeleteDraft(entry);
+                    }}
+                  >
+                    <EntryRow
+                      status={rowStatus(entry)}
+                      date={entry.date_to}
+                      site={entry.site}
+                      task={entry.work_task}
+                      hours={entry.work_hours}
+                      chainHash={entry.id}
+                      onPress={() => onEntryPress(entry.id)}
+                      action={
+                        isDraft ? (
+                          <IconBtn
+                            icon={IconVoid}
+                            label="Delete draft"
+                            size="sm"
+                            tone="danger"
+                            onPress={() => onDeleteDraft(entry)}
+                          />
+                        ) : null
+                      }
+                    />
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         ))}

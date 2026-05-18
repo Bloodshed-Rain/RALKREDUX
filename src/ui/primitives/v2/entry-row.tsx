@@ -14,6 +14,11 @@ export interface EntryRowProps {
   hours?: number;
   chainHash?: string | null;
   onPress?: () => void;
+  // Optional trailing affordance — rendered between StatusPill and the
+  // chevron in the right cluster. Caller provides an interactive element
+  // (an IconBtn or Pressable); touch capture lives inside this slot so the
+  // outer row press doesn't fire when the affordance is tapped.
+  action?: React.ReactNode;
 }
 
 const MONTH_ABBR = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -24,7 +29,7 @@ function parseLocalDate(iso: string): { day: number; month: number } | null {
   return { day: Number(m[3]), month: Number(m[2]) };
 }
 
-export function EntryRow({ status, date, site, task, hours, chainHash, onPress }: EntryRowProps) {
+export function EntryRow({ status, date, site, task, hours, chainHash, onPress, action }: EntryRowProps) {
   const { tokens } = useTheme();
   const parsed = parseLocalDate(date);
 
@@ -99,6 +104,7 @@ export function EntryRow({ status, date, site, task, hours, chainHash, onPress }
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {chainHash ? <HashGlyph hash={chainHash} size={20} /> : null}
         <StatusPill status={status} />
+        {action}
         <IconChevron size={14} color={tokens.textFaint} />
       </View>
     </Pressable>
