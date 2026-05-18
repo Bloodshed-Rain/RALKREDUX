@@ -77,10 +77,6 @@ function buildVerifierLink(request: Parameters<typeof buildRemoteSigningToken>[0
   return Linking.createURL(`/verify/${request.request_code}`, { queryParams: { token } });
 }
 
-function shortId(id: string): string {
-  return id.length > 8 ? id.slice(0, 8) : id;
-}
-
 export default function EntryDetailScreen() {
   const { tokens } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -270,7 +266,7 @@ export default function EntryDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <TopBar
-        title={`Entry ${shortId(entry.id)}`}
+        title={`Entry ${shortEntryRef(entry.id)}`}
         leading={
           <IconBtn
             icon={IconArrowLeft}
