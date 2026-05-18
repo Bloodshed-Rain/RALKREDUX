@@ -10,7 +10,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
@@ -22,6 +22,7 @@ import type {
   UpdateDraftEntryInput,
 } from '@/src/domain/logbook/types';
 import { HAZARD_PRESETS } from '@/src/domain/logbook/hazards';
+import { parseHazards } from '@/src/domain/logbook/types';
 import type { CertLevel } from '@/src/domain/profile/types';
 import {
   useAddEntryAttachment,
@@ -185,12 +186,20 @@ export default function NewEntryWizard() {
   const updateDraft = useUpdateDraftEntry();
   const deleteDraft = useDeleteDraftEntry();
 
+  // QuickLogCard's "Same as last" chip routes here with ?seed=last so the
+  // wizard pre-fills site/client/employer/work context from the most recent
+  // entry. We intentionally don't seed dates, hours, or description — those
+  // are the "what happened today" fields the tech still needs to enter.
+  const { seed } = useLocalSearchParams<{ seed?: string | string[] }>();
+  const seedKind = Array.isArray(seed) ? seed[0] : seed;
+
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [draft, setDraft] = React.useState<DraftState>(initialDraft);
   const [busy, setBusy] = React.useState<null | 'draft' | 'sign' | 'request'>(null);
   const [defaultTerminalAction, setDefaultTerminalAction] =
     React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const prefilledCertLevels = React.useRef(false);
+  const seededFromLast = React.useRef(false);
 
   React.useEffect(() => {
     readPref<TerminalActionPref>(PrefKeys.defaultTerminalAction, DEFAULT_TERMINAL_ACTION).then(
@@ -212,6 +221,31 @@ export default function NewEntryWizard() {
       irataLevel: profile.data.irata_level,
     });
   }, [profile.data, update]);
+
+  // Seed the wizard from the latest entry when arrived via `?seed=last`.
+  // Fires once entries finish loading, never on subsequent renders so
+  // the user's edits aren't clobbered.
+  React.useEffect(() => {
+    if (seededFromLast.current) return;
+    if (seedKind !== 'last') return;
+    const list = entries.data;
+    if (!list || list.length === 0) return;
+    seededFromLast.current = true;
+    const last = list[0];
+    update({
+      employer: last.employer,
+      site: last.site,
+      client: last.client,
+      workTask: last.work_task,
+      accessMethod: last.access_method || 'Two-rope access',
+      structureType: last.structure_type,
+      maxHeight: last.max_height == null ? '' : String(last.max_height),
+      heightUnit: last.height_unit,
+      entryKind: last.entry_kind,
+      rescueCover: last.rescue_cover ?? '',
+      hazards: parseHazards(last.hazards),
+    });
+  }, [seedKind, entries.data, update]);
 
   const recentSites = React.useMemo(() => {
     const out = new Set<string>();

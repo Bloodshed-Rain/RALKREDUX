@@ -172,15 +172,23 @@ export default function TodayScreen() {
             lastEntryTask={lastEntryAny?.work_task ?? null}
             onSameAsLast={() => {
               haptics.selection();
-              router.push('/entry/new');
+              // Wizard reads ?seed=last and pre-fills site/employer/client/
+              // task/access/structure/height/kind/rescue/hazards from the
+              // most recent entry. Date, hours, and description stay blank.
+              router.push('/entry/new?seed=last' as never);
             }}
             onRequestSignature={() => {
               haptics.selection();
-              router.push('/records');
+              // Pending-signature filter ensures the tech lands on the slice
+              // of entries that are actually awaiting a verifier.
+              router.push('/records?filter=pending' as never);
             }}
             onPhotoLog={() => {
               haptics.selection();
-              router.push('/entry/new');
+              // Same seed as "Same as last" so the photo capture lands on a
+              // pre-contexted draft — saves the tech from re-entering site
+              // before tapping shutter.
+              router.push('/entry/new?seed=last' as never);
             }}
           />
           <ChainHeadCard
