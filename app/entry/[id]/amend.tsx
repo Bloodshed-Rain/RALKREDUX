@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { EntryKind, HeightUnit } from '@/src/domain/logbook/types';
+import type { EntryKind, HeightUnit, LogbookEntry } from '@/src/domain/logbook/types';
 import { parseHazards } from '@/src/domain/logbook/types';
 import { HAZARD_PRESETS } from '@/src/domain/logbook/hazards';
 import { useCreateAmendment, useEntryDetail } from '@/src/domain/logbook/use-logbook';
@@ -206,6 +206,71 @@ export default function AmendEntryScreen() {
                 {missingCount === 0 ? 'Complete' : `${missingCount} missing`}
               </Pill>
             </View>
+            {entry && !sourceLocked
+              ? (() => {
+                  const changes = computeAmendmentChanges(entry, {
+                    employer,
+                    site,
+                    client,
+                    workTask,
+                    accessMethod,
+                    structureType,
+                    maxHeight,
+                    heightUnit,
+                    description,
+                    hours,
+                    entryKind,
+                    rescueCover,
+                    hazards,
+                  });
+                  if (changes.length === 0) return null;
+                  return (
+                    <View
+                      style={{
+                        marginTop: 14,
+                        padding: 12,
+                        borderRadius: 10,
+                        backgroundColor: tokens.accentSoft,
+                        gap: 6,
+                      }}
+                    >
+                      <Text style={{ ...type.monoKicker, color: tokens.accent }}>
+                        {`WHAT CHANGED · ${changes.length}`}
+                      </Text>
+                      {changes.map((c) => (
+                        <View
+                          key={c.field}
+                          style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}
+                        >
+                          <Text
+                            style={{
+                              ...type.monoKicker,
+                              color: tokens.textFaint,
+                              width: 88,
+                            }}
+                          >
+                            {c.label.toUpperCase()}
+                          </Text>
+                          <Text
+                            style={{
+                              ...type.body,
+                              color: tokens.text,
+                              flex: 1,
+                            }}
+                            selectable
+                          >
+                            <Text style={{ color: tokens.textDim }}>{c.was || '—'}</Text>
+                            <Text style={{ color: tokens.textDim }}>{' → '}</Text>
+                            <Text style={{ color: tokens.text, fontWeight: '600' }}>
+                              {c.is || '—'}
+                            </Text>
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()
+              : null}
             {sourceLocked ? (
               <View
                 style={{
@@ -409,4 +474,97 @@ function shortEntryRef(id: string): string {
   const parts = id.split('_');
   const uuid = parts.length > 1 ? parts.slice(1).join('_') : id;
   return uuid.slice(0, 8).toUpperCase();
+}
+
+// Compares a signed source entry to the current amendment form state and
+// returns one entry per field that actually differs. Drives the "WHAT
+// CHANGED" callout on the hero card so the technician and (later) the
+// signer of the amendment see at a glance which fields the correction
+// touched — auditors expect amendments to surface the delta, not just the
+// new state.
+function computeAmendmentChanges(
+  source: LogbookEntry,
+  current: {
+    employer: string;
+    site: string;
+    client: string;
+    workTask: string;
+    accessMethod: string;
+    structureType: string;
+    maxHeight: string;
+    heightUnit: HeightUnit;
+    description: string;
+    hours: string;
+    entryKind: EntryKind;
+    rescueCover: string;
+    hazards: string[];
+  },
+): Array<{ field: string; label: string; was: string; is: string }> {
+  const out: Array<{ field: string; label: string; was: string; is: string }> = [];
+
+  const stringPairs: Array<[string, string, string, string]> = [
+    ['employer', 'Employer', source.employer, current.employer],
+    ['site', 'Site', source.site, current.site],
+    ['client', 'Client', source.client, current.client],
+    ['workTask', 'Task', source.work_task, current.workTask],
+    ['accessMethod', 'Access', source.access_method, current.accessMethod],
+    ['structureType', 'Structure', source.structure_type, current.structureType],
+    ['description', 'Notes', source.description, current.description],
+    ['rescueCover', 'Rescue', source.rescue_cover ?? '', current.rescueCover],
+  ];
+  for (const [field, label, was, is] of stringPairs) {
+    if ((was ?? '').trim() !== (is ?? '').trim()) {
+      out.push({ field, label, was: (was ?? '').trim(), is: (is ?? '').trim() });
+    }
+  }
+
+  const sourceHours = source.work_hours;
+  const currentHours = Number(current.hours);
+  if (Number.isFinite(currentHours) && Math.abs(sourceHours - currentHours) > 0.0001) {
+    out.push({
+      field: 'hours',
+      label: 'Hours',
+      was: sourceHours.toFixed(1),
+      is: currentHours.toFixed(1),
+    });
+  }
+
+  const sourceHeight = source.max_height;
+  const currentHeight = Number(current.maxHeight);
+  const heightWas = sourceHeight == null
+    ? '—'
+    : `${sourceHeight.toFixed(0)} ${source.height_unit}`;
+  const heightIs = !Number.isFinite(currentHeight)
+    ? '—'
+    : `${currentHeight.toFixed(0)} ${current.heightUnit}`;
+  if (heightWas !== heightIs) {
+    out.push({ field: 'height', label: 'Height', was: heightWas, is: heightIs });
+  }
+
+  if (source.entry_kind !== current.entryKind) {
+    out.push({
+      field: 'entryKind',
+      label: 'Kind',
+      was: source.entry_kind,
+      is: current.entryKind,
+    });
+  }
+
+  // Hazards: order-independent compare. parseHazards already normalises.
+  const sourceHazards = parseHazards(source.hazards);
+  const currentHazards = [...current.hazards].sort();
+  const sourceSorted = [...sourceHazards].sort();
+  const hazardsEqual =
+    sourceSorted.length === currentHazards.length
+    && sourceSorted.every((h, i) => h === currentHazards[i]);
+  if (!hazardsEqual) {
+    out.push({
+      field: 'hazards',
+      label: 'Hazards',
+      was: sourceSorted.join(' · ') || '—',
+      is: currentHazards.join(' · ') || '—',
+    });
+  }
+
+  return out;
 }
