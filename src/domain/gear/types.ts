@@ -31,6 +31,11 @@ export interface GearInspection {
   inspected_on: string;
   result: GearInspectionResult;
   notes: string | null;
+  // Audit-grade: every inspection records who did it. May be null on
+  // pre-migration-10 rows; required on every new inspection from the
+  // service layer onward.
+  inspector_name: string | null;
+  inspector_cert_number: string | null;
   created_at: string;
 }
 
@@ -55,6 +60,10 @@ export interface RecordGearInspectionInput {
   inspected_on?: string;
   notes?: string | null;
   next_inspection_due?: string | null;
+  // Required: the inspector's identity. Service throws
+  // `inspector_identity_required` if `inspector_name` is empty.
+  inspector_name: string;
+  inspector_cert_number?: string | null;
 }
 
 export interface GearSummary {

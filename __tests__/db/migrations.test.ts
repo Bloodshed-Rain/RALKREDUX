@@ -17,7 +17,16 @@ describe('database migrations', () => {
       { id: 7, name: 'gear-catalog' },
       { id: 8, name: 'field-ops-foundation' },
       { id: 9, name: 'entry-kind-and-rescue-context' },
+      { id: 10, name: 'gear-inspector-identity' },
     ]);
+  });
+
+  it('adds inspector identity fields to gear inspections', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string }>('PRAGMA table_info(gear_inspections)');
+    const names = new Set(columns.map((c) => c.name));
+    expect(names.has('inspector_name')).toBe(true);
+    expect(names.has('inspector_cert_number')).toBe(true);
   });
 
   it('adds entry kind and rescue context fields (v3 hash bump)', async () => {

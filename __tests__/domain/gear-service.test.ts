@@ -64,6 +64,8 @@ describe('gear service', () => {
       result: 'pass_with_concerns',
       notes: 'Minor paint transfer; monitor next inspection.',
       next_inspection_due: '2026-06-07',
+      inspector_name: 'Casey Park',
+      inspector_cert_number: 'IRATA-30219',
     });
 
     const [detail] = await service.listGearItems('2026-05-08');
@@ -96,6 +98,8 @@ describe('gear service', () => {
       result: 'fail',
       notes: 'Gate does not close cleanly.',
       next_inspection_due: '2026-06-08',
+      inspector_name: 'Casey Park',
+      inspector_cert_number: 'IRATA-30219',
     });
 
     const [detail] = await service.listGearItems('2026-05-08');
@@ -109,8 +113,40 @@ describe('gear service', () => {
         gear_id: item.id,
         inspected_on: '2026-05-09',
         result: 'pass',
+        inspector_name: 'Casey Park',
       }),
     ).rejects.toThrow('gear_retired');
+  });
+
+  it('requires an inspector identity on every inspection', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const item = await service.createGearItem({ name: 'Locking carabiner', category: 'carabiner' });
+
+    await expect(
+      service.recordInspection({
+        gear_id: item.id,
+        inspected_on: '2026-05-08',
+        result: 'pass',
+        inspector_name: '',
+      }),
+    ).rejects.toThrow('inspector_identity_required');
+
+    // Non-empty inspector name + cert succeeds and is persisted on the row.
+    const detail = await service.recordInspection({
+      gear_id: item.id,
+      inspected_on: '2026-05-08',
+      result: 'pass',
+      inspector_name: 'Casey Park',
+      inspector_cert_number: 'IRATA-30219',
+      next_inspection_due: '2026-06-08',
+    });
+    expect(detail.latest_inspection).toEqual(
+      expect.objectContaining({
+        inspector_name: 'Casey Park',
+        inspector_cert_number: 'IRATA-30219',
+      }),
+    );
   });
 
   it('searches the seeded gear catalog by type and typed query', async () => {
@@ -150,6 +186,7 @@ describe('gear service', () => {
       result: 'pass',
       inspected_on: '2026-03-01',
       next_inspection_due: '2026-06-01',
+      inspector_name: 'Casey Park',
     });
     await service.recordInspection({
       gear_id: item.id,
@@ -157,12 +194,14 @@ describe('gear service', () => {
       inspected_on: '2026-04-15',
       notes: 'Slight glaze on left',
       next_inspection_due: '2026-07-15',
+      inspector_name: 'Casey Park',
     });
     await service.recordInspection({
       gear_id: item.id,
       result: 'pass',
       inspected_on: '2026-05-10',
       next_inspection_due: '2026-08-10',
+      inspector_name: 'Casey Park',
     });
 
     const history = await service.listInspectionsForGear(item.id);

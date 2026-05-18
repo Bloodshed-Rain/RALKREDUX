@@ -39,7 +39,7 @@ export function createGearService(db: DbClient) {
 
   async function getLatestInspection(gearId: string): Promise<GearInspection | null> {
     return db.get<GearInspection>(
-      `SELECT id, gear_id, inspected_on, result, notes, created_at
+      `SELECT id, gear_id, inspected_on, result, notes, inspector_name, inspector_cert_number, created_at
        FROM gear_inspections
        WHERE gear_id = ?
        ORDER BY inspected_on DESC, created_at DESC
@@ -139,6 +139,12 @@ export function createGearService(db: DbClient) {
       if (!item) throw new Error('gear_not_found');
       if (item.retired_at) throw new Error('gear_retired');
 
+      // Audit-grade: every inspection must record who did it. An anonymous
+      // inspection has no signer authority, so the chain breaks at this row.
+      const inspectorName = input.inspector_name?.trim() ?? '';
+      if (inspectorName.length < 2) throw new Error('inspector_identity_required');
+      const inspectorCertNumber = input.inspector_cert_number?.trim() || null;
+
       const now = new Date().toISOString();
       const inspectedOn = input.inspected_on ?? todayLocalIsoDate();
       const inspectionId = createId('inspection');
@@ -149,14 +155,17 @@ export function createGearService(db: DbClient) {
       try {
         await db.run(
           `INSERT INTO gear_inspections (
-            id, gear_id, inspected_on, result, notes, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?)`,
+            id, gear_id, inspected_on, result, notes,
+            inspector_name, inspector_cert_number, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             inspectionId,
             item.id,
             inspectedOn,
             input.result,
             input.notes?.trim() || null,
+            inspectorName,
+            inspectorCertNumber,
             now,
           ],
         );
@@ -191,7 +200,8 @@ export function createGearService(db: DbClient) {
 
     async listInspectionsForGear(gearId: string, limit = 8): Promise<GearInspection[]> {
       return db.getAll<GearInspection>(
-        `SELECT id, gear_id, inspected_on, result, notes, created_at
+        `SELECT id, gear_id, inspected_on, result, notes,
+                inspector_name, inspector_cert_number, created_at
          FROM gear_inspections
          WHERE gear_id = ?
          ORDER BY inspected_on DESC, created_at DESC

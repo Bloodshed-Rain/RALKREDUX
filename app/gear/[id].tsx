@@ -88,6 +88,9 @@ export default function GearDetailScreen() {
   const [inspDate, setInspDate] = React.useState(todayLocalIsoDate());
   const [inspNotes, setInspNotes] = React.useState('');
   const [inspNextDue, setInspNextDue] = React.useState('');
+  // Audit-grade: every inspection records who did it.
+  const [inspectorName, setInspectorName] = React.useState('');
+  const [inspectorCertNumber, setInspectorCertNumber] = React.useState('');
 
   const item = detail.data?.item;
   const status = detail.data?.status ?? 'unscheduled';
@@ -171,6 +174,8 @@ export default function GearDetailScreen() {
         inspected_on: inspDate,
         notes: inspNotes.trim() || null,
         next_inspection_due: inspNextDue.trim() || null,
+        inspector_name: inspectorName,
+        inspector_cert_number: inspectorCertNumber.trim() || null,
       },
       {
         onSuccess: () => {
@@ -179,6 +184,8 @@ export default function GearDetailScreen() {
           setInspNotes('');
           setInspNextDue('');
           setInspDate(todayLocalIsoDate());
+          setInspectorName('');
+          setInspectorCertNumber('');
           setShowInspect(false);
         },
         onError: () => haptics.error(),
@@ -375,11 +382,27 @@ export default function GearDetailScreen() {
                 placeholder="Anything the next inspector should know"
                 multiline
               />
+              <Field
+                label="Inspector name"
+                value={inspectorName}
+                onChangeText={setInspectorName}
+                placeholder="Your full name"
+                autoCapitalize="words"
+                helper="Required — recorded against this inspection."
+              />
+              <Field
+                label="Inspector cert number"
+                value={inspectorCertNumber}
+                onChangeText={setInspectorCertNumber}
+                placeholder="e.g. IRATA 30219 / SPRAT 1234"
+                keyboardType="default"
+                helper="Optional but expected for audit-grade records."
+              />
               <Button
                 variant="primary"
                 full
                 onPress={submitInspection}
-                disabled={recordInspection.isPending}
+                disabled={recordInspection.isPending || inspectorName.trim().length < 2}
               >
                 {recordInspection.isPending
                   ? 'Recording…'
@@ -482,8 +505,14 @@ function InspectionRow({ insp }: { insp: GearInspection }) {
         </Text>
         <Text style={subStyle} numberOfLines={1}>
           {formatDate(insp.inspected_on)}
-          {insp.notes ? ` · ${insp.notes}` : ''}
+          {insp.inspector_name ? ` · ${insp.inspector_name}` : ''}
+          {insp.inspector_cert_number ? ` (${insp.inspector_cert_number})` : ''}
         </Text>
+        {insp.notes ? (
+          <Text style={[subStyle, { marginTop: 1 }]} numberOfLines={2}>
+            {insp.notes}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

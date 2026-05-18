@@ -445,6 +445,29 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 10,
+    name: 'gear-inspector-identity',
+    async up(db) {
+      // Audit-grade fix: every gear inspection must record WHO did it, by
+      // name + cert number. Without inspector identity the inspection chain
+      // is anonymous and an auditor can't reconcile "who signed off this
+      // rope was in service." Additive — existing rows get NULL until they
+      // get re-inspected (the service will require the fields on every new
+      // inspection going forward).
+      const inspectionColumns = await db.getAll<{ name: string }>(
+        'PRAGMA table_info(gear_inspections)',
+      );
+      const names = new Set(inspectionColumns.map((column) => column.name));
+
+      if (!names.has('inspector_name')) {
+        await db.exec('ALTER TABLE gear_inspections ADD COLUMN inspector_name TEXT;');
+      }
+      if (!names.has('inspector_cert_number')) {
+        await db.exec('ALTER TABLE gear_inspections ADD COLUMN inspector_cert_number TEXT;');
+      }
+    },
+  },
 ];
 
 export async function runMigrations(db: DbClient): Promise<void> {
