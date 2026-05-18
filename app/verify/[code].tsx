@@ -276,13 +276,37 @@ export default function RemoteVerifyScreen() {
       <View style={{ flex: 1, backgroundColor: tokens.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
         <TopBar title="Verifier portal" />
-        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 12 }}>
           <Card padding={18}>
             <Text style={{ ...type.cardTitle, color: tokens.text }}>Secure link required</Text>
             <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
               Open the full verifier link from the request message. The request code alone cannot authorize a remote signature.
             </Text>
           </Card>
+          {/* Surface the request code so the verifier can ping the technician
+              when the link is broken — they otherwise have nothing to quote
+              back over SMS / radio to get a fresh link. */}
+          {requestCode ? (
+            <Card padding={14}>
+              <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>REQUEST CODE</Text>
+              <Text
+                selectable
+                style={{
+                  fontFamily: 'JetBrainsMono_600SemiBold',
+                  fontWeight: '600',
+                  fontSize: 24,
+                  letterSpacing: 1.5,
+                  color: tokens.text,
+                  marginTop: 4,
+                }}
+              >
+                {requestCode}
+              </Text>
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
+                Read this back to the technician so they can re-share the full link.
+              </Text>
+            </Card>
+          ) : null}
         </View>
       </View>
     );
