@@ -49,6 +49,7 @@ function ThemedStack() {
         options={{ title: 'Remote verification', headerShown: false }}
       />
       <Stack.Screen name="gear/[id]" options={{ title: 'Gear', headerShown: false }} />
+      <Stack.Screen name="gear/catalog" options={{ title: 'Gear catalog', headerShown: false }} />
       <Stack.Screen name="export" options={{ title: 'Audit export', headerShown: false }} />
     </Stack>
   );

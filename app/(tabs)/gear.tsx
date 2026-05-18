@@ -10,10 +10,11 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GearCategory, GearItemDetail, GearStatus } from '@/src/domain/gear/types';
 import { useCreateGearItem, useGearItems, useGearSummary } from '@/src/domain/gear/use-gear';
+import { consumeGearCatalogPick } from '@/src/storage/gear-catalog-pick';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -108,6 +109,31 @@ export default function GearScreen() {
   const [newName, setNewName] = React.useState('');
   const [newSerial, setNewSerial] = React.useState('');
   const [newNextDue, setNewNextDue] = React.useState('');
+  // When the catalog screen sends back a pick, we hold onto the structured
+  // manufacturer/model alongside the combined `newName` so the resulting
+  // gear row gets all three fields populated (not just a concatenated
+  // display string).
+  const [pickedManufacturer, setPickedManufacturer] = React.useState<string | null>(null);
+  const [pickedModel, setPickedModel] = React.useState<string | null>(null);
+
+  // Consume a catalog pick on focus — `useFocusEffect` fires whenever
+  // navigation lands on this tab, including after `router.back()` from
+  // `/gear/catalog`. The handoff helper deletes the slot as it reads so
+  // a re-focus without a fresh pick is a no-op.
+  useFocusEffect(
+    React.useCallback(() => {
+      void (async () => {
+        const pick = await consumeGearCatalogPick();
+        if (!pick) return;
+        setNewName(`${pick.manufacturer} ${pick.model}`);
+        setNewCategory(pick.category);
+        setPickedManufacturer(pick.manufacturer);
+        setPickedModel(pick.model);
+        setShowAdd(true);
+        haptics.selection();
+      })();
+    }, []),
+  );
 
   const today = React.useMemo(() => new Date(), []);
   const allItems = gearItems.data ?? [];
@@ -125,6 +151,8 @@ export default function GearScreen() {
       {
         name: newName.trim(),
         category: newCategory,
+        manufacturer: pickedManufacturer,
+        model: pickedModel,
         serial_number: newSerial.trim() || null,
         next_inspection_due: newNextDue.trim() || null,
       },
@@ -134,6 +162,8 @@ export default function GearScreen() {
           setNewName('');
           setNewSerial('');
           setNewNextDue('');
+          setPickedManufacturer(null);
+          setPickedModel(null);
           setShowAdd(false);
         },
         onError: (err) => {
@@ -178,10 +208,29 @@ export default function GearScreen() {
                 ADD GEAR
               </Text>
               <View style={{ gap: 10 }}>
+                <Button
+                  variant="outline"
+                  full
+                  onPress={() => router.push('/gear/catalog' as never)}
+                >
+                  {pickedManufacturer
+                    ? `From catalog · ${pickedManufacturer}`
+                    : 'Browse catalog'}
+                </Button>
                 <Field
                   label="Name"
                   value={newName}
-                  onChangeText={setNewName}
+                  onChangeText={(v) => {
+                    setNewName(v);
+                    // User editing the name after a catalog pick clears the
+                    // structured manufacturer/model so we don't persist a
+                    // mismatch (e.g. catalog said "Petzl ID" but user
+                    // retyped "Custom rope handle").
+                    if (pickedManufacturer || pickedModel) {
+                      setPickedManufacturer(null);
+                      setPickedModel(null);
+                    }
+                  }}
                   placeholder="Petzl Avao Bod"
                   autoCapitalize="words"
                 />

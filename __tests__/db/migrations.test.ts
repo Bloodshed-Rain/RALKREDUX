@@ -18,6 +18,7 @@ describe('database migrations', () => {
       { id: 8, name: 'field-ops-foundation' },
       { id: 9, name: 'entry-kind-and-rescue-context' },
       { id: 10, name: 'gear-inspector-identity' },
+      { id: 11, name: 'gear-catalog-image-url' },
     ]);
   });
 

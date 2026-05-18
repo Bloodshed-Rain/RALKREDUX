@@ -33,14 +33,23 @@ export function useGearInspections(gearId: string | null | undefined, limit = 8)
   });
 }
 
-export function useGearCatalogSearch(query: string, category: GearCategory | null) {
+export function useGearCatalogSearch(
+  query: string,
+  category: GearCategory | null,
+  limit?: number,
+) {
+  const trimmed = query.trim();
+  // Fire when EITHER the query is long enough OR a category is picked —
+  // the catalog browser uses the category-only path to list a slice of
+  // the seeded catalog while empty-search browsing.
   return useQuery({
-    enabled: query.trim().length >= 2,
-    queryKey: ['gearCatalog', 'search', category, query.trim().toLowerCase()],
+    enabled: trimmed.length >= 2 || Boolean(category),
+    queryKey: ['gearCatalog', 'search', category, trimmed.toLowerCase(), limit ?? null],
     queryFn: () =>
       createGearService(getClient()).searchGearCatalog({
         query,
         category,
+        limit,
       }),
     staleTime: 60 * 60 * 1000,
   });

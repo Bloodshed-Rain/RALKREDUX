@@ -103,23 +103,32 @@ export function createGearService(db: DbClient) {
 
     async searchGearCatalog(input: SearchGearCatalogInput): Promise<GearCatalogEntry[]> {
       const query = input.query.trim().toLowerCase();
-      if (query.length < 2) return [];
+      // Default limit is intentionally small for autocomplete (8). The
+      // catalog browser screen passes a larger limit (50) for category
+      // browsing. When BOTH query and category are empty we return [] —
+      // the caller should prompt the user to start typing or pick a
+      // category rather than dumping the whole 960-row catalog.
+      const limit = Math.max(1, Math.min(input.limit ?? 8, 100));
+      const terms = query.length >= 2 ? query.split(/\s+/).filter(Boolean) : [];
+      const hasQuery = terms.length > 0;
+      const hasCategory = Boolean(input.category);
+      if (!hasQuery && !hasCategory) return [];
 
-      const limit = Math.max(1, Math.min(input.limit ?? 8, 25));
-      const terms = query.split(/\s+/).filter(Boolean);
-      const clauses = terms.map(() => "LOWER(manufacturer || ' ' || model) LIKE ?");
-      const params: unknown[] = terms.map((term) => `%${term}%`);
-
-      let sql = `SELECT id, manufacturer, model, category
-        FROM gear_catalog
-        WHERE ${clauses.join(' AND ')}`;
-
-      if (input.category) {
-        sql += ' AND category = ?';
+      const clauses: string[] = [];
+      const params: unknown[] = [];
+      for (const term of terms) {
+        clauses.push("LOWER(manufacturer || ' ' || model) LIKE ?");
+        params.push(`%${term}%`);
+      }
+      if (hasCategory) {
+        clauses.push('category = ?');
         params.push(input.category);
       }
 
-      sql += ' ORDER BY manufacturer ASC, model ASC LIMIT ?';
+      let sql = `SELECT id, manufacturer, model, category, image_url
+        FROM gear_catalog
+        WHERE ${clauses.join(' AND ')}
+        ORDER BY manufacturer ASC, model ASC LIMIT ?`;
       params.push(limit);
 
       return db.getAll<GearCatalogEntry>(sql, params);

@@ -79,6 +79,9 @@ export interface GearCatalogEntry {
   manufacturer: string;
   model: string;
   category: GearCategory;
+  // Optional licensed product image. Null on seed rows; UI falls back to
+  // the category icon. Curators can populate later without a migration.
+  image_url: string | null;
 }
 
 export interface SearchGearCatalogInput {

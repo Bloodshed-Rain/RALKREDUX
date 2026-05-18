@@ -468,6 +468,22 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 11,
+    name: 'gear-catalog-image-url',
+    async up(db) {
+      // Schema-ready for the catalog browser to render a product image when
+      // a licensed source is available. Stays NULL on every existing seeded
+      // row — UI falls back to the category icon. A future curation pass
+      // can populate the column for the top-N manufacturer entries without
+      // any further migration.
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(gear_catalog)');
+      const names = new Set(columns.map((c) => c.name));
+      if (!names.has('image_url')) {
+        await db.exec('ALTER TABLE gear_catalog ADD COLUMN image_url TEXT;');
+      }
+    },
+  },
 ];
 
 export async function runMigrations(db: DbClient): Promise<void> {
