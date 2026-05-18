@@ -1,7 +1,7 @@
 import { DbClient } from '@/src/db/client';
 import { createId } from '../id';
 import { addDaysIso, isExpiredAt, isValidIsoDateRange, todayLocalIsoDate } from '../date-utils';
-import { CertScheme } from '../profile/types';
+import { SignerScheme } from '../profile/types';
 import { getEntryVerificationReadiness } from './entry-readiness';
 import { ENTRY_HASH_VERSION, hashEntry, hashRemoteSigningToken, hashSignatureChain } from './entry-hash';
 import { buildEntryExportPacket, buildLogbookCsv, buildLogbookExportBundle } from './export';
@@ -85,10 +85,10 @@ export function createLogbookService(db: DbClient) {
   async function getSignatureForEntry(entryId: string): Promise<EntrySignature | null> {
     return db.get<EntrySignature>(
       `SELECT
-        id, entry_id, supervisor_name, supervisor_cert_number, signed_at,
-        entry_hash, hash_version, method, remote_request_id, signer_attestation,
-        signature_path, attestation_accepted_at, previous_chain_hash, chain_hash,
-        created_at
+        id, entry_id, supervisor_name, supervisor_scheme, supervisor_cert_number,
+        supervisor_role, supervisor_employer, signed_at, entry_hash, hash_version,
+        method, remote_request_id, signer_attestation, signature_path,
+        attestation_accepted_at, previous_chain_hash, chain_hash, created_at
       FROM signatures
       WHERE entry_id = ?
       LIMIT 1`,
@@ -214,14 +214,14 @@ export function createLogbookService(db: DbClient) {
    * technician's certification on the entry. The signer is the one
    * authorizing the signature with their own card / member number.
    */
-  function requiresVerifierCertNumber(_supervisorScheme: CertScheme): boolean {
-    // Both SPRAT and IRATA supervisors must supply a card / member number.
-    // Signer authority — who actually authorized the signature — is the basis
-    // of the audit trail; an unidentified signer makes the signature
-    // unverifiable. SPRAT has no canonical format (free-text card number) so
-    // we just require non-empty after normalization, while IRATA still
-    // enforces the 5-digit format upstream of this check.
-    return true;
+  function requiresVerifierCertNumber(supervisorScheme: SignerScheme): boolean {
+    // SPRAT and IRATA supervisors must supply a card / member number — for
+    // them, the cert is the basis of signer authority. SITE signers (safety
+    // officer / shift lead / superintendent who isn't rope-access certified
+    // but is responsible on site) DON'T have a scheme cert; the audit trail
+    // captures role + employer for those instead. The role/employer
+    // requirement is enforced separately below at sign time.
+    return supervisorScheme !== 'site';
   }
 
   async function upsertSupervisorContact(input: {
@@ -726,6 +726,14 @@ export function createLogbookService(db: DbClient) {
         if (requiresVerifierCertNumber(input.supervisor_scheme) && input.supervisor_cert_number.trim().length < 2) {
           throw new Error('supervisor_cert_required');
         }
+        // Site signers (non-rope-access-certified site authority) capture
+        // role + employer instead of a cert number.
+        const supervisorRole = input.supervisor_role?.trim() || null;
+        const supervisorEmployer = input.supervisor_employer?.trim() || null;
+        if (input.supervisor_scheme === 'site') {
+          if (!supervisorRole) throw new Error('site_signer_role_required');
+          if (!supervisorEmployer) throw new Error('site_signer_employer_required');
+        }
 
         const signatureId = createId('sig');
         const signedAt = input.signed_at ?? now;
@@ -741,15 +749,19 @@ export function createLogbookService(db: DbClient) {
 
         await db.run(
           `INSERT INTO signatures (
-            id, entry_id, supervisor_name, supervisor_cert_number, signed_at,
-            entry_hash, hash_version, method, remote_request_id, signer_attestation,
-            signature_path, attestation_accepted_at, previous_chain_hash, chain_hash, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'local', NULL, ?, ?, ?, ?, ?, ?)`,
+            id, entry_id, supervisor_name, supervisor_scheme, supervisor_cert_number,
+            supervisor_role, supervisor_employer, signed_at, entry_hash, hash_version,
+            method, remote_request_id, signer_attestation, signature_path,
+            attestation_accepted_at, previous_chain_hash, chain_hash, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', NULL, ?, ?, ?, ?, ?, ?)`,
           [
             signatureId,
             entry.id,
             input.supervisor_name.trim(),
+            input.supervisor_scheme,
             input.supervisor_cert_number.trim(),
+            supervisorRole,
+            supervisorEmployer,
             signedAt,
             entryHash,
             ENTRY_HASH_VERSION,
@@ -823,6 +835,12 @@ export function createLogbookService(db: DbClient) {
         if (requiresVerifierCertNumber(input.supervisor_scheme) && input.supervisor_cert_number.trim().length < 2) {
           throw new Error('supervisor_cert_required');
         }
+        const supervisorRole = input.supervisor_role?.trim() || null;
+        const supervisorEmployer = input.supervisor_employer?.trim() || null;
+        if (input.supervisor_scheme === 'site') {
+          if (!supervisorRole) throw new Error('site_signer_role_required');
+          if (!supervisorEmployer) throw new Error('site_signer_employer_required');
+        }
         if (entry.pending_signature_id && entry.pending_signature_id !== request.id) {
           throw new Error('remote_request_mismatch');
         }
@@ -846,15 +864,19 @@ export function createLogbookService(db: DbClient) {
 
         await db.run(
           `INSERT INTO signatures (
-            id, entry_id, supervisor_name, supervisor_cert_number, signed_at,
-            entry_hash, hash_version, method, remote_request_id, signer_attestation,
-            signature_path, attestation_accepted_at, previous_chain_hash, chain_hash, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'remote', ?, ?, ?, ?, ?, ?, ?)`,
+            id, entry_id, supervisor_name, supervisor_scheme, supervisor_cert_number,
+            supervisor_role, supervisor_employer, signed_at, entry_hash, hash_version,
+            method, remote_request_id, signer_attestation, signature_path,
+            attestation_accepted_at, previous_chain_hash, chain_hash, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'remote', ?, ?, ?, ?, ?, ?, ?)`,
           [
             signatureId,
             entry.id,
             input.supervisor_name.trim(),
+            input.supervisor_scheme,
             input.supervisor_cert_number.trim(),
+            supervisorRole,
+            supervisorEmployer,
             signedAt,
             request.entry_hash,
             request.hash_version,
@@ -1071,10 +1093,10 @@ export function createLogbookService(db: DbClient) {
       const signatures = entries.length
         ? await db.getAll<EntrySignature>(
           `SELECT
-            id, entry_id, supervisor_name, supervisor_cert_number, signed_at,
-            entry_hash, hash_version, method, remote_request_id, signer_attestation,
-            signature_path, attestation_accepted_at, previous_chain_hash, chain_hash,
-            created_at
+            id, entry_id, supervisor_name, supervisor_scheme, supervisor_cert_number,
+            supervisor_role, supervisor_employer, signed_at, entry_hash, hash_version,
+            method, remote_request_id, signer_attestation, signature_path,
+            attestation_accepted_at, previous_chain_hash, chain_hash, created_at
           FROM signatures
           WHERE entry_id IN (${entries.map(() => '?').join(',')})
           ORDER BY signed_at ASC, created_at ASC`,

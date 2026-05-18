@@ -283,6 +283,60 @@ describe('logbook service', () => {
     expect(detail.signature?.supervisor_cert_number).toBe('SPRAT-9999');
   });
 
+  it('accepts a site-authorised signer (role + employer, no cert number)', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Site sign.', work_hours: 4 }));
+
+    // site signer needs role + employer; cert is allowed to be empty.
+    await expect(
+      service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: 'Patricia Harris',
+        supervisor_scheme: 'site',
+        supervisor_cert_number: '',
+        supervisor_role: '',
+        supervisor_employer: 'Refinery Ops Inc.',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('site_signer_role_required');
+
+    await expect(
+      service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: 'Patricia Harris',
+        supervisor_scheme: 'site',
+        supervisor_cert_number: '',
+        supervisor_role: 'Safety officer',
+        supervisor_employer: '',
+        signature_path: 'M 100 200 L 300 160',
+        attestation_accepted: true,
+      }),
+    ).rejects.toThrow('site_signer_employer_required');
+
+    const detail = await service.signEntryLocal({
+      entry_id: entry.id,
+      supervisor_name: 'Patricia Harris',
+      supervisor_scheme: 'site',
+      supervisor_cert_number: '',
+      supervisor_role: 'Safety officer',
+      supervisor_employer: 'Refinery Ops Inc.',
+      signature_path: 'M 100 200 L 300 160',
+      attestation_accepted: true,
+    });
+    expect(detail.entry.status).toBe('signed');
+    expect(detail.signature).toEqual(
+      expect.objectContaining({
+        supervisor_name: 'Patricia Harris',
+        supervisor_scheme: 'site',
+        supervisor_cert_number: '',
+        supervisor_role: 'Safety officer',
+        supervisor_employer: 'Refinery Ops Inc.',
+      }),
+    );
+  });
+
   it('requires a verifier number for IRATA local signing', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);

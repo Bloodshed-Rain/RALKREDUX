@@ -1,4 +1,4 @@
-import { CertLevel, CertScheme, Profile } from '../profile/types';
+import { CertLevel, CertScheme, Profile, SignerScheme } from '../profile/types';
 import { GearItem } from '../gear/types';
 
 export type EntryStatus = 'draft' | 'signed' | 'amended';
@@ -79,7 +79,18 @@ export interface EntrySignature {
   id: string;
   entry_id: string;
   supervisor_name: string;
+  // The signer's scheme. Widened from CertScheme to SignerScheme to support
+  // site-authorised signers (safety officers / shift leads / superintendents
+  // who aren't rope-access certified). Stored as TEXT in SQLite so pre-v3
+  // rows that wrote 'sprat'/'irata' remain valid.
+  supervisor_scheme: SignerScheme;
+  // Cert number — empty string for 'site' signers (they don't have one);
+  // required non-empty for SPRAT/IRATA.
   supervisor_cert_number: string;
+  // Captured only when supervisor_scheme === 'site'. Auditors use these to
+  // confirm the signer's authority on a non-rope-access path.
+  supervisor_role: string | null;
+  supervisor_employer: string | null;
   signed_at: string;
   entry_hash: string;
   hash_version: number;
@@ -133,13 +144,18 @@ export interface SignEntryInput {
   entry_id: string;
   supervisor_name: string;
   /**
-   * The signer's own scheme. Drives whether a cert number is required and what
-   * format it takes — NOT the technician's certification on the entry. Per
-   * rope-access norms, the signer authorizes the signature with their own
-   * card / member number.
+   * The signer's scheme — sprat | irata | site. SPRAT and IRATA require a
+   * cert number; 'site' (safety officer / shift lead / superintendent who
+   * is NOT rope-access certified but IS responsible on site) requires role
+   * + employer instead. Service throws scheme-specific errors when the
+   * required fields are missing.
    */
-  supervisor_scheme: CertScheme;
+  supervisor_scheme: SignerScheme;
   supervisor_cert_number: string;
+  // Required when supervisor_scheme === 'site'. Service throws
+  // `site_signer_role_required` / `site_signer_employer_required`.
+  supervisor_role?: string | null;
+  supervisor_employer?: string | null;
   signature_path: string;
   attestation_accepted: boolean;
   signer_attestation?: string | null;
@@ -187,11 +203,13 @@ export interface CompleteRemoteSignatureRequestInput {
   signing_token?: string | null;
   supervisor_name: string;
   /**
-   * The verifier's own scheme. Drives whether a cert number is required and
-   * what format it takes — NOT the technician's certification on the entry.
+   * The verifier's scheme — sprat | irata | site. Same rules as
+   * SignEntryInput.supervisor_scheme.
    */
-  supervisor_scheme: CertScheme;
+  supervisor_scheme: SignerScheme;
   supervisor_cert_number: string;
+  supervisor_role?: string | null;
+  supervisor_employer?: string | null;
   signature_path: string;
   attestation_accepted: boolean;
   signer_attestation?: string | null;

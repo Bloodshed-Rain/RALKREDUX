@@ -484,6 +484,41 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 12,
+    name: 'site-signer-role-employer',
+    async up(db) {
+      // Rope-access ruling: signers don't have to be SPRAT/IRATA certified.
+      // A site-authorised signer (safety officer / shift lead /
+      // superintendent — not rope-access certified but the responsible
+      // party for the work) is acceptable when no scheme-certified L3 is
+      // available. For those signatures we capture role + employer instead
+      // of a cert number; auditors use those to confirm signer authority.
+      //
+      // Adds three columns:
+      //   supervisor_scheme — was captured at sign time but never persisted
+      //     (the scheme was implied by the cert number format). With 'site'
+      //     in play, cert number can be empty, so the scheme must be
+      //     explicit. Defaults to 'sprat' on existing rows — historical
+      //     signatures' actual scheme is still derivable from cert format
+      //     via `inferSchemeFromCertNumber` if anyone needs to backfill.
+      //   supervisor_role + supervisor_employer — captured only when
+      //     supervisor_scheme === 'site'. Nullable.
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(signatures)');
+      const names = new Set(columns.map((c) => c.name));
+      if (!names.has('supervisor_scheme')) {
+        await db.exec(
+          "ALTER TABLE signatures ADD COLUMN supervisor_scheme TEXT NOT NULL DEFAULT 'sprat' CHECK (supervisor_scheme IN ('sprat', 'irata', 'site'));",
+        );
+      }
+      if (!names.has('supervisor_role')) {
+        await db.exec('ALTER TABLE signatures ADD COLUMN supervisor_role TEXT;');
+      }
+      if (!names.has('supervisor_employer')) {
+        await db.exec('ALTER TABLE signatures ADD COLUMN supervisor_employer TEXT;');
+      }
+    },
+  },
 ];
 
 export async function runMigrations(db: DbClient): Promise<void> {

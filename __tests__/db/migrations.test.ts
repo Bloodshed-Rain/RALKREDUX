@@ -19,7 +19,19 @@ describe('database migrations', () => {
       { id: 9, name: 'entry-kind-and-rescue-context' },
       { id: 10, name: 'gear-inspector-identity' },
       { id: 11, name: 'gear-catalog-image-url' },
+      { id: 12, name: 'site-signer-role-employer' },
     ]);
+  });
+
+  it('adds site-signer scheme/role/employer fields to signatures', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string; dflt_value: string | null }>(
+      'PRAGMA table_info(signatures)',
+    );
+    const byName = new Map(columns.map((c) => [c.name, c]));
+    expect(byName.get('supervisor_scheme')?.dflt_value).toBe("'sprat'");
+    expect(byName.has('supervisor_role')).toBe(true);
+    expect(byName.has('supervisor_employer')).toBe(true);
   });
 
   it('adds inspector identity fields to gear inspections', async () => {

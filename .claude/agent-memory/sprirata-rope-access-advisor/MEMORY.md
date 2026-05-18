@@ -6,3 +6,4 @@
 - [Remote signing — verifier information parity](remote-signing-verifier-parity.md) — Remote portal must show what local signer would see
 - [Verifier identity must be reconciled](verifier-identity-must-reconcile.md) — Requested-verifier vs actual-signer ruling
 - [Restore-vs-chain-continuity ruling](restore-vs-chain-continuity.md) — Snapshot restore breaks chain continuity; must be surfaced honestly
+- [Signer authority: site vs scheme](signer-authority-site-vs-scheme.md) — Signers don't have to be SPRAT/IRATA certified; site-authorised witness is a third category. No hash bump.

@@ -267,7 +267,7 @@ export default function RemoteSignatureRequestScreen() {
                 label="Role"
                 value={verifierRole}
                 onChangeText={setVerifierRole}
-                placeholder="IRATA L3 / Rope access manager"
+                placeholder="Site supervisor / IRATA L3 / Safety officer"
               />
               <Field
                 label="Company"

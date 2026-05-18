@@ -1,6 +1,14 @@
 export type CertScheme = 'sprat' | 'irata';
 export type CertLevel = 'I' | 'II' | 'III';
 
+// Broader scheme for signature records — adds 'site' for the case where the
+// signer is the responsible person on site (safety officer, shift lead,
+// superintendent) but is NOT SPRAT/IRATA certified. Per rope-access norms,
+// a site-authorised signer is acceptable when no scheme-certified L3 is
+// available; the audit trail captures role + employer instead of a cert
+// number. The technician's own `CertScheme` stays sprat|irata only.
+export type SignerScheme = CertScheme | 'site';
+
 export interface Profile {
   id: string;
   full_name: string;
