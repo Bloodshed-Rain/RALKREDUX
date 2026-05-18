@@ -206,7 +206,7 @@ export default function OnboardingIntroScreen() {
             opacity: heroOpacity,
           }}
         >
-          <HeroIcon size={48} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.28} />
+          <HeroIcon size={57} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.28} />
         </Animated.View>
         <Animated.View style={{ opacity: textOpacity, transform: [{ translateY: textY }] }}>
           <Text style={titleStyle}>{slide.title}</Text>

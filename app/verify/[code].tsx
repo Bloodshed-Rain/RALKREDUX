@@ -810,7 +810,7 @@ function AttestationRow({ accepted, onToggle }: { accepted: boolean; onToggle: (
     >
       <View style={boxStyle}>
         {accepted ? (
-          <IconCheck size={14} color={tokens.bg} fill={tokens.bg} />
+          <IconCheck size={17} color={tokens.bg} fill={tokens.bg} />
         ) : null}
       </View>
       <Text style={textStyle}>{ATTESTATION_TEXT}</Text>
@@ -895,7 +895,7 @@ function ClosedStateCard({ reason }: { reason: RemoteRequestClosedReason | null 
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Icon size={20} color={tone.fg} strokeWidth={2.2} />
+        <Icon size={24} color={tone.fg} strokeWidth={2.2} />
         <Text style={{ ...type.cardTitle, color: tokens.text, flex: 1 }}>{copy.title}</Text>
       </View>
       <Text style={{ ...type.cardSub, color: tokens.textDim }}>{copy.detail}</Text>

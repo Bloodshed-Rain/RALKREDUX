@@ -443,7 +443,7 @@ export default function EntryDetailScreen() {
                             justifyContent: 'center',
                           }}
                         >
-                          <Icon size={18} color={tokens.text} fill={tokens.accent} />
+                          <Icon size={21} color={tokens.text} fill={tokens.accent} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text
@@ -565,7 +565,7 @@ export default function EntryDetailScreen() {
                           justifyContent: 'center',
                         }}
                       >
-                        <IconCamera size={18} color={tokens.text} fill={tokens.accent} />
+                        <IconCamera size={21} color={tokens.text} fill={tokens.accent} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>

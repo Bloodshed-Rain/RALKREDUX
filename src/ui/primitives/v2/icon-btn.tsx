@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { scaled } from '@/src/ui/scale';
 import type { IconProps } from '@/src/ui/icons';
 
 export type IconBtnSize = 'sm' | 'md' | 'lg';
@@ -15,10 +16,13 @@ export interface IconBtnProps {
   style?: ViewStyle;
 }
 
+// Box, icon and radius track UI_SCALE. The hitSlop fallback below still
+// guarantees ≥44px touch target on every size — sm boxes grow to ~33px
+// visual but always 44px tappable.
 const SIZES: Record<IconBtnSize, { box: number; icon: number; radius: number }> = {
-  sm: { box: 28, icon: 16, radius: 8 },
-  md: { box: 36, icon: 20, radius: 10 },
-  lg: { box: 44, icon: 24, radius: 12 },
+  sm: { box: scaled(28), icon: scaled(16), radius: scaled(8) },
+  md: { box: scaled(36), icon: scaled(20), radius: scaled(10) },
+  lg: { box: scaled(44), icon: scaled(24), radius: scaled(12) },
 };
 
 export function IconBtn({

@@ -84,7 +84,7 @@ function CaptureTile({
       disabled={disabled || pending}
       style={({ pressed }) => [tileStyle, pressed ? { transform: [{ scale: 0.97 }] } : null]}
     >
-      <IconCamera size={24} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
+      <IconCamera size={28} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
       <Text style={labelStyle}>{pending ? 'Working…' : 'Capture'}</Text>
     </Pressable>
   );

@@ -361,7 +361,7 @@ function QuickLogCard({
             justifyContent: 'center',
           }}
         >
-          <IconBolt size={20} color={tokens.accent} fill={tokens.accent} />
+          <IconBolt size={24} color={tokens.accent} fill={tokens.accent} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>QUICK LOG</Text>
@@ -458,7 +458,7 @@ function ChainHeadCard({
             justifyContent: 'center',
           }}
         >
-          <IconChain size={20} color={tokens.accent} fill={tokens.accent} />
+          <IconChain size={24} color={tokens.accent} fill={tokens.accent} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>CHAIN HEAD</Text>
@@ -466,7 +466,7 @@ function ChainHeadCard({
             <Text style={{ ...type.monoMd, color: tokens.text }} numberOfLines={1}>
               {chainShort ?? '— — —'}
             </Text>
-            {chainShort ? <HashGlyph hash={chainShort.replace(/[…]/g, '')} size={20} /> : null}
+            {chainShort ? <HashGlyph hash={chainShort.replace(/[…]/g, '')} size={24} /> : null}
           </View>
           <Text style={{ ...type.cardSub, color: tokens.textDim }} numberOfLines={1}>
             {subText}
@@ -590,7 +590,7 @@ function ActionTile({ spec }: { spec: ActionTileSpec }) {
           justifyContent: 'center',
         }}
       >
-        <spec.icon size={18} color={empty ? tokens.textFaint : palette.fg} fill={palette.fg} />
+        <spec.icon size={21} color={empty ? tokens.textFaint : palette.fg} fill={palette.fg} />
       </View>
       <Text style={countStyle}>{spec.count}</Text>
       <View>

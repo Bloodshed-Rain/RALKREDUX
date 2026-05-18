@@ -545,7 +545,7 @@ export default function LocalSignScreen() {
             }}
           >
             {attestationAccepted ? (
-              <IconCheck size={14} color={tokens.bg} fill={tokens.bg} />
+              <IconCheck size={17} color={tokens.bg} fill={tokens.bg} />
             ) : null}
           </View>
           <Text style={{ ...type.cardSub, color: tokens.text, flex: 1, lineHeight: 19 }}>

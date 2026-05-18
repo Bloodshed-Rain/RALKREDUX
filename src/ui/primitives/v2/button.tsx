@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
+import { scaled } from '@/src/ui/scale';
 import type { IconProps } from '@/src/ui/icons';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
@@ -31,10 +32,13 @@ interface SizeSpec {
   iconSize: number;
 }
 
+// Text + icon dimensions run through scaled() to track the global UI_SCALE.
+// Padding values stay verbatim — bigger text in the same padding box reads
+// as comfortable, not bloated. borderRadius scaled to match larger pill.
 const SIZES: Record<ButtonSize, SizeSpec> = {
-  sm: { paddingVertical: 7, paddingHorizontal: 11, fontSize: 13, lineHeight: 16, borderRadius: 10, iconSize: 16 },
-  md: { paddingVertical: 10, paddingHorizontal: 14, fontSize: 14, lineHeight: 18, borderRadius: 12, iconSize: 16 },
-  lg: { paddingVertical: 14, paddingHorizontal: 18, fontSize: 15, lineHeight: 20, borderRadius: 14, iconSize: 20 },
+  sm: { paddingVertical: 7, paddingHorizontal: 11, fontSize: scaled(13), lineHeight: scaled(16), borderRadius: scaled(10), iconSize: scaled(16) },
+  md: { paddingVertical: 10, paddingHorizontal: 14, fontSize: scaled(14), lineHeight: scaled(18), borderRadius: scaled(12), iconSize: scaled(16) },
+  lg: { paddingVertical: 14, paddingHorizontal: 18, fontSize: scaled(15), lineHeight: scaled(20), borderRadius: scaled(14), iconSize: scaled(20) },
 };
 
 export function Button({

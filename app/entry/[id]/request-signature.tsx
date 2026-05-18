@@ -166,7 +166,7 @@ export default function RemoteSignatureRequestScreen() {
                   alignItems: 'flex-start',
                 }}
               >
-                <IconWarn size={18} color={tokens.warn} fill={tokens.warn} />
+                <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
                 <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
                   {blockingMessage}
                 </Text>

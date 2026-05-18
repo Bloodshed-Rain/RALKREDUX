@@ -89,7 +89,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   borderColor: isHeliotype ? '#1A1410' : 'transparent',
                 }}
               >
-                <IconPlus size={26} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
+                <IconPlus size={31} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
               </View>
             </Pressable>
           );
@@ -145,7 +145,7 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               pressed ? { transform: [{ scale: 0.96 }] } : null,
             ]}
           >
-            {Icon ? <Icon size={22} color={color} fill={fill} /> : null}
+            {Icon ? <Icon size={26} color={color} fill={fill} /> : null}
             <Text selectable={false} numberOfLines={1} style={labelStyle}>
               {typeof label === 'string' ? label : route.name}
             </Text>

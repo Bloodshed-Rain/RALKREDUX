@@ -103,7 +103,7 @@ export function GearCard({
             justifyContent: 'center',
           }}
         >
-          <Icon size={26} color={tokens.text} fill={tokens.accent} />
+          <Icon size={31} color={tokens.text} fill={tokens.accent} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={titleStyle} numberOfLines={1}>

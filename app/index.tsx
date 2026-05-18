@@ -89,7 +89,7 @@ export default function IndexRoute() {
   return (
     <View style={screenStyle}>
       <View style={{ alignItems: 'center', gap: 18 }}>
-        <IconBrand size={80} color={tokens.text} fill={tokens.accent} />
+        <IconBrand size={94} color={tokens.text} fill={tokens.accent} />
         <View style={{ alignItems: 'center' }}>
           <Text style={wordmarkStyle}>RALB</Text>
           <Text style={captionStyle}>Rope Access Logbook</Text>

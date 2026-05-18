@@ -101,7 +101,7 @@ export default function GearCatalogScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="Search manufacturer or model…"
-          suffix={<IconSearch size={16} color={tokens.textDim} />}
+          suffix={<IconSearch size={19} color={tokens.textDim} />}
           autoCapitalize="none"
         />
         <ScrollView
@@ -204,7 +204,7 @@ function CatalogRow({
             resizeMode="cover"
           />
         ) : (
-          <Icon size={22} color={tokens.text} fill={tokens.accent} />
+          <Icon size={26} color={tokens.text} fill={tokens.accent} />
         )}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -218,7 +218,7 @@ function CatalogRow({
       <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
         {entry.category.toUpperCase()}
       </Text>
-      <IconChevron size={14} color={tokens.textFaint} />
+      <IconChevron size={17} color={tokens.textFaint} />
     </Pressable>
   );
 }

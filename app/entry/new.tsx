@@ -499,7 +499,7 @@ function SheetHeader({
           hitSlop={10}
           style={{ marginLeft: 12 }}
         >
-          <IconClose size={20} color={tokens.textDim} />
+          <IconClose size={24} color={tokens.textDim} />
         </Pressable>
       </View>
       <View style={{ marginTop: 8 }}>
@@ -819,7 +819,7 @@ function StepWhat({ draft, update }: StepProps) {
                   ]}
                 >
                   <Icon
-                    size={22}
+                    size={26}
                     color={active ? tokens.accent : tokens.text}
                     fill={tokens.accent}
                   />
@@ -1011,7 +1011,7 @@ function StepReview({
           backgroundColor: tokens.warnSoft,
         }}
       >
-        <IconWarn size={18} color={tokens.warn} fill={tokens.warn} />
+        <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
         <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
           Once an entry is signed, it can't be edited. Amendments are new entries that point back
           to the original. Pick "Save as draft" if you're not sure yet.
@@ -1082,7 +1082,7 @@ function ChoiceRow({
         }}
       >
         <IconSign
-          size={20}
+          size={24}
           color={emphasis ? tokens.accentInk : tokens.text}
           fill={emphasis ? tokens.accentInk : tokens.accent}
         />

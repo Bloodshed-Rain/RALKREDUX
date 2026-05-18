@@ -213,7 +213,7 @@ export default function RecordsScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="Search site, client, task…"
-          suffix={<IconSearch size={16} color={tokens.textDim} />}
+          suffix={<IconSearch size={19} color={tokens.textDim} />}
         />
         <ChipSelect<FilterKey>
           value={filter}

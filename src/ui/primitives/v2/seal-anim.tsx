@@ -172,7 +172,7 @@ export function SealAnim({ hash, onSealed }: SealAnimProps) {
           }}
         >
           <Animated.View style={{ opacity: brandOpacity }}>
-            <IconBrand size={36} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.18} />
+            <IconBrand size={42} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.18} />
           </Animated.View>
         </Animated.View>
       </View>

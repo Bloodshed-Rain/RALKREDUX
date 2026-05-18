@@ -292,7 +292,7 @@ function PullIndicator({
             transform: active ? [{ rotate }] : undefined,
           }}
         >
-          <IconChain size={14} color={accent} fill={accent} />
+          <IconChain size={17} color={accent} fill={accent} />
         </Animated.View>
       </View>
       <Text selectable={false} style={labelStyle}>

@@ -467,7 +467,7 @@ function ThemeTile({ theme, active, onPress }: { theme: Theme; active: boolean; 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={labelStyle}>{theme.name}</Text>
           {active ? (
-            <IconVerified size={14} color={tokens.accent} fill={tokens.accent} fillOpacity={0.4} />
+            <IconVerified size={17} color={tokens.accent} fill={tokens.accent} fillOpacity={0.4} />
           ) : null}
         </View>
         <Text style={subStyle} numberOfLines={1}>
@@ -519,7 +519,7 @@ function SettingsRow({ icon: Icon, title, sub, onPress }: SettingsRowProps) {
           justifyContent: 'center',
         }}
       >
-        <Icon size={20} color={tokens.text} fill={tokens.accent} />
+        <Icon size={24} color={tokens.text} fill={tokens.accent} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
@@ -531,7 +531,7 @@ function SettingsRow({ icon: Icon, title, sub, onPress }: SettingsRowProps) {
           </Text>
         ) : null}
       </View>
-      <IconChevron size={18} color={tokens.textFaint} />
+      <IconChevron size={21} color={tokens.textFaint} />
     </Pressable>
   );
 }
@@ -602,7 +602,7 @@ function BackupInlinePanel({
           backgroundColor: tokens.warnSoft,
         }}
       >
-        <IconWarn size={16} color={tokens.warn} fill={tokens.warn} />
+        <IconWarn size={19} color={tokens.warn} fill={tokens.warn} />
         <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
           Replacing the local ledger is destructive. Signatures made since the snapshot
           will become unreachable — the chain head moves backward to the snapshot's head.
@@ -694,7 +694,7 @@ function BackupInlinePanel({
               }}
             >
               {restoreConfirmed ? (
-                <IconVerified size={12} color={tokens.bg} fill={tokens.bg} />
+                <IconVerified size={14} color={tokens.bg} fill={tokens.bg} />
               ) : null}
             </View>
             <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
@@ -756,7 +756,7 @@ function ProfileFooter({ chainHash }: { chainHash: string | null }) {
         paddingBottom: 28,
       }}
     >
-      <IconBrand size={20} color={tokens.textFaint} fill={tokens.accent} fillOpacity={0.18} />
+      <IconBrand size={24} color={tokens.textFaint} fill={tokens.accent} fillOpacity={0.18} />
       <Text style={{ ...type.monoSm, color: tokens.textFaint, textTransform: 'uppercase' }}>
         {`RALB · v1.0 · chain ${head}`}
       </Text>

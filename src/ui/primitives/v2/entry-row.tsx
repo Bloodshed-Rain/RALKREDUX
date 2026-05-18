@@ -102,10 +102,10 @@ export function EntryRow({ status, date, site, task, hours, chainHash, onPress, 
         </Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {chainHash ? <HashGlyph hash={chainHash} size={20} /> : null}
+        {chainHash ? <HashGlyph hash={chainHash} size={24} /> : null}
         <StatusPill status={status} />
         {action}
-        <IconChevron size={14} color={tokens.textFaint} />
+        <IconChevron size={17} color={tokens.textFaint} />
       </View>
     </Pressable>
   );

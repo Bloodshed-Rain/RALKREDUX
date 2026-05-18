@@ -283,7 +283,7 @@ export default function AmendEntryScreen() {
                   alignItems: 'flex-start',
                 }}
               >
-                <IconWarn size={18} color={tokens.warn} fill={tokens.warn} />
+                <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ ...type.cardTitle, color: tokens.text }}>
                     Amendments need a signed source

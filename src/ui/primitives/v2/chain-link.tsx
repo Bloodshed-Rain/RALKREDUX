@@ -113,7 +113,7 @@ function ChainLinkRow({ link }: { link: ChainLinkItem }) {
           {link.label}
         </Text>
       </View>
-      <HashGlyph hash={link.hash} size={20} />
+      <HashGlyph hash={link.hash} size={24} />
     </View>
   );
 }

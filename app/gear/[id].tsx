@@ -234,7 +234,7 @@ export default function GearDetailScreen() {
                 justifyContent: 'center',
               }}
             >
-              <Icon size={36} color={tokens.text} fill={tokens.accent} />
+              <Icon size={42} color={tokens.text} fill={tokens.accent} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               {mfgModel ? (
@@ -273,7 +273,7 @@ export default function GearDetailScreen() {
               progress={dialProgress}
               status={statusToDialStatus(status)}
               days={dialDays}
-              size={76}
+              size={90}
             />
             <View style={{ flex: 1 }}>
               <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>NEXT INSPECTION</Text>
@@ -497,7 +497,7 @@ function InspectionRow({ insp }: { insp: GearInspection }) {
           justifyContent: 'center',
         }}
       >
-        <Icon size={18} color={tone.fg} fill={tone.fg} />
+        <Icon size={21} color={tone.fg} fill={tone.fg} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={titleStyle} numberOfLines={1}>

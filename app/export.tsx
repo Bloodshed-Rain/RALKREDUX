@@ -279,7 +279,7 @@ export default function ExportScreen() {
               borderColor: tokens.lineSoft,
             }}
           >
-            <IconChain size={18} color={tokens.accent} fill={tokens.accent} />
+            <IconChain size={21} color={tokens.accent} fill={tokens.accent} />
             <View style={{ flex: 1 }}>
               <Text style={{ ...type.cardTitle, color: tokens.text }}>Chain proof embedded</Text>
               <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }}>
@@ -394,7 +394,7 @@ function PreviewCard({ entryCount, signedHours, chainHash }: PreviewCardProps) {
             transform: [{ rotate: '-8deg' }],
           }}
         >
-          <IconBrand size={220} color={tokens.text} fill={tokens.text} />
+          <IconBrand size={260} color={tokens.text} fill={tokens.text} />
         </View>
 
         <Text style={kickerStyle}>AUDIT PACKET · V{ENTRY_HASH_VERSION}</Text>

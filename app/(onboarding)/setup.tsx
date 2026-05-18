@@ -332,7 +332,7 @@ function CertCard({ scheme, entry, onChange, badge, onRemove }: CertCardProps) {
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <IconClose size={16} color={tokens.textDim} />
+            <IconClose size={19} color={tokens.textDim} />
           </Pressable>
         ) : null}
       </View>

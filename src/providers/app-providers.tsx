@@ -91,7 +91,7 @@ function BootSplash({ label, failed, fontsLoaded }: BootSplashProps) {
         gap: 16,
       }}
     >
-      <IconBrand size={64} color={tokens.text} fill={tokens.accent} />
+      <IconBrand size={76} color={tokens.text} fill={tokens.accent} />
       <Text
         style={
           fontsLoaded

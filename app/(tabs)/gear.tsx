@@ -299,7 +299,7 @@ export default function GearScreen() {
                   }}
                 >
                   <IconWarn
-                    size={18}
+                    size={21}
                     color={overdueItems.length > 0 ? tokens.danger : tokens.warn}
                     fill={overdueItems.length > 0 ? tokens.danger : tokens.warn}
                   />
@@ -436,7 +436,7 @@ function DeadlineRow({ detail, today }: { detail: GearItemDetail; today: Date })
           justifyContent: 'center',
         }}
       >
-        <Icon size={18} color={fg} fill={fg} />
+        <Icon size={21} color={fg} fill={fg} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={titleStyle} numberOfLines={1}>
@@ -446,7 +446,7 @@ function DeadlineRow({ detail, today }: { detail: GearItemDetail; today: Date })
           {captionText}
         </Text>
       </View>
-      <IconChevron size={14} color={fg} />
+      <IconChevron size={17} color={fg} />
     </Pressable>
   );
 }

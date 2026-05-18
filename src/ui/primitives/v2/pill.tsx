@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { scaled } from '@/src/ui/scale';
 import type { IconProps } from '@/src/ui/icons';
 import {
   IconDraft,
@@ -19,12 +20,14 @@ export interface PillProps {
   children: React.ReactNode;
 }
 
+// Text + icon dimensions track UI_SCALE. Padding kept verbatim so the pill
+// reads as "more readable" rather than "blockier".
 const SIZE_SPEC: Record<
   PillSize,
   { paddingV: number; paddingH: number; fontSize: number; lineHeight: number; iconSize: number }
 > = {
-  sm: { paddingV: 3, paddingH: 8, fontSize: 11, lineHeight: 14, iconSize: 12 },
-  md: { paddingV: 5, paddingH: 10, fontSize: 12, lineHeight: 16, iconSize: 14 },
+  sm: { paddingV: 3, paddingH: 8, fontSize: scaled(11), lineHeight: scaled(14), iconSize: scaled(12) },
+  md: { paddingV: 5, paddingH: 10, fontSize: scaled(12), lineHeight: scaled(16), iconSize: scaled(14) },
 };
 
 function toneColors(tone: PillTone, tokens: ReturnType<typeof useTheme>['tokens']) {

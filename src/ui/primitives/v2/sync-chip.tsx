@@ -117,7 +117,7 @@ export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
   const body = (
     <View style={containerStyle}>
       <Animated.View style={{ width: 14, height: 14, transform: shouldSpin ? [{ rotate: spin }] : undefined }}>
-        <s.Icon size={14} color={s.fg} fill={s.fg} />
+        <s.Icon size={17} color={s.fg} fill={s.fg} />
       </Animated.View>
       <Text selectable={false} style={labelStyle}>
         {s.label(count)}

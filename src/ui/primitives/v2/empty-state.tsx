@@ -79,7 +79,7 @@ export function EmptyState({
           />
           <Circle cx={44} cy={44} r={30} fill="none" stroke={tokens.lineSoft} strokeWidth={1} />
         </Svg>
-        <Icon size={36} color={tokens.textDim} fill={tokens.accent} />
+        <Icon size={42} color={tokens.textDim} fill={tokens.accent} />
       </View>
       <View>
         <Text style={titleStyle}>{title}</Text>
