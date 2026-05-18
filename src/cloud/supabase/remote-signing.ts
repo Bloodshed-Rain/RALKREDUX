@@ -161,12 +161,22 @@ export function hostedCompletionInputFromDetail(
   const signaturePath = detail.signature.signature_path?.trim();
   if (!signaturePath) return null;
 
+  // Prefer the persisted scheme on the verifier payload (post-site-signer
+  // schema). Fall back to inferring from cert format for any old hosted
+  // signatures that pre-date the supervisor_scheme column; default to
+  // 'sprat' as the final fallback.
+  const scheme = detail.signature.supervisor_scheme
+    ?? inferSchemeFromCertNumber(detail.signature.supervisor_cert_number)
+    ?? 'sprat';
+
   return {
     request_code: detail.request.request_code,
     signing_token: signingToken,
     supervisor_name: detail.signature.supervisor_name,
-    supervisor_scheme: inferSchemeFromCertNumber(detail.signature.supervisor_cert_number) ?? 'sprat',
+    supervisor_scheme: scheme,
     supervisor_cert_number: detail.signature.supervisor_cert_number,
+    supervisor_role: detail.signature.supervisor_role,
+    supervisor_employer: detail.signature.supervisor_employer,
     signature_path: signaturePath,
     attestation_accepted: true,
     signer_attestation: detail.signature.signer_attestation,
