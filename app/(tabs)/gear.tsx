@@ -189,7 +189,7 @@ export default function GearScreen() {
           <IconBtn
             icon={IconPlus}
             label={showAdd ? 'Close add gear' : 'Add gear'}
-            size="sm"
+            size="md"
             onPress={() => setShowAdd((v) => !v)}
           />
         }

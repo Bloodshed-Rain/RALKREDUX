@@ -17,6 +17,7 @@ import {
   DashboardSummary,
   EntryDetail,
   EntryAttachment,
+  EntryAttachmentWithEntry,
   EntryGearUsageDetail,
   EntrySignature,
   EntryTemplate,
@@ -341,6 +342,22 @@ export function createLogbookService(db: DbClient) {
     );
   }
 
+  // Flat list of every attachment in the ledger, joined with the entry's
+  // site and date so the Attachments index can group and label them without
+  // a second round-trip per row.
+  async function listAttachmentsWithEntry(): Promise<EntryAttachmentWithEntry[]> {
+    return db.getAll<EntryAttachmentWithEntry>(
+      `SELECT
+         a.id, a.entry_id, a.label, a.uri, a.mime_type, a.notes, a.created_at,
+         e.site AS entry_site,
+         e.date_to AS entry_date,
+         e.status AS entry_status
+       FROM entry_attachments a
+       INNER JOIN entries e ON e.id = a.entry_id
+       ORDER BY a.created_at DESC`,
+    );
+  }
+
   async function getEntryDetail(entryId: string): Promise<EntryDetail | null> {
     const entry = await getEntryById(entryId);
     if (!entry) return null;
@@ -382,6 +399,8 @@ export function createLogbookService(db: DbClient) {
     getLatestChainHash,
 
     getLatestRemoteRequestForEntry,
+
+    listAttachmentsWithEntry,
 
     async listEntryTemplates(): Promise<EntryTemplate[]> {
       return db.getAll<EntryTemplate>(

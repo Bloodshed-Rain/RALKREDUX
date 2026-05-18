@@ -113,7 +113,7 @@ export default function GearDetailScreen() {
             <IconBtn
               icon={IconArrowLeft}
               label="Back"
-              size="sm"
+              size="md"
               onPress={() => router.replace('/gear')}
             />
           }
@@ -207,7 +207,7 @@ export default function GearDetailScreen() {
           <IconBtn
             icon={IconArrowLeft}
             label="Back"
-            size="sm"
+            size="md"
             onPress={() => router.back()}
           />
         }

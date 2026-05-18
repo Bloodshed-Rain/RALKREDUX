@@ -243,7 +243,7 @@ export default function LocalSignScreen() {
           <IconBtn
             icon={IconArrowLeft}
             label="Back"
-            size="sm"
+            size="md"
             onPress={() => router.back()}
           />
         }

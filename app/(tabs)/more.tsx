@@ -6,7 +6,7 @@ import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/
 import type { BackupSnapshot } from '@/src/domain/backup/types';
 import { formatDateOrDash } from '@/src/domain/date-format';
 import { daysFromTodayIso } from '@/src/domain/date-utils';
-import { useChainHead } from '@/src/domain/logbook/use-logbook';
+import { useChainHead, useDashboardSummary } from '@/src/domain/logbook/use-logbook';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
 import { useTheme } from '@/src/ui/theme/theme-provider';
@@ -16,7 +16,6 @@ import {
   Button,
   Card,
   ChipSelect,
-  IconBtn,
   Pill,
   SectionH,
   TopBar,
@@ -29,7 +28,6 @@ import {
   IconChevron,
   IconExport,
   IconLock,
-  IconSettings,
   IconSync,
   IconVerified,
   IconWarn,
@@ -44,6 +42,7 @@ import {
   type TerminalActionPref,
 } from '@/src/storage/local-prefs';
 import { haptics, setHapticsEnabled } from '@/src/ui/haptics';
+import { NotificationsStubSheet } from '@/src/ui/sheets/notifications-stub-sheet';
 
 const TERMINAL_ACTION_OPTIONS: Array<{ value: TerminalActionPref; label: string }> = [
   { value: 'sign', label: 'Sign now' },
@@ -68,6 +67,11 @@ export default function ProfileScreen() {
 
   const [terminalAction, setTerminalAction] = React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const [hapticsOn, setHapticsOn] = React.useState(true);
+  const [notifSheetOpen, setNotifSheetOpen] = React.useState(false);
+  const [chainOpen, setChainOpen] = React.useState(false);
+  const [themeOpen, setThemeOpen] = React.useState(false);
+  const summary = useDashboardSummary();
+  const { theme: activeTheme } = useTheme();
 
   React.useEffect(() => {
     readPref<TerminalActionPref>(PrefKeys.defaultTerminalAction, DEFAULT_TERMINAL_ACTION).then(
@@ -150,7 +154,6 @@ export default function ProfileScreen() {
         title="Profile"
         subtitle="Your record · your certifications"
         large
-        trailing={<IconBtn icon={IconSettings} label="Open settings" size="sm" />}
       />
       <ScrollView
         contentContainerStyle={{
@@ -187,8 +190,13 @@ export default function ProfileScreen() {
         </View>
 
         <SectionH kicker="APPEARANCE" title="Theme" />
-        <View style={{ paddingHorizontal: 20 }}>
-          <ThemePicker />
+        <View style={{ paddingHorizontal: 20, gap: 8 }}>
+          <ThemeCollapseRow
+            theme={activeTheme}
+            open={themeOpen}
+            onToggle={() => setThemeOpen((v) => !v)}
+          />
+          {themeOpen ? <ThemePicker /> : null}
         </View>
 
         <SectionH kicker="MANAGE" title="Logbook" />
@@ -229,8 +237,21 @@ export default function ProfileScreen() {
             icon={IconChain}
             title="Chain integrity"
             sub={chainShort ? `Head ${chainShort}…` : 'No signed entries yet'}
+            onPress={chainHead.data ? () => setChainOpen((v) => !v) : undefined}
           />
-          <SettingsRow icon={IconLock} title="Security" sub="Device lock and signing settings" />
+          {chainOpen && chainHead.data ? (
+            <ChainIntegrityPanel
+              chainHead={chainHead.data}
+              signedCount={summary.data?.signedEntries ?? 0}
+              amendedCount={summary.data?.amendedEntries ?? 0}
+            />
+          ) : null}
+          <SettingsRow
+            icon={IconLock}
+            title="Security"
+            sub="Device lock and signing settings"
+            onPress={() => router.push('/security' as never)}
+          />
         </View>
 
         <SectionH kicker="PREFERENCES" title="This device" />
@@ -268,12 +289,23 @@ export default function ProfileScreen() {
 
         <SectionH kicker="SUPPORT" title="Notifications & data" />
         <View style={{ paddingHorizontal: 20, gap: 8 }}>
-          <SettingsRow icon={IconBell} title="Notifications" sub="Gear deadlines and remote-signing updates" />
-          <SettingsRow icon={IconCamera} title="Attachments" sub="Manage entry photos and uploads" />
+          <SettingsRow
+            icon={IconBell}
+            title="Notifications"
+            sub="Gear deadlines and remote-signing updates"
+            onPress={() => setNotifSheetOpen(true)}
+          />
+          <SettingsRow
+            icon={IconCamera}
+            title="Attachments"
+            sub="Manage entry photos and uploads"
+            onPress={() => router.push('/attachments' as never)}
+          />
         </View>
 
         <ProfileFooter chainHash={chainHead.data ?? null} />
       </ScrollView>
+      <NotificationsStubSheet visible={notifSheetOpen} onClose={() => setNotifSheetOpen(false)} />
     </View>
   );
 }
@@ -402,6 +434,63 @@ function CertCard({ scheme, slot }: { scheme: CertScheme; slot: CertSlot | null 
 
 // ──────────────────────────────────────────────────────────────────────────
 
+interface ThemeCollapseRowProps {
+  theme: Theme;
+  open: boolean;
+  onToggle: () => void;
+}
+
+function ThemeCollapseRow({ theme, open, onToggle }: ThemeCollapseRowProps) {
+  const { tokens } = useTheme();
+  const containerStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: tokens.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: tokens.lineSoft,
+  };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={open ? 'Collapse theme picker' : 'Open theme picker'}
+      onPress={onToggle}
+      style={({ pressed }) => [
+        containerStyle,
+        pressed ? { transform: [{ scale: 0.99 }], borderColor: tokens.line } : null,
+      ]}
+    >
+      <View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          overflow: 'hidden',
+          flexDirection: 'row',
+        }}
+      >
+        {theme.swatch.map((hex, i) => (
+          <View key={i} style={{ flex: 1, backgroundColor: hex }} />
+        ))}
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+          {theme.name}
+        </Text>
+        <Text style={{ ...type.cardSub, color: tokens.textDim }} numberOfLines={1}>
+          {open ? 'Tap to collapse' : theme.sub}
+        </Text>
+      </View>
+      <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
+        <IconChevron size={21} color={tokens.textFaint} />
+      </View>
+    </Pressable>
+  );
+}
+
 function ThemePicker() {
   const { theme, setTheme } = useTheme();
   return (
@@ -479,6 +568,79 @@ function ThemeTile({ theme, active, onPress }: { theme: Theme; active: boolean; 
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+
+interface ChainIntegrityPanelProps {
+  chainHead: string;
+  signedCount: number;
+  amendedCount: number;
+}
+
+function ChainIntegrityPanel({ chainHead, signedCount, amendedCount }: ChainIntegrityPanelProps) {
+  const { tokens } = useTheme();
+  const total = signedCount + amendedCount;
+  const labelStyle: TextStyle = {
+    ...type.monoKicker,
+    color: tokens.textFaint,
+  };
+  const valueStyle: TextStyle = {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: tokens.text,
+  };
+  const rowStyle: ViewStyle = {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: tokens.lineSoft,
+  };
+  async function shareHash() {
+    try {
+      await Share.share({ message: chainHead });
+    } catch {
+      // user cancelled or share unsupported — non-essential
+    }
+  }
+  return (
+    <Card padding={14}>
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 8 }}>
+        HEAD HASH · TAP-AND-HOLD TO SELECT
+      </Text>
+      <Text
+        selectable
+        style={{
+          fontFamily: 'JetBrainsMono_400Regular',
+          fontSize: 12,
+          lineHeight: 18,
+          color: tokens.text,
+        }}
+      >
+        {chainHead}
+      </Text>
+      <View style={{ marginTop: 10, gap: 0 }}>
+        <View style={[rowStyle, { borderTopWidth: 0, paddingTop: 0 }]}>
+          <Text style={labelStyle}>SIGNED ENTRIES</Text>
+          <Text style={valueStyle}>{signedCount}</Text>
+        </View>
+        <View style={rowStyle}>
+          <Text style={labelStyle}>AMENDMENTS</Text>
+          <Text style={valueStyle}>{amendedCount}</Text>
+        </View>
+        <View style={rowStyle}>
+          <Text style={labelStyle}>SEALED TOTAL</Text>
+          <Text style={valueStyle}>{total}</Text>
+        </View>
+      </View>
+      <View style={{ marginTop: 12 }}>
+        <Button variant="outline" size="md" full icon={IconExport} onPress={shareHash}>
+          Share head hash
+        </Button>
+      </View>
+    </Card>
+  );
+}
 
 interface SettingsRowProps {
   icon: React.ComponentType<IconProps>;

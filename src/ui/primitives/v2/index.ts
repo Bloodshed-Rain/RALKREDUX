@@ -34,3 +34,5 @@ export { SealAnim, type SealAnimProps } from './seal-anim';
 export { GearCard, type GearCardProps } from './gear-card';
 export { CountdownDial, type CountdownDialProps, type CountdownStatus } from './countdown-dial';
 export { ToggleRow, type ToggleRowProps } from './toggle-row';
+export { SwipeableRow } from './swipeable-row';
+export { InfoSheet } from './info-sheet';

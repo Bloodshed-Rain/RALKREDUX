@@ -231,7 +231,7 @@ export default function EditDraftScreen() {
       <TopBar
         title="Edit draft"
         leading={
-          <IconBtn icon={IconArrowLeft} label="Back" size="sm" onPress={() => router.back()} />
+          <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />
         }
       />
       <ScrollView

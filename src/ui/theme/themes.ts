@@ -36,7 +36,7 @@ export type ThemeKey =
   | 'mariner'
   | 'verdigris'
   | 'heliotype'
-  | 'sandstone'
+  | 'forge'
   | 'mercury';
 
 export interface Theme {
@@ -177,36 +177,36 @@ export const THEMES: Record<ThemeKey, Theme> = {
       ring: 'rgba(139,31,26,0.3)',
     },
   },
-  sandstone: {
-    key: 'sandstone',
-    name: 'Sandstone',
-    sub: 'Canyon dust · terracotta',
+  forge: {
+    key: 'forge',
+    name: 'Forge',
+    sub: 'Pumice · ember',
     mode: 'light',
-    swatch: ['#F0E5D3', '#D7BFA0', '#B5462C'],
+    swatch: ['#F2E4CC', '#3A2A1F', '#DC5A28'],
     tokens: {
-      bg: '#F0E5D3',
-      surface: '#FBF3E2',
-      surface2: '#E6D7BD',
-      surface3: '#D7C39E',
-      line: '#B89E78',
-      lineSoft: '#DDCCAE',
-      text: '#2C1E16',
-      textDim: '#6E5640',
-      textFaint: '#9E876C',
-      accent: '#B5462C',
-      accentInk: '#FBF3E2',
-      accentSoft: '#EBC9B8',
-      ok: '#4A6F36',
-      okSoft: '#D4DDB8',
-      warn: '#A66E0A',
-      warnSoft: '#EDD8A6',
-      danger: '#9E2A1F',
-      dangerSoft: '#E8C2B7',
-      chip: '#E6D7BD',
-      chipText: '#2C1E16',
-      scrim: 'rgba(44,30,22,0.42)',
-      shadow: '0 1px 0 rgba(255,255,255,0.6) inset, 0 12px 28px -16px rgba(44,30,22,0.22)',
-      ring: 'rgba(181,70,44,0.32)',
+      bg: '#F2E4CC',
+      surface: '#FBF1DC',
+      surface2: '#E5D5B7',
+      surface3: '#D6C39C',
+      line: '#3A2A1F',
+      lineSoft: '#C5B395',
+      text: '#2A1F17',
+      textDim: '#6B5A47',
+      textFaint: '#A18E73',
+      accent: '#DC5A28',
+      accentInk: '#FBF1DC',
+      accentSoft: '#F5D9C5',
+      ok: '#28583A',
+      okSoft: '#C8DCC4',
+      warn: '#9C6E0A',
+      warnSoft: '#EFDFB5',
+      danger: '#A82F22',
+      dangerSoft: '#EAD3CF',
+      chip: '#E5D5B7',
+      chipText: '#2A1F17',
+      scrim: 'rgba(42,31,23,0.42)',
+      shadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 12px 28px -16px rgba(58,42,31,0.22)',
+      ring: 'rgba(220,90,40,0.32)',
     },
   },
   mercury: {
@@ -249,7 +249,7 @@ export const THEME_ORDER: ThemeKey[] = [
   'mariner',
   'verdigris',
   'heliotype',
-  'sandstone',
+  'forge',
   'mercury',
 ];
 

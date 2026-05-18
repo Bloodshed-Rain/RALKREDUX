@@ -521,6 +521,10 @@ const migrations: Migration[] = [
   },
 ];
 
+// Total number of migrations defined. Surfaced in the About sheet so the
+// schema generation is visible without querying the DB.
+export const MIGRATION_COUNT = migrations.length;
+
 export async function runMigrations(db: DbClient): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (

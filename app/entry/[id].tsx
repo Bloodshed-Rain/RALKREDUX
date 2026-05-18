@@ -128,7 +128,7 @@ export default function EntryDetailScreen() {
             <IconBtn
               icon={IconArrowLeft}
               label="Back"
-              size="sm"
+              size="md"
               onPress={() => router.replace('/records')}
             />
           }
@@ -271,7 +271,7 @@ export default function EntryDetailScreen() {
           <IconBtn
             icon={IconArrowLeft}
             label="Back"
-            size="sm"
+            size="md"
             onPress={() => router.back()}
           />
         }
@@ -280,11 +280,11 @@ export default function EntryDetailScreen() {
             <IconBtn
               icon={IconExport}
               label="Export"
-              size="sm"
+              size="md"
               onPress={shareEntryPdf}
               disabled={pdfPending || exportEntry.isPending}
             />
-            <IconBtn icon={IconMore} label="More" size="sm" />
+            <IconBtn icon={IconMore} label="More" size="md" />
           </View>
         }
       />

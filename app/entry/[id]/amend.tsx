@@ -179,7 +179,7 @@ export default function AmendEntryScreen() {
       <TopBar
         title="Amend entry"
         leading={
-          <IconBtn icon={IconArrowLeft} label="Back" size="sm" onPress={() => router.back()} />
+          <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />
         }
       />
       <ScrollView

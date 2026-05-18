@@ -18,12 +18,17 @@ import {
   EntryRow,
   HashGlyph,
   IconBtn,
+  InfoSheet,
   Pill,
   PullToRefresh,
   SectionH,
   SyncChip,
   TopBar,
 } from '@/src/ui/primitives/v2';
+import Constants from 'expo-constants';
+import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
+import { MIGRATION_COUNT } from '@/src/db/migrations';
+import { NotificationsStubSheet } from '@/src/ui/sheets/notifications-stub-sheet';
 import {
   IconBell,
   IconBolt,
@@ -90,6 +95,8 @@ export default function TodayScreen() {
   const chainHead = useChainHead();
   const entries = useEntries();
   const { tokens } = useTheme();
+  const [aboutOpen, setAboutOpen] = React.useState(false);
+  const [notifOpen, setNotifOpen] = React.useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -147,14 +154,26 @@ export default function TodayScreen() {
           title={greetingFor(today, firstName)}
           subtitle={`${weekHours.toFixed(1)}h this week · ${careerEntries} career entries`}
           large
-          leading={<IconBtn icon={IconBrand} label="RALB" size="sm" />}
+          leading={
+            <IconBtn
+              icon={IconBrand}
+              label="About RALB"
+              size="md"
+              onPress={() => setAboutOpen(true)}
+            />
+          }
           trailing={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <SyncChip
                 state={awaitingSignature > 0 ? 'queued' : 'synced'}
                 count={awaitingSignature}
               />
-              <IconBtn icon={IconBell} label="Notifications" size="sm" />
+              <IconBtn
+                icon={IconBell}
+                label="Notifications"
+                size="md"
+                onPress={() => setNotifOpen(true)}
+              />
             </View>
           }
         />
@@ -257,9 +276,101 @@ export default function TodayScreen() {
           )}
         </View>
       </PullToRefresh>
+      <AboutSheet visible={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <NotificationsStubSheet visible={notifOpen} onClose={() => setNotifOpen(false)} />
     </View>
   );
 }
+
+function AboutSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { tokens } = useTheme();
+  const appName = Constants.expoConfig?.name ?? 'RALB Codex Edition';
+  const appVersion = Constants.expoConfig?.version ?? '—';
+  const runtime = Constants.expoConfig?.runtimeVersion;
+  const runtimeStr =
+    typeof runtime === 'object' && runtime
+      ? `${(runtime as { policy?: string }).policy ?? 'fingerprint'} policy`
+      : typeof runtime === 'string'
+        ? runtime
+        : 'fingerprint policy';
+  const bodyStyle: TextStyle = {
+    ...type.cardSub,
+    color: tokens.textDim,
+    lineHeight: 20,
+  };
+  const labelStyle: TextStyle = {
+    ...type.monoKicker,
+    color: tokens.textFaint,
+  };
+  const valueStyle: TextStyle = {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: tokens.text,
+  };
+  const rowStyle: ViewStyle = {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: tokens.lineSoft,
+  };
+  return (
+    <InfoSheet visible={visible} onClose={onClose} kicker="OFFLINE-FIRST · HASH-CHAINED" title={appName}>
+      <Text style={bodyStyle}>
+        Field-grade rope-access logbook. Local SQLite is the source of truth — entries are
+        hash-chained and immutable once signed. Hosted remote-signing is optional.
+      </Text>
+      <Card padding={14}>
+        <View style={[rowStyle, { borderTopWidth: 0, paddingTop: 0 }]}>
+          <Text style={labelStyle}>VERSION</Text>
+          <Text style={valueStyle}>{appVersion}</Text>
+        </View>
+        <View style={rowStyle}>
+          <Text style={labelStyle}>ENTRY-HASH</Text>
+          <Text style={valueStyle}>v{ENTRY_HASH_VERSION}</Text>
+        </View>
+        <View style={rowStyle}>
+          <Text style={labelStyle}>SCHEMA MIGRATIONS</Text>
+          <Text style={valueStyle}>{MIGRATION_COUNT}</Text>
+        </View>
+        <View style={rowStyle}>
+          <Text style={labelStyle}>RUNTIME</Text>
+          <Text style={valueStyle}>{runtimeStr}</Text>
+        </View>
+      </Card>
+      <Text style={{ ...type.cardSub, color: tokens.textFaint, fontStyle: 'italic' }}>
+        Built toward SPRAT / IRATA audit-readiness. Official acceptance is a separate
+        workstream — see the compliance roadmap.
+      </Text>
+      <View
+        style={{
+          marginTop: 8,
+          paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>BY</Text>
+        <Text
+          style={{
+            fontFamily: 'Manrope_600SemiBold',
+            fontSize: 14,
+            lineHeight: 18,
+            color: tokens.text,
+            letterSpacing: -0.2,
+          }}
+        >
+          Chad Dubuisson & Michael Cassidy
+        </Text>
+      </View>
+    </InfoSheet>
+  );
+}
+
 
 // ──────────────────────────────────────────────────────────────────────────
 

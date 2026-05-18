@@ -278,6 +278,13 @@ export function useChainHead() {
   });
 }
 
+export function useAllAttachments() {
+  return useQuery({
+    queryKey: ['attachmentsAll'],
+    queryFn: () => createLogbookService(getClient()).listAttachmentsWithEntry(),
+  });
+}
+
 export function useEntryChainValid(
   entry: LogbookEntry | null | undefined,
   signature: EntrySignature | null | undefined,

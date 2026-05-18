@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, Text, View, type TextStyle } from 'react-native';
+import { Alert, ScrollView, Text, View, type TextStyle } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { haptics } from '@/src/ui/haptics';
 import { useDeleteDraftEntry, useEntries } from '@/src/domain/logbook/use-logbook';
@@ -13,9 +13,14 @@ import {
   Field,
   IconBtn,
   Pill,
+  SwipeableRow,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { IconExport, IconFilter, IconSearch, IconVoid } from '@/src/ui/icons';
+import { IconExport, IconSearch } from '@/src/ui/icons';
+
+// Once per app session: play a wiggle on the first deletable draft so users
+// discover that draft rows can be swiped.
+let swipeHintShown = false;
 
 type FilterKey = 'all' | 'drafts' | 'pending' | 'signed' | 'amended';
 
@@ -196,15 +201,12 @@ export default function RecordsScreen() {
         }
         large
         trailing={
-          <View style={{ flexDirection: 'row', gap: 4 }}>
-            <IconBtn
-              icon={IconExport}
-              label="Export"
-              size="sm"
-              onPress={() => router.push('/export' as never)}
-            />
-            <IconBtn icon={IconFilter} label="Filter" size="sm" />
-          </View>
+          <IconBtn
+            icon={IconExport}
+            label="Export"
+            size="md"
+            onPress={() => router.push('/export' as never)}
+          />
         }
       />
 
@@ -310,36 +312,31 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: Recor
             <View style={{ gap: 8 }}>
               {group.entries.map((entry) => {
                 const isDraft = entry.status === 'draft';
+                const row = (
+                  <EntryRow
+                    status={rowStatus(entry)}
+                    date={entry.date_to}
+                    site={entry.site}
+                    task={entry.work_task}
+                    hours={entry.work_hours}
+                    chainHash={entry.id}
+                    onPress={() => onEntryPress(entry.id)}
+                    onLongPress={isDraft ? () => onDeleteDraft(entry) : undefined}
+                  />
+                );
+                if (!isDraft) {
+                  return <View key={entry.id}>{row}</View>;
+                }
+                const playHint = !swipeHintShown;
+                if (playHint) swipeHintShown = true;
                 return (
-                  <Pressable
+                  <SwipeableRow
                     key={entry.id}
-                    onLongPress={() => {
-                      // Power-user shortcut — explicit IconBtn below is the
-                      // discoverable affordance per the audit fix.
-                      if (isDraft) onDeleteDraft(entry);
-                    }}
+                    onDelete={() => onDeleteDraft(entry)}
+                    hint={playHint}
                   >
-                    <EntryRow
-                      status={rowStatus(entry)}
-                      date={entry.date_to}
-                      site={entry.site}
-                      task={entry.work_task}
-                      hours={entry.work_hours}
-                      chainHash={entry.id}
-                      onPress={() => onEntryPress(entry.id)}
-                      action={
-                        isDraft ? (
-                          <IconBtn
-                            icon={IconVoid}
-                            label="Delete draft"
-                            size="sm"
-                            tone="danger"
-                            onPress={() => onDeleteDraft(entry)}
-                          />
-                        ) : null
-                      }
-                    />
-                  </Pressable>
+                    {row}
+                  </SwipeableRow>
                 );
               })}
             </View>

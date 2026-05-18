@@ -90,7 +90,7 @@ export default function GearCatalogScreen() {
           <IconBtn
             icon={IconArrowLeft}
             label="Back"
-            size="sm"
+            size="md"
             onPress={() => router.back()}
           />
         }

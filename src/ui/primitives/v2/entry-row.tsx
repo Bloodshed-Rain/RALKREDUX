@@ -14,6 +14,10 @@ export interface EntryRowProps {
   hours?: number;
   chainHash?: string | null;
   onPress?: () => void;
+  // Long-press on the row itself. Must live on the inner Pressable, otherwise
+  // a child press handler claims the gesture before any wrapping Pressable
+  // can detect the long-press timer.
+  onLongPress?: () => void;
   // Optional trailing affordance — rendered between StatusPill and the
   // chevron in the right cluster. Caller provides an interactive element
   // (an IconBtn or Pressable); touch capture lives inside this slot so the
@@ -29,7 +33,7 @@ function parseLocalDate(iso: string): { day: number; month: number } | null {
   return { day: Number(m[3]), month: Number(m[2]) };
 }
 
-export function EntryRow({ status, date, site, task, hours, chainHash, onPress, action }: EntryRowProps) {
+export function EntryRow({ status, date, site, task, hours, chainHash, onPress, onLongPress, action }: EntryRowProps) {
   const { tokens } = useTheme();
   const parsed = parseLocalDate(date);
 
@@ -85,6 +89,7 @@ export function EntryRow({ status, date, site, task, hours, chainHash, onPress, 
       accessibilityRole="button"
       accessibilityLabel={`Entry on ${date} at ${site}`}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [containerStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
     >
       <View style={{ width: 44, alignItems: 'center' }}>

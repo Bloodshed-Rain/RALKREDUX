@@ -133,7 +133,7 @@ export default function RemoteSignatureRequestScreen() {
       <TopBar
         title="Remote request"
         leading={
-          <IconBtn icon={IconArrowLeft} label="Back" size="sm" onPress={() => router.back()} />
+          <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />
         }
       />
       <ScrollView

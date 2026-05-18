@@ -281,6 +281,14 @@ export interface EntryAttachment {
   created_at: string;
 }
 
+// Attachment plus the entry context needed to render it in the Attachments
+// index (site + date + status). Returned by listAttachmentsWithEntry.
+export interface EntryAttachmentWithEntry extends EntryAttachment {
+  entry_site: string;
+  entry_date: string;
+  entry_status: 'draft' | 'signed' | 'amended';
+}
+
 export interface AddEntryAttachmentInput {
   entry_id: string;
   label: string;

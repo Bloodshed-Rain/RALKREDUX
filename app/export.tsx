@@ -193,7 +193,7 @@ export default function ExportScreen() {
       <TopBar
         title="Audit export"
         leading={
-          <IconBtn icon={IconArrowLeft} label="Back" size="sm" onPress={() => router.back()} />
+          <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />
         }
       />
       <ScrollView

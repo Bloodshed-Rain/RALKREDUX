@@ -16,9 +16,24 @@ export const PrefKeys = {
   defaultTerminalAction: 'default-terminal-action',
   hapticsEnabled: 'haptics-enabled',
   onboardingSeen: 'onboarding-seen',
+  deviceLockEnabled: 'device-lock-enabled',
+  autoLockMinutes: 'auto-lock-minutes',
+  biometricForSigning: 'biometric-for-signing',
 } as const;
 
 export type PrefKey = (typeof PrefKeys)[keyof typeof PrefKeys];
+
+// Auto-lock idle timeout in minutes before the app re-prompts for unlock.
+// 0 disables auto-lock (only locks on app cold-start when device lock is on).
+export type AutoLockMinutesPref = 0 | 1 | 5 | 15 | 60;
+
+export const AUTO_LOCK_OPTIONS: readonly AutoLockMinutesPref[] = [0, 1, 5, 15, 60] as const;
+
+export const DEFAULT_AUTO_LOCK_MINUTES: AutoLockMinutesPref = 5;
+
+export function isAutoLockMinutesPref(value: unknown): value is AutoLockMinutesPref {
+  return value === 0 || value === 1 || value === 5 || value === 15 || value === 60;
+}
 
 // Which terminal action the new-entry wizard's Step 3 surfaces first / with
 // primary emphasis. The other two stay reachable, just de-emphasized — this

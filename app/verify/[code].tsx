@@ -373,7 +373,7 @@ export default function RemoteVerifyScreen() {
           <IconBtn
             icon={IconArrowLeft}
             label="Close"
-            size="sm"
+            size="md"
             onPress={() => {
               if (router.canGoBack()) router.back();
               else router.replace('/');
