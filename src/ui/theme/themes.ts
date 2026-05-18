@@ -258,8 +258,3 @@ export const DEFAULT_THEME_KEY: ThemeKey = 'tungsten';
 export function isThemeKey(value: unknown): value is ThemeKey {
   return typeof value === 'string' && value in THEMES;
 }
-
-export function getTheme(key: ThemeKey | string | null | undefined): Theme {
-  if (isThemeKey(key)) return THEMES[key];
-  return THEMES[DEFAULT_THEME_KEY];
-}

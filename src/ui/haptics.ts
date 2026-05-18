@@ -11,10 +11,6 @@ import { PrefKeys, readPref, writePref } from '@/src/storage/local-prefs';
 
 let enabled = true;
 
-export function getHapticsEnabled(): boolean {
-  return enabled;
-}
-
 // Update the in-memory flag and persist it. Called by the More -> Preferences
 // toggle; persistence is best-effort via local-prefs.
 export function setHapticsEnabled(value: boolean): void {

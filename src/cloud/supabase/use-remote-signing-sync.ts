@@ -46,7 +46,6 @@ export function useImportHostedRemoteSignatureCompletion() {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', result.detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['remoteSignatureRequest', request.request_code] });
       queryClient.invalidateQueries({ queryKey: ['chainHead'] });
-      queryClient.invalidateQueries({ queryKey: ['entryCloudState', result.detail.entry.id] });
       if (result.detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', result.detail.entry.amends_entry_id] });
       }

@@ -20,9 +20,7 @@ export { ChipSelect, type ChipOption, type ChipSelectProps } from './chip-select
 export { MultiChipSelect, type MultiChipSelectProps } from './multi-chip-select';
 export { SectionH, type SectionHProps } from './section-h';
 export { TopBar, type TopBarProps } from './top-bar';
-export { TabBar, type TabBarProps, type TabKey } from './tab-bar';
 export { SyncChip, type SyncChipProps, type SyncChipState } from './sync-chip';
-export { Sheet, type SheetProps } from './sheet';
 export { AnimatedNumber, type AnimatedNumberProps } from './animated-number';
 export { HashGlyph, type HashGlyphProps } from './hash-glyph';
 export { EmptyState, type EmptyStateProps } from './empty-state';
