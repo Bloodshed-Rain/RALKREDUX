@@ -1,10 +1,43 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-18 (full-app audit + v3 hash bundle + gear catalog browser)
+Last updated: 2026-05-18 (site-signer three-scheme model rolls back the SPRAT-required overcorrection)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
 
-## READ THIS FIRST — v3 hash + audit-grade sweep (2026-05-17 → 2026-05-18)
+## READ THIS FIRST — site signers ('site' scheme), 2026-05-18
+
+The user pushed back on commit `0a42003` ("Require SPRAT cert number for signers") and was right to. The original audit assumed every signer is rope-access certified; real-world rope-access work records are often signed by **site authority** — safety officer, shift lead, superintendent — who is responsible for the work but is NOT SPRAT or IRATA certified. The rope-access advisor's ruling is filed in `.claude/agent-memory/sprirata-rope-access-advisor/signer-authority-site-vs-scheme.md`.
+
+**`SignerScheme = 'sprat' | 'irata' | 'site'`** — defined in `src/domain/profile/types.ts` alongside the unchanged `CertScheme = 'sprat' | 'irata'` (which still gates the technician's own profile). Signature-related types use `SignerScheme`; profile types stay on `CertScheme`.
+
+**Migration 12** (`site-signer-role-employer`) adds three columns to `signatures`:
+- `supervisor_scheme TEXT NOT NULL DEFAULT 'sprat' CHECK (...)`. The scheme was captured at sign time but never persisted before — for SPRAT/IRATA it was implied by cert format. Now explicit. Default 'sprat' on pre-migration-12 rows; the cert format still resolves the actual scheme via `inferSchemeFromCertNumber` if anyone needs to backfill.
+- `supervisor_role TEXT`, `supervisor_employer TEXT` — captured only when scheme is `'site'`. Nullable.
+
+**Service contract** (`src/domain/logbook/logbook-service.ts`):
+- `requiresVerifierCertNumber(scheme)` returns `scheme !== 'site'`.
+- When `supervisor_scheme === 'site'`, service requires non-empty role + employer (throws `site_signer_role_required` / `site_signer_employer_required`).
+- Both `signEntryLocal` and `completeRemoteSignatureRequest` enforce the same contract; both INSERT and all four SELECTs from `signatures` carry the new columns.
+- SPRAT and IRATA still require cert numbers — the `0a42003` enforcement stays for those two schemes.
+
+**UI** — `app/entry/[id]/sign.tsx` and `app/verify/[code].tsx` add a third `'Site'` chip to `SCHEME_OPTIONS`. When the scheme is `'site'`, the IRATA/SPRAT cert field group hides and a Role / Employer Field pair takes its place. Both fields are required (≥2 chars after trim). Switching schemes clears the irrelevant fields so we don't persist drift. `app/entry/[id]/request-signature.tsx` line 270 placeholder widened from "IRATA L3 / Rope access manager" to "Site supervisor / IRATA L3 / Safety officer" so the request copy doesn't presuppose a rope-access role.
+
+**Hosted-flow gotcha caught + fixed** (commit `a52bda6`): `hostedCompletionInputFromDetail` in `src/cloud/supabase/remote-signing.ts` was inferring `supervisor_scheme` from cert format. A site signer has an empty cert, so inference falls back to 'sprat', and the local-side `completeRemoteSignatureRequest` would reject with `supervisor_cert_required`. Fixed to prefer the persisted `detail.signature.supervisor_scheme` (post-migration-12), with cert-format inference kept as a fallback for old hosted signatures that pre-date the column. Role + employer pass through. **No edge function changes needed** — the hosted DB stores the signature payload as JSON, and the JSON automatically carries the new fields.
+
+**No hash version bump.** Signer identity is signature metadata, not entry attestation. `ENTRY_HASH_VERSION` stays at 3.
+
+If you add a fourth signer scheme later, the lockstep points are:
+1. `src/domain/profile/types.ts` — extend `SignerScheme` union
+2. `src/db/migrations.ts` — relax / extend the `supervisor_scheme` CHECK constraint (SQLite needs a table rebuild to change a CHECK; easiest is a new migration that drops + recreates the column with the wider constraint)
+3. `requiresVerifierCertNumber` in `logbook-service.ts` — decide whether the new scheme needs a cert
+4. UI `SCHEME_OPTIONS` arrays in `sign.tsx`, `verify/[code].tsx`, anywhere else that lists schemes
+5. Tests covering the new path
+
+### Cosmetic note for future polish
+
+The `Field` primitive has a placeholder/cursor visual fusion when the leading placeholder character is a vertical-stem letter (I, l, J, etc.) and the field is focused at position 0: the text cursor `|` overlaps the leading character, making `IRATA L3 / …` read as `RATA L3 / …` to a casual glance. Sidestepped on the request-signature Role field by reordering the placeholder to start with `S` ("Site supervisor"). If a future placeholder happens to start with `I`/`l`/`J`, either reorder or pad with a leading space. A more durable fix would be in `src/ui/primitives/v2/field.tsx` (placeholder positioning / cursor styling) but isn't worth it for a single-character cosmetic.
+
+## READ THIS NEXT — v3 hash + audit-grade sweep (2026-05-17 → 2026-05-18)
 
 A full-app audit pass and a series of audit-grade fixes shipped on top of the v2 redesign across two days, 26 commits, 35+ items closed. Everything below is live on `main`, hosted Edge Functions deployed, typecheck + 141/141 jest green.
 
