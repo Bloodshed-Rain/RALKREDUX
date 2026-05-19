@@ -479,6 +479,7 @@ export default function EntryDetailScreen() {
                               );
                             }}
                             disabled={removeGear.isPending}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             style={({ pressed }) => ({
                               padding: 6,
                               opacity: pressed ? 0.6 : 1,

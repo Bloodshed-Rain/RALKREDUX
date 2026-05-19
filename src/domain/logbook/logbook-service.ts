@@ -1109,26 +1109,96 @@ export function createLogbookService(db: DbClient) {
           ? 'SELECT * FROM entries ORDER BY date_from ASC, created_at ASC'
           : "SELECT * FROM entries WHERE status IN ('signed', 'amended') ORDER BY date_from ASC, created_at ASC",
       );
-      const signatures = entries.length
-        ? await db.getAll<EntrySignature>(
-          `SELECT
-            id, entry_id, supervisor_name, supervisor_scheme, supervisor_cert_number,
-            supervisor_role, supervisor_employer, signed_at, entry_hash, hash_version,
-            method, remote_request_id, signer_attestation, signature_path,
-            attestation_accepted_at, previous_chain_hash, chain_hash, created_at
-          FROM signatures
-          WHERE entry_id IN (${entries.map(() => '?').join(',')})
-          ORDER BY signed_at ASC, created_at ASC`,
-          entries.map((entry) => entry.id),
-        )
-        : [];
+
+      if (!entries.length) {
+        return buildLogbookExportBundle({
+          profile,
+          entries: [],
+          supervisors: await db.getAll<SupervisorContact>('SELECT * FROM supervisors ORDER BY name ASC'),
+        });
+      }
+
+      const statusFilter = includeDrafts ? '' : "WHERE entry_id IN (SELECT id FROM entries WHERE status IN ('signed', 'amended'))";
+
+      const signatures = await db.getAll<EntrySignature>(
+        `SELECT
+          id, entry_id, supervisor_name, supervisor_scheme, supervisor_cert_number,
+          supervisor_role, supervisor_employer, signed_at, entry_hash, hash_version,
+          method, remote_request_id, signer_attestation, signature_path,
+          attestation_accepted_at, previous_chain_hash, chain_hash, created_at
+        FROM signatures
+        ${statusFilter}
+        ORDER BY signed_at ASC, created_at ASC`
+      );
       const signatureByEntryId = new Map(signatures.map((signature) => [signature.entry_id, signature]));
-      const exportEntries = await Promise.all(entries.map(async (entry) => ({
+
+      const attachments = await db.getAll<EntryAttachment>(
+        `SELECT id, entry_id, label, uri, mime_type, notes, created_at
+         FROM entry_attachments
+         ${statusFilter}
+         ORDER BY created_at ASC`
+      );
+      const attachmentsByEntryId = new Map<string, EntryAttachment[]>();
+      for (const a of attachments) {
+        if (!attachmentsByEntryId.has(a.entry_id)) attachmentsByEntryId.set(a.entry_id, []);
+        attachmentsByEntryId.get(a.entry_id)!.push(a);
+      }
+
+      const gearUsagesRows = await db.getAll<any>(
+        `SELECT
+          egu.entry_id AS "usage.entry_id",
+          egu.gear_id AS "usage.gear_id",
+          egu.role AS "usage.role",
+          egu.created_at AS "usage.created_at",
+          gi.id AS "gear.id",
+          gi.name AS "gear.name",
+          gi.category AS "gear.category",
+          gi.manufacturer AS "gear.manufacturer",
+          gi.model AS "gear.model",
+          gi.serial_number AS "gear.serial_number",
+          gi.next_inspection_due AS "gear.next_inspection_due",
+          gi.retired_at AS "gear.retired_at",
+          gi.created_at AS "gear.created_at",
+          gi.updated_at AS "gear.updated_at"
+         FROM entry_gear_usage egu
+         JOIN gear_items gi ON gi.id = egu.gear_id
+         ${includeDrafts ? '' : "WHERE egu.entry_id IN (SELECT id FROM entries WHERE status IN ('signed', 'amended'))"}
+         ORDER BY gi.category ASC, gi.name ASC`
+      );
+      const gearUsageByEntryId = new Map<string, EntryGearUsageDetail[]>();
+      for (const row of gearUsagesRows) {
+        const flat = row as Record<string, any>;
+        const entryId = flat['usage.entry_id'];
+        if (!gearUsageByEntryId.has(entryId)) gearUsageByEntryId.set(entryId, []);
+        gearUsageByEntryId.get(entryId)!.push({
+          usage: {
+            entry_id: entryId,
+            gear_id: flat['usage.gear_id'],
+            role: flat['usage.role'],
+            created_at: flat['usage.created_at'],
+          },
+          gear: {
+            id: flat['gear.id'],
+            name: flat['gear.name'],
+            category: flat['gear.category'],
+            manufacturer: flat['gear.manufacturer'],
+            model: flat['gear.model'],
+            serial_number: flat['gear.serial_number'],
+            next_inspection_due: flat['gear.next_inspection_due'],
+            retired_at: flat['gear.retired_at'],
+            created_at: flat['gear.created_at'],
+            updated_at: flat['gear.updated_at'],
+          },
+        });
+      }
+
+      const exportEntries = entries.map((entry) => ({
         entry,
         signature: signatureByEntryId.get(entry.id) ?? null,
-        gear_usage: await getGearUsageForEntry(entry.id),
-        attachments: await getAttachmentsForEntry(entry.id),
-      })));
+        gear_usage: gearUsageByEntryId.get(entry.id) ?? [],
+        attachments: attachmentsByEntryId.get(entry.id) ?? [],
+      }));
+      
       const supervisors = await db.getAll<SupervisorContact>(
         `SELECT id, name, cert_number, contact, role, company, last_signed_at, created_at, updated_at
          FROM supervisors

@@ -39,12 +39,6 @@ function validIsoDate(value: string, label: string): string {
   return value;
 }
 
-function hostedEntryRequiresCertNumber(
-  entry: Record<string, unknown>,
-): boolean {
-  return Boolean(entry.irata_level_snapshot);
-}
-
 async function hashIp(value: string | null): Promise<string | null> {
   if (!value) return null;
   const digest = await crypto.subtle.digest(
@@ -106,16 +100,35 @@ Deno.serve(async (req) => {
         signedAt,
       "attestation_accepted_at",
     );
+
+    const supervisorScheme = requiredString(
+      signature.supervisor_scheme,
+      "supervisor_scheme",
+    );
     const supervisorCertNumber = optionalString(
       signature.supervisor_cert_number,
       "supervisor_cert_number",
     ) ?? "";
-    if (
-      hostedEntryRequiresCertNumber(request.entry_payload) &&
-      supervisorCertNumber.length < 2
-    ) {
+    const supervisorRole = optionalString(
+      signature.supervisor_role,
+      "supervisor_role",
+    );
+    const supervisorEmployer = optionalString(
+      signature.supervisor_employer,
+      "supervisor_employer",
+    );
+
+    if (supervisorScheme === "site") {
+      if (!supervisorRole) {
+        return jsonResponse({ error: "site_signer_role_required" }, 400);
+      }
+      if (!supervisorEmployer) {
+        return jsonResponse({ error: "site_signer_employer_required" }, 400);
+      }
+    } else if (supervisorCertNumber.length < 2) {
       return jsonResponse({ error: "supervisor_cert_required" }, 400);
     }
+
     const completedSignature = {
       id: signatureId,
       entry_id: request.local_entry_id,
@@ -123,7 +136,10 @@ Deno.serve(async (req) => {
         signature.supervisor_name,
         "supervisor_name",
       ),
+      supervisor_scheme: supervisorScheme,
       supervisor_cert_number: supervisorCertNumber,
+      supervisor_role: supervisorRole,
+      supervisor_employer: supervisorEmployer,
       signed_at: signedAt,
       entry_hash: request.entry_hash,
       hash_version: request.hash_version,

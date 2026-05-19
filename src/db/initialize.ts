@@ -27,7 +27,7 @@ export async function initializeDatabase(): Promise<DbClient> {
   clientPromise = (async () => {
     const sqlite = await openAppDatabase();
     if (Platform.OS !== 'web') {
-      await sqlite.execAsync('PRAGMA journal_mode = WAL;');
+      await sqlite.execAsync('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;');
     }
     const initializedClient = createExpoClient(sqlite);
     await runMigrations(initializedClient);

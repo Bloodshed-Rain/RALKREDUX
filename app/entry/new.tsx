@@ -725,7 +725,9 @@ function StepWhat({ draft, update }: StepProps) {
                   return (
                     <Pressable
                       key={opt.value}
+                      accessibilityRole="button"
                       onPress={() => update({ heightUnit: opt.value })}
+                      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                       style={{
                         paddingVertical: 2,
                         paddingHorizontal: 6,

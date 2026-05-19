@@ -230,13 +230,18 @@ export default function RecordsScreen() {
         />
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 132 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {!entries.data ? null : filteredEntries.length === 0 ? (
+      {/* 
+        CRITICAL FIX: Removed ScrollView wrapper around the list. 
+        ScrollView disables virtualization for SectionList/FlatList children,
+        which would crash the app with an OOM on large logbooks.
+      */}
+      {!entries.data ? null : filteredEntries.length === 0 ? (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 132 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={{ paddingTop: 16 }}>
             <EmptyState
               icon={IconSearch}
@@ -268,15 +273,15 @@ export default function RecordsScreen() {
               }
             />
           </View>
-        ) : (
-          <RecordsList
-            groups={monthGroups}
-            kickerStyle={sectionKickerStyle}
-            onEntryPress={(id) => router.push(`/entry/${id}` as never)}
-            onDeleteDraft={confirmDeleteDraft}
-          />
-        )}
-      </ScrollView>
+        </ScrollView>
+      ) : (
+        <RecordsList
+          groups={monthGroups}
+          kickerStyle={sectionKickerStyle}
+          onEntryPress={(id) => router.push(`/entry/${id}` as never)}
+          onDeleteDraft={confirmDeleteDraft}
+        />
+      )}
     </View>
   );
 }
@@ -288,62 +293,69 @@ interface RecordsListProps {
   onDeleteDraft: (entry: LogbookEntry) => void;
 }
 
+import { SectionList } from 'react-native';
+
 function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: RecordsListProps) {
   const { tokens } = useTheme();
 
+  const sections = React.useMemo(() => {
+    return groups.map((g) => ({ ...g, data: g.entries }));
+  }, [groups]);
+
   return (
-    <View style={{ paddingHorizontal: 20 }}>
-      <View>
-        {groups.map((group) => (
-          <View key={group.key}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingTop: 14,
-                paddingBottom: 6,
-                backgroundColor: tokens.bg,
-              }}
-            >
-              <Text style={kickerStyle}>{group.label}</Text>
-              <Pill tone="chip" size="sm">{`${group.entries.length}`}</Pill>
-            </View>
-            <View style={{ gap: 8 }}>
-              {group.entries.map((entry) => {
-                const isDraft = entry.status === 'draft';
-                const row = (
-                  <EntryRow
-                    status={rowStatus(entry)}
-                    date={entry.date_to}
-                    site={entry.site}
-                    task={entry.work_task}
-                    hours={entry.work_hours}
-                    chainHash={entry.id}
-                    onPress={() => onEntryPress(entry.id)}
-                    onLongPress={isDraft ? () => onDeleteDraft(entry) : undefined}
-                  />
-                );
-                if (!isDraft) {
-                  return <View key={entry.id}>{row}</View>;
-                }
-                const playHint = !swipeHintShown;
-                if (playHint) swipeHintShown = true;
-                return (
-                  <SwipeableRow
-                    key={entry.id}
-                    onDelete={() => onDeleteDraft(entry)}
-                    hint={playHint}
-                  >
-                    {row}
-                  </SwipeableRow>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
+    <SectionList
+      style={{ flex: 1, paddingHorizontal: 20 }}
+      contentContainerStyle={{ paddingBottom: 132 }}
+      sections={sections}
+      keyExtractor={(item) => item.id}
+      stickySectionHeadersEnabled={false}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+      renderSectionHeader={({ section }) => (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: 14,
+            paddingBottom: 6,
+            backgroundColor: tokens.bg,
+          }}
+        >
+          <Text style={kickerStyle}>{section.label}</Text>
+          <Pill tone="chip" size="sm">{`${section.data.length}`}</Pill>
+        </View>
+      )}
+      renderItem={({ item: entry }) => {
+        const isDraft = entry.status === 'draft';
+        const row = (
+          <EntryRow
+            status={rowStatus(entry)}
+            date={entry.date_to}
+            site={entry.site}
+            task={entry.work_task}
+            hours={entry.work_hours}
+            chainHash={entry.id}
+            onPress={() => onEntryPress(entry.id)}
+            onLongPress={isDraft ? () => onDeleteDraft(entry) : undefined}
+          />
+        );
+        if (!isDraft) {
+          return row;
+        }
+        const playHint = !swipeHintShown;
+        if (playHint) swipeHintShown = true;
+        return (
+          <SwipeableRow
+            onDelete={() => onDeleteDraft(entry)}
+            hint={playHint}
+          >
+            {row}
+          </SwipeableRow>
+        );
+      }}
+    />
   );
 }
 

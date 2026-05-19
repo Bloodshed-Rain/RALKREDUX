@@ -58,13 +58,23 @@ export function createGearService(db: DbClient) {
          name ASC`,
     );
 
-    return Promise.all(
-      items.map(async (item) => ({
-        item,
-        latest_inspection: await getLatestInspection(item.id),
-        status: getGearStatus(item, asOf),
-      })),
+    const inspections = await db.getAll<GearInspection>(
+      `SELECT id, gear_id, inspected_on, result, notes, inspector_name, inspector_cert_number, created_at
+       FROM gear_inspections
+       ORDER BY inspected_on DESC, created_at DESC`
     );
+    const latestInspectionByGearId = new Map<string, GearInspection>();
+    for (const inspection of inspections) {
+      if (!latestInspectionByGearId.has(inspection.gear_id)) {
+        latestInspectionByGearId.set(inspection.gear_id, inspection);
+      }
+    }
+
+    return items.map((item) => ({
+      item,
+      latest_inspection: latestInspectionByGearId.get(item.id) ?? null,
+      status: getGearStatus(item, asOf),
+    }));
   }
 
   return {

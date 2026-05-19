@@ -68,13 +68,13 @@ describe('verifyChainHashFor', () => {
     expect(await verifyChainHashFor({ entry: e, signature: s })).toBe(false);
   });
 
-  it('trusts the stored chain hash when the signature was made at a different hash version', async () => {
+  it('rejects signatures from a future hash version to prevent bypass attacks', async () => {
     const e = entry();
     const s = signature({
       hash_version: ENTRY_HASH_VERSION + 1,
-      chain_hash: 'sha256:older_version_chain',
+      chain_hash: 'sha256:future_version_chain',
     });
-    expect(await verifyChainHashFor({ entry: e, signature: s })).toBe(true);
+    expect(await verifyChainHashFor({ entry: e, signature: s })).toBe(false);
   });
 
   it('returns true when the chain hash recomputes to the same value', async () => {

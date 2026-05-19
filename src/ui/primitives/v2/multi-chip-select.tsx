@@ -74,6 +74,7 @@ export function MultiChipSelect<T extends string = string>({
             accessibilityRole="checkbox"
             accessibilityState={{ checked: active }}
             onPress={() => toggle(o.value)}
+            hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
             style={({ pressed }) => [
               itemStyle,
               pressed ? { transform: [{ scale: 0.97 }] } : null,

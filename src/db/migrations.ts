@@ -519,6 +519,35 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 13,
+    name: 'performance-indexes',
+    async up(db) {
+      // Offline-first logbooks can grow to thousands of rows over a career.
+      // These indexes eliminate full table scans and memory-heavy sorts on
+      // the critical path (dashboard summary, entry list, chain hash resolution).
+
+      // 1. Optimizes `getLatestChainHash`
+      await db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_signatures_chain_latest ON signatures(signed_at DESC, created_at DESC) WHERE chain_hash IS NOT NULL;'
+      );
+
+      // 2. Optimizes `listEntries`
+      await db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_entries_timeline ON entries(date_from DESC, created_at DESC);'
+      );
+
+      // 3. Optimizes gear deadline math in `getDashboardSummary`
+      await db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_gear_items_inspections ON gear_items(retired_at, next_inspection_due);'
+      );
+
+      // 4. Optimizes `listSupervisorContacts`
+      await db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_supervisors_recent ON supervisors(last_signed_at DESC, name ASC);'
+      );
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the

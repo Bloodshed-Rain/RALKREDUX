@@ -24,8 +24,8 @@ function stableStringify(value: JsonValue): string {
   return JSON.stringify(value);
 }
 
-export function canonicalizeEntry(entry: LogbookEntry): string {
-  return stableStringify({
+export function canonicalizeEntry(entry: LogbookEntry, version: number = ENTRY_HASH_VERSION): string {
+  const payload: any = {
     entry: {
       amends_entry_id: entry.amends_entry_id,
       client: entry.client,
@@ -34,12 +34,6 @@ export function canonicalizeEntry(entry: LogbookEntry): string {
       description: entry.description,
       employer: entry.employer,
       access_method: entry.access_method,
-      // v3 fields. `hazards` is the canonical (sorted, JSON-stringified) TEXT
-      // that lives in the DB column — hashing the raw string is safe because
-      // service write paths run input through `canonicalizeHazards`.
-      entry_kind: entry.entry_kind,
-      hazards: entry.hazards,
-      rescue_cover: entry.rescue_cover,
       height_unit: entry.height_unit,
       id: entry.id,
       irata_level_snapshot: entry.irata_level_snapshot,
@@ -51,12 +45,21 @@ export function canonicalizeEntry(entry: LogbookEntry): string {
       work_hours: Number(entry.work_hours.toFixed(2)),
     },
     schema: 'ralb.logbook.entry',
-    version: ENTRY_HASH_VERSION,
-  });
+    version,
+  };
+
+  // v3 added these three fields.
+  if (version >= 3) {
+    payload.entry.entry_kind = entry.entry_kind;
+    payload.entry.hazards = entry.hazards;
+    payload.entry.rescue_cover = entry.rescue_cover;
+  }
+
+  return stableStringify(payload);
 }
 
-export async function hashEntry(entry: LogbookEntry): Promise<string> {
-  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, canonicalizeEntry(entry));
+export async function hashEntry(entry: LogbookEntry, version: number = ENTRY_HASH_VERSION): Promise<string> {
+  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, canonicalizeEntry(entry, version));
 }
 
 export async function hashSignatureChain(input: {
@@ -66,12 +69,13 @@ export async function hashSignatureChain(input: {
   method: string;
   previousChainHash: string | null;
   remoteRequestId?: string | null;
+  version?: number;
 }): Promise<string> {
   return Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     stableStringify({
       schema: 'ralb.logbook.signature-chain',
-      version: ENTRY_HASH_VERSION,
+      version: input.version ?? ENTRY_HASH_VERSION,
       previous_chain_hash: input.previousChainHash,
       signature: {
         entry_hash: input.entryHash,
@@ -102,11 +106,12 @@ export async function verifyChainHashFor(input: {
   const { entry, signature } = input;
   if (!signature.chain_hash) return false;
 
-  // If the signature was made at a different hash version than the running app,
-  // we can't faithfully recompute it; trust the stored chain hash exists.
-  if (signature.hash_version !== ENTRY_HASH_VERSION) return true;
+  // Reject future/unknown hash versions to prevent bypass attacks.
+  if (signature.hash_version > ENTRY_HASH_VERSION || signature.hash_version < 1) {
+    return false;
+  }
 
-  const currentEntryHash = await hashEntry(entry);
+  const currentEntryHash = await hashEntry(entry, signature.hash_version);
   if (currentEntryHash !== signature.entry_hash) return false;
 
   const recomputedChain = await hashSignatureChain({
@@ -116,6 +121,7 @@ export async function verifyChainHashFor(input: {
     method: signature.method,
     previousChainHash: signature.previous_chain_hash,
     remoteRequestId: signature.remote_request_id,
+    version: signature.hash_version,
   });
 
   return recomputedChain === signature.chain_hash;

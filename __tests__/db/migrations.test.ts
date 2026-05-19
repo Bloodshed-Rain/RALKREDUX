@@ -20,6 +20,7 @@ describe('database migrations', () => {
       { id: 10, name: 'gear-inspector-identity' },
       { id: 11, name: 'gear-catalog-image-url' },
       { id: 12, name: 'site-signer-role-employer' },
+      { id: 13, name: 'performance-indexes' },
     ]);
   });
 

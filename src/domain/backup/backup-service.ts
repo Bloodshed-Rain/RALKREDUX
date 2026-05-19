@@ -44,14 +44,19 @@ async function getAll<T>(db: DbClient, table: SnapshotTable): Promise<T[]> {
 }
 
 async function insertRows(db: DbClient, table: SnapshotTable, rows: Array<Record<string, unknown>>): Promise<void> {
-  for (const row of rows) {
-    const columns = Object.keys(row);
-    if (!columns.length) continue;
-    const placeholders = columns.map(() => '?').join(', ');
-    const columnSql = columns.join(', ');
+  if (!rows.length) return;
+  const columns = Object.keys(rows[0]);
+  if (!columns.length) return;
+
+  const chunkSize = 50; // Keep total variables under SQLite's typical 999 limit
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const placeholders = chunk.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const values = chunk.flatMap((row) => columns.map((col) => row[col]));
+    
     await db.run(
-      `INSERT OR REPLACE INTO ${table} (${columnSql}) VALUES (${placeholders})`,
-      columns.map((column) => row[column]),
+      `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES ${placeholders}`,
+      values,
     );
   }
 }
@@ -87,6 +92,7 @@ export function createBackupService(db: DbClient) {
 
       await db.exec('BEGIN');
       try {
+        await db.exec('PRAGMA defer_foreign_keys = ON;');
         for (const table of RESTORE_CLEAR_ORDER) {
           await db.run(`DELETE FROM ${table}`);
         }

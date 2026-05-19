@@ -21,9 +21,9 @@ export interface FieldProps {
   readOnly?: boolean;
   keyboardType?: TextInputProps['keyboardType'];
   autoCapitalize?: TextInputProps['autoCapitalize'];
-  autoComplete?: TextInputProps['autoComplete'];
   secureTextEntry?: boolean;
   maxLength?: number;
+  accessibilityLabel?: string;
   style?: ViewStyle;
 }
 
@@ -39,9 +39,9 @@ export function Field({
   readOnly,
   keyboardType,
   autoCapitalize,
-  autoComplete,
   secureTextEntry,
   maxLength,
+  accessibilityLabel,
   style,
 }: FieldProps) {
   const { theme, tokens } = useTheme();
@@ -111,6 +111,7 @@ export function Field({
       <View style={rowStyle}>
         {prefix ? <View>{prefix}</View> : null}
         <TextInput
+          accessibilityLabel={accessibilityLabel || label || placeholder}
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setFocused(true)}
@@ -121,7 +122,6 @@ export function Field({
           editable={!readOnly}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
-          autoComplete={autoComplete}
           secureTextEntry={secureTextEntry}
           maxLength={maxLength}
           style={inputStyle}

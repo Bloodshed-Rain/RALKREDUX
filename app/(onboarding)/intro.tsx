@@ -147,7 +147,7 @@ export default function OnboardingIntroScreen() {
 
   const stepKickerStyle: TextStyle = {
     ...type.monoKicker,
-    color: tokens.textFaint,
+    color: tokens.textDim,
     letterSpacing: 2,
   };
 
@@ -155,7 +155,9 @@ export default function OnboardingIntroScreen() {
     fontFamily: 'Manrope_600SemiBold',
     fontWeight: '600',
     fontSize: 13,
-    color: tokens.textDim,
+    color: tokens.text,
+    padding: 8,
+    marginRight: -8,
   };
 
   const titleStyle: TextStyle = {
@@ -170,7 +172,7 @@ export default function OnboardingIntroScreen() {
   const subStyle: TextStyle = {
     fontSize: 15,
     lineHeight: 22,
-    color: tokens.textDim,
+    color: tokens.text,
     marginTop: 14,
   };
 
@@ -186,7 +188,7 @@ export default function OnboardingIntroScreen() {
           accessibilityRole="button"
           accessibilityLabel="Skip onboarding"
           onPress={finish}
-          hitSlop={12}
+          hitSlop={24}
         >
           <Text style={skipStyle}>Skip</Text>
         </Pressable>

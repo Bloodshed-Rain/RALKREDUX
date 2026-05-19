@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  FlatList,
   Text,
   View,
   type TextStyle,
@@ -195,154 +196,156 @@ export default function GearScreen() {
         }
       />
 
-      <ScrollView
+      <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 132 + insets.bottom }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {showAdd ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 10 }}>
-            <Card padding={14}>
-              <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 10 }}>
-                ADD GEAR
-              </Text>
-              <View style={{ gap: 10 }}>
-                <Button
-                  variant="outline"
-                  full
-                  onPress={() => router.push('/gear/catalog' as never)}
-                >
-                  {pickedManufacturer
-                    ? `From catalog · ${pickedManufacturer}`
-                    : 'Browse catalog'}
-                </Button>
-                <Field
-                  label="Name"
-                  value={newName}
-                  onChangeText={(v) => {
-                    setNewName(v);
-                    // User editing the name after a catalog pick clears the
-                    // structured manufacturer/model so we don't persist a
-                    // mismatch (e.g. catalog said "Petzl ID" but user
-                    // retyped "Custom rope handle").
-                    if (pickedManufacturer || pickedModel) {
-                      setPickedManufacturer(null);
-                      setPickedModel(null);
-                    }
-                  }}
-                  placeholder="Petzl Avao Bod"
-                  autoCapitalize="words"
-                />
-                <View>
-                  <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
-                    CATEGORY
+        data={filteredItems}
+        keyExtractor={(detail) => detail.item.id}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        ListHeaderComponent={
+          <>
+            {showAdd ? (
+              <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 10, paddingBottom: 14 }}>
+                <Card padding={14}>
+                  <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 10 }}>
+                    ADD GEAR
                   </Text>
-                  <ChipSelect<GearCategory>
-                    value={newCategory}
-                    options={CREATE_CATEGORIES}
-                    onChange={setNewCategory}
-                  />
-                </View>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ gap: 10 }}>
+                    <Button
+                      variant="outline"
+                      full
+                      onPress={() => router.push('/gear/catalog' as never)}
+                    >
+                      {pickedManufacturer
+                        ? `From catalog · ${pickedManufacturer}`
+                        : 'Browse catalog'}
+                    </Button>
                     <Field
-                      label="Serial #"
-                      value={newSerial}
-                      onChangeText={setNewSerial}
-                      placeholder="Optional"
-                      autoCapitalize="characters"
+                      label="Name"
+                      value={newName}
+                      onChangeText={(v) => {
+                        setNewName(v);
+                        if (pickedManufacturer || pickedModel) {
+                          setPickedManufacturer(null);
+                          setPickedModel(null);
+                        }
+                      }}
+                      placeholder="Petzl Avao Bod"
+                      autoCapitalize="words"
                     />
+                    <View>
+                      <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
+                        CATEGORY
+                      </Text>
+                      <ChipSelect<GearCategory>
+                        value={newCategory}
+                        options={CREATE_CATEGORIES}
+                        onChange={setNewCategory}
+                      />
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <View style={{ flex: 1 }}>
+                        <Field
+                          label="Serial #"
+                          value={newSerial}
+                          onChangeText={setNewSerial}
+                          placeholder="Optional"
+                          autoCapitalize="characters"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Field
+                          label="Next inspection"
+                          value={newNextDue}
+                          onChangeText={setNewNextDue}
+                          placeholder="YYYY-MM-DD"
+                          autoCapitalize="none"
+                        />
+                      </View>
+                    </View>
+                    <Button
+                      variant="primary"
+                      full
+                      onPress={addGearItem}
+                      disabled={newName.trim().length === 0 || createGearItem.isPending}
+                    >
+                      {createGearItem.isPending ? 'Adding…' : 'Add gear'}
+                    </Button>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label="Next inspection"
-                      value={newNextDue}
-                      onChangeText={setNewNextDue}
-                      placeholder="YYYY-MM-DD"
-                      autoCapitalize="none"
-                    />
-                  </View>
-                </View>
-                <Button
-                  variant="primary"
-                  full
-                  onPress={addGearItem}
-                  disabled={newName.trim().length === 0 || createGearItem.isPending}
-                >
-                  {createGearItem.isPending ? 'Adding…' : 'Add gear'}
-                </Button>
+                </Card>
               </View>
-            </Card>
-          </View>
-        ) : null}
+            ) : null}
 
-        {deadlinesItems.length > 0 ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
-            <Card padding={14}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  marginBottom: 10,
-                }}
+            {deadlinesItems.length > 0 ? (
+              <View style={{ paddingHorizontal: 20, paddingTop: showAdd ? 0 : 4, paddingBottom: 14 }}>
+                <Card padding={14}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        backgroundColor: overdueItems.length > 0 ? tokens.dangerSoft : tokens.warnSoft,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <IconWarn
+                        size={21}
+                        color={overdueItems.length > 0 ? tokens.danger : tokens.warn}
+                        fill={overdueItems.length > 0 ? tokens.danger : tokens.warn}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
+                        INSPECTION DEADLINES
+                      </Text>
+                      <Text style={{ ...type.cardTitle, color: tokens.text, marginTop: 2 }}>
+                        {`${overdueItems.length} overdue · ${dueSoonItems.length} due ≤14d`}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ gap: 6 }}>
+                    {deadlinesItems.map((detail) => (
+                      <DeadlineRow key={detail.item.id} detail={detail} today={today} />
+                    ))}
+                  </View>
+                </Card>
+              </View>
+            ) : null}
+
+            <View style={{ paddingHorizontal: 20, paddingTop: (showAdd || deadlinesItems.length > 0) ? 0 : 14 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 6 }}
               >
-                <View
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    backgroundColor: overdueItems.length > 0 ? tokens.dangerSoft : tokens.warnSoft,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <IconWarn
-                    size={21}
-                    color={overdueItems.length > 0 ? tokens.danger : tokens.warn}
-                    fill={overdueItems.length > 0 ? tokens.danger : tokens.warn}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
-                    INSPECTION DEADLINES
-                  </Text>
-                  <Text style={{ ...type.cardTitle, color: tokens.text, marginTop: 2 }}>
-                    {`${overdueItems.length} overdue · ${dueSoonItems.length} due ≤14d`}
-                  </Text>
-                </View>
-              </View>
-              <View style={{ gap: 6 }}>
-                {deadlinesItems.map((detail) => (
-                  <DeadlineRow key={detail.item.id} detail={detail} today={today} />
-                ))}
-              </View>
-            </Card>
-          </View>
-        ) : null}
+                <ChipSelect<CategoryFilter>
+                  value={filter}
+                  options={CATEGORY_FILTERS}
+                  onChange={setFilter}
+                />
+              </ScrollView>
+            </View>
 
-        <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 6 }}
-          >
-            <ChipSelect<CategoryFilter>
-              value={filter}
-              options={CATEGORY_FILTERS}
-              onChange={setFilter}
+            <SectionH
+              kicker="ALL GEAR"
+              title={filter === 'all' ? `${allItems.length} items` : `${filteredItems.length} ${CATEGORY_FILTERS.find((c) => c.value === filter)?.label.toLowerCase() ?? ''}`}
             />
-          </ScrollView>
-        </View>
-
-        <SectionH
-          kicker="ALL GEAR"
-          title={filter === 'all' ? `${allItems.length} items` : `${filteredItems.length} ${CATEGORY_FILTERS.find((c) => c.value === filter)?.label.toLowerCase() ?? ''}`}
-        />
-
-        <View style={{ paddingHorizontal: 20, gap: 10 }}>
-          {filteredItems.length === 0 ? (
+            <View style={{ height: 10 }} />
+          </>
+        }
+        ListEmptyComponent={
+          <View style={{ paddingHorizontal: 20 }}>
             <Card padding={20}>
               <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
                 No gear in this category
@@ -358,26 +361,26 @@ export default function GearScreen() {
                 Tap the + in the top bar to add an item.
               </Text>
             </Card>
-          ) : (
-            filteredItems.map((detail) => {
-              const cycle = computeCycle(detail, today);
-              return (
-                <GearCard
-                  key={detail.item.id}
-                  category={detail.item.category}
-                  name={detail.item.name}
-                  manufacturer={detail.item.manufacturer}
-                  serialNumber={detail.item.serial_number}
-                  days={cycle.days}
-                  progress={cycle.progress}
-                  status={statusToCardStatus(detail.status)}
-                  onPress={() => router.push(`/gear/${detail.item.id}` as never)}
-                />
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
+          </View>
+        }
+        renderItem={({ item: detail }) => {
+          const cycle = computeCycle(detail, today);
+          return (
+            <View style={{ paddingHorizontal: 20 }}>
+              <GearCard
+                category={detail.item.category}
+                name={detail.item.name}
+                manufacturer={detail.item.manufacturer}
+                serialNumber={detail.item.serial_number}
+                days={cycle.days}
+                progress={cycle.progress}
+                status={statusToCardStatus(detail.status)}
+                onPress={() => router.push(`/gear/${detail.item.id}` as never)}
+              />
+            </View>
+          );
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
