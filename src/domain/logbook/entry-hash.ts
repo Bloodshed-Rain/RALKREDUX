@@ -107,7 +107,8 @@ export async function verifyChainHashFor(input: {
   if (!signature.chain_hash) return false;
 
   // Reject future/unknown hash versions to prevent bypass attacks.
-  if (signature.hash_version > ENTRY_HASH_VERSION || signature.hash_version < 1) {
+  // Note: v1 is rejected as it predates the Codex Edition rewrite (which started at v2).
+  if (signature.hash_version > ENTRY_HASH_VERSION || signature.hash_version < 2) {
     return false;
   }
 

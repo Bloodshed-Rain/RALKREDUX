@@ -94,16 +94,18 @@ export const SigPad = React.forwardRef<SigPadHandle, SigPadProps>(function SigPa
         <Text style={{ color: tokens.textDim, textAlign: 'center', marginBottom: 12, ...type.body }}>
           Signature canvas requires native WebView.
         </Text>
-        <Pressable 
-          onPress={() => {
-            setHasStarted(true);
-            onChange('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
-            onStrokeEnd?.();
-          }}
-          style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: tokens.surface2, borderRadius: 8, borderWidth: 1, borderColor: tokens.lineSoft }}
-        >
-          <Text style={{ color: tokens.text, ...type.body, fontFamily: 'Manrope_600SemiBold', fontWeight: '600' }}>Mock Signature</Text>
-        </Pressable>
+        {__DEV__ ? (
+          <Pressable 
+            onPress={() => {
+              setHasStarted(true);
+              onChange('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
+              onStrokeEnd?.();
+            }}
+            style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: tokens.surface2, borderRadius: 8, borderWidth: 1, borderColor: tokens.lineSoft }}
+          >
+            <Text style={{ color: tokens.text, ...type.body, fontFamily: 'Manrope_600SemiBold', fontWeight: '600' }}>Mock Signature</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }

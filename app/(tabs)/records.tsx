@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, ScrollView, Text, View, type TextStyle } from 'react-native';
+import { Alert, ScrollView, SectionList, Text, View, type TextStyle } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { haptics } from '@/src/ui/haptics';
 import { useDeleteDraftEntry, useEntries } from '@/src/domain/logbook/use-logbook';
@@ -292,8 +292,6 @@ interface RecordsListProps {
   onEntryPress: (id: string) => void;
   onDeleteDraft: (entry: LogbookEntry) => void;
 }
-
-import { SectionList } from 'react-native';
 
 function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: RecordsListProps) {
   const { tokens } = useTheme();

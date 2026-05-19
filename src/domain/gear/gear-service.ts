@@ -60,14 +60,15 @@ export function createGearService(db: DbClient) {
 
     const inspections = await db.getAll<GearInspection>(
       `SELECT id, gear_id, inspected_on, result, notes, inspector_name, inspector_cert_number, created_at
-       FROM gear_inspections
-       ORDER BY inspected_on DESC, created_at DESC`
+       FROM (
+         SELECT *, ROW_NUMBER() OVER (PARTITION BY gear_id ORDER BY inspected_on DESC, created_at DESC) as rn
+         FROM gear_inspections
+       )
+       WHERE rn = 1`
     );
     const latestInspectionByGearId = new Map<string, GearInspection>();
     for (const inspection of inspections) {
-      if (!latestInspectionByGearId.has(inspection.gear_id)) {
-        latestInspectionByGearId.set(inspection.gear_id, inspection);
-      }
+      latestInspectionByGearId.set(inspection.gear_id, inspection);
     }
 
     return items.map((item) => ({
