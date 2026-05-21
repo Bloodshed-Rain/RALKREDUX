@@ -52,7 +52,7 @@ Native builds use EAS (`eas.json` defines `development`, `preview`, `production`
 
 - Local-only path: verifier opens a `ralb://verify/<code>?token=...` deep link and SQLite on the technician's device handles completion.
 - Hosted path: when `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, and `EXPO_PUBLIC_REMOTE_SIGNING_ORIGIN` are set, `syncHostedRemoteSigningRequest` uploads to the `remote-signing-request` Edge Function; the verifier opens an HTTPS link; technician taps `Sync` to import the completed signature back into local SQLite. See `docs/hosted-remote-signing.md` for the trust model.
-- Edge Functions run with gateway JWT verification disabled; **all auth is in-function** (anonymous Supabase session for `POST /remote-signing-request`, code+token for the verifier endpoints). Don't move that check to the gateway.
+- Edge Functions run with gateway JWT verification disabled; **all auth is in-function** (the signed-in user's Supabase session for `POST /remote-signing-request`, code+token for the verifier endpoints). Don't move that check to the gateway.
 - The signing token is hashed before storage (`hashRemoteSigningToken`); only the hash + a short hint are persisted server-side. Don't log or persist the raw token anywhere else.
 
 ### Hooks/state
@@ -72,7 +72,7 @@ Native builds use EAS (`eas.json` defines `development`, `preview`, `production`
 - Raw SQL strings in services — explicit by design, no ORM.
 - `expo-router` route directory layout (`app/(tabs)`, `app/(onboarding)`, `app/entry/[id]/*`); routes belong only in `app/`, reusable code under `src/`.
 - `runtimeVersion: { policy: 'fingerprint' }` and the iOS bundle id `com.ropeaccess.logbook` — both tied to existing EAS/store identity.
-- Anonymous Supabase auth for the current preview — explicit decision pending; don't swap it without checking `docs/hosted-remote-signing.md` and `docs/CODEX_HANDOFF.md`.
+- Real provider auth (Sign in with Apple / Google / email-OTP) **hard-gates** the app via `AuthGate`; a persisted session keeps it usable offline after the first sign-in. Anonymous Supabase auth was removed. When `EXPO_PUBLIC_SUPABASE_*` is unset the gate falls through to local-only mode. Setup: `docs/auth-setup.md`. Auth code lives in `src/cloud/supabase/auth.ts` + `src/providers/auth-*.tsx`.
 
 ## Compliance language
 

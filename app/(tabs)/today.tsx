@@ -106,6 +106,16 @@ export default function TodayScreen() {
     }, [queryClient]),
   );
 
+  const onRefresh = React.useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['entries'] }),
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] }),
+      queryClient.invalidateQueries({ queryKey: ['careerStats'] }),
+      queryClient.invalidateQueries({ queryKey: ['chainHead'] }),
+      queryClient.invalidateQueries({ queryKey: ['gearItems'] }),
+    ]);
+  }, [queryClient]);
+
   if (!profile.data) return null;
 
   const today = new Date();
@@ -132,16 +142,6 @@ export default function TodayScreen() {
   const lastEntryAny = entriesList[0];
 
   const recentEntries = entriesList.slice(0, 5);
-
-  const onRefresh = React.useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['entries'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] }),
-      queryClient.invalidateQueries({ queryKey: ['careerStats'] }),
-      queryClient.invalidateQueries({ queryKey: ['chainHead'] }),
-      queryClient.invalidateQueries({ queryKey: ['gearItems'] }),
-    ]);
-  }, [queryClient]);
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>

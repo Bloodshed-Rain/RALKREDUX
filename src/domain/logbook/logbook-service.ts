@@ -3,7 +3,7 @@ import { createId } from '../id';
 import { addDaysIso, isExpiredAt, isValidIsoDateRange, todayLocalIsoDate } from '../date-utils';
 import { SignerScheme } from '../profile/types';
 import { getEntryVerificationReadiness } from './entry-readiness';
-import { ENTRY_HASH_VERSION, hashEntry, hashRemoteSigningToken, hashSignatureChain } from './entry-hash';
+import { ENTRY_HASH_VERSION, hashEntry, hashRemoteSigningToken, hashSignatureChain, verifyChainHashFor } from './entry-hash';
 import { buildEntryExportPacket, buildLogbookCsv, buildLogbookExportBundle } from './export';
 import {
   AddEntryAttachmentInput,
@@ -56,6 +56,33 @@ function rowLimit(limit: number | undefined, fallback = 6): number {
 
 function normalizeRequestCode(requestCode: string): string {
   return requestCode.trim().toUpperCase();
+}
+
+// Backdating guard for remote signatures. A signing time is only trusted if it
+// falls within [request created, now] (+ a small clock-skew tolerance);
+// anything else (missing, unparseable, before the request existed, or in the
+// future) falls back to `now`.
+const SIGNING_TIME_SKEW_MS = 5 * 60 * 1000;
+function clampSigningTime(
+  candidate: string | null | undefined,
+  notBefore: string,
+  now: string,
+): string {
+  if (!candidate) return now;
+  const t = new Date(candidate).getTime();
+  const lower = new Date(notBefore).getTime();
+  const upper = new Date(now).getTime() + SIGNING_TIME_SKEW_MS;
+  // Apply the skew tolerance to BOTH bounds: the verifier's server clock and
+  // the technician's device clock can differ by a few seconds, so a legitimate
+  // server-stamped time may land just outside the raw [created_at, now] window.
+  if (
+    !Number.isFinite(t) ||
+    (Number.isFinite(lower) && t < lower - SIGNING_TIME_SKEW_MS) ||
+    t > upper
+  ) {
+    return now;
+  }
+  return candidate;
 }
 
 export function buildRemoteSigningToken(request: Pick<RemoteSignatureRequest, 'id' | 'request_code'>): string {
@@ -200,12 +227,21 @@ export function createLogbookService(db: DbClient) {
   }
 
   async function getLatestChainHash(): Promise<string | null> {
+    // The chain head is the signature whose chain_hash nothing else points back
+    // to (the tail of the linked list). Resolving it by linkage rather than by
+    // signed_at is robust to equal timestamps: two signatures created in the
+    // same millisecond would otherwise make the head ambiguous and could fork
+    // the chain. The ORDER BY is only a defensive tiebreaker for a malformed
+    // (multi-tail) chain.
     const row = await db.get<{ chain_hash: string | null }>(
-      `SELECT chain_hash
-       FROM signatures
-       WHERE chain_hash IS NOT NULL
-       ORDER BY signed_at DESC, created_at DESC
-       LIMIT 1`,
+      `SELECT s.chain_hash
+         FROM signatures s
+        WHERE s.chain_hash IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM signatures p WHERE p.previous_chain_hash = s.chain_hash
+          )
+        ORDER BY s.signed_at DESC, s.created_at DESC
+        LIMIT 1`,
     );
     return row?.chain_hash ?? null;
   }
@@ -476,9 +512,9 @@ export function createLogbookService(db: DbClient) {
         `INSERT INTO entries (
           id, date_from, date_to, employer, site, client, description, work_hours,
           work_task, access_method, structure_type, max_height, height_unit,
-          sprat_level_snapshot, irata_level_snapshot, entry_kind, rescue_cover,
+          sprat_level_snapshot, irata_level_snapshot, timezone_offset, entry_kind, rescue_cover,
           hazards, status, amends_entry_id, pending_signature_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NULL, NULL, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NULL, NULL, ?, ?)`,
         [
           id,
           dateFrom,
@@ -495,6 +531,7 @@ export function createLogbookService(db: DbClient) {
           input.height_unit,
           input.sprat_level_snapshot ?? null,
           input.irata_level_snapshot ?? null,
+          new Date().getTimezoneOffset(),
           input.entry_kind ?? 'work',
           input.rescue_cover?.trim() || null,
           canonicalizeHazards(input.hazards),
@@ -598,9 +635,9 @@ export function createLogbookService(db: DbClient) {
         `INSERT INTO entries (
           id, date_from, date_to, employer, site, client, description, work_hours,
           work_task, access_method, structure_type, max_height, height_unit,
-          sprat_level_snapshot, irata_level_snapshot, entry_kind, rescue_cover,
+          sprat_level_snapshot, irata_level_snapshot, timezone_offset, entry_kind, rescue_cover,
           hazards, status, amends_entry_id, pending_signature_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, NULL, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, NULL, ?, ?)`,
         [
           id,
           dateFrom,
@@ -617,6 +654,7 @@ export function createLogbookService(db: DbClient) {
           input.height_unit,
           input.sprat_level_snapshot ?? original.sprat_level_snapshot,
           input.irata_level_snapshot ?? original.irata_level_snapshot,
+          original.timezone_offset,
           input.entry_kind ?? original.entry_kind,
           input.rescue_cover === undefined
             ? original.rescue_cover
@@ -755,7 +793,10 @@ export function createLogbookService(db: DbClient) {
         }
 
         const signatureId = createId('sig');
-        const signedAt = input.signed_at ?? now;
+        // Local signing is always device-now. Never trust a caller-supplied
+        // timestamp: it would allow backdating and would reorder the hash chain
+        // (getLatestChainHash orders by signed_at; see verifyFullChain).
+        const signedAt = now;
         const entryHash = await hashEntry(entry);
         const previousChainHash = await getLatestChainHash();
         const chainHash = await hashSignatureChain({
@@ -870,7 +911,10 @@ export function createLogbookService(db: DbClient) {
         }
 
         const signatureId = createId('sig');
-        const signedAt = input.signed_at ?? now;
+        // The hosted edge function stamps signed_at server-side; the local
+        // verify path passes none (-> now). Clamp to [request created, now]
+        // (+skew) so a corrupt/hostile payload can't backdate the attestation.
+        const signedAt = clampSigningTime(input.signed_at, request.created_at, now);
         const previousChainHash = await getLatestChainHash();
         const chainHash = await hashSignatureChain({
           entryHash: request.entry_hash,
@@ -1224,6 +1268,77 @@ export function createLogbookService(db: DbClient) {
 
       const profile = await db.get<LogbookExportBundle['profile']>('SELECT * FROM profiles LIMIT 1');
       return buildEntryExportPacket({ profile, detail });
+    },
+
+    async verifyFullChain(): Promise<{ valid: boolean; brokenAtEntryId?: string }> {
+      const entries = await db.getAll<LogbookEntry>(
+        "SELECT * FROM entries WHERE status IN ('signed', 'amended')"
+      );
+      if (!entries.length) return { valid: true };
+
+      const signatures = await db.getAll<EntrySignature>(
+        'SELECT * FROM signatures WHERE chain_hash IS NOT NULL'
+      );
+      const signatureByEntryId = new Map(signatures.map((s) => [s.entry_id, s]));
+
+      // 1. Every signed/amended entry must have a signature whose entry hash and
+      //    chain hash still recompute. `verifyChainHashFor` is ASYNC — it MUST be
+      //    awaited; a bare Promise is always truthy and would silently pass every
+      //    entry (this was the original tamper-detection bypass).
+      for (const entry of entries) {
+        const signature = signatureByEntryId.get(entry.id);
+        if (!signature) return { valid: false, brokenAtEntryId: entry.id };
+        const ok = await verifyChainHashFor({ entry, signature });
+        if (!ok) return { valid: false, brokenAtEntryId: entry.id };
+      }
+
+      // 2. The signatures must link into exactly one unbroken chain. We rebuild
+      //    it by following `previous_chain_hash -> chain_hash` links rather than
+      //    by any timestamp ordering: the chain is appended in SIGNING order
+      //    (`getLatestChainHash` = latest by signed_at), which need not match the
+      //    draft-creation order entries are stored in. Walking by linkage is
+      //    order-independent, so signing drafts out of the order they were
+      //    created can no longer produce a false "tampered" verdict.
+      // Index each signature by its predecessor hash. The genesis signature
+      // (no predecessor) is tracked separately so we never need a sentinel
+      // string that could collide with a real chain hash.
+      let genesis: EntrySignature | null = null;
+      const byPrevHash = new Map<string, EntrySignature>();
+      for (const signature of signatures) {
+        if (signature.previous_chain_hash === null) {
+          if (genesis) {
+            // Two signatures with no predecessor — a fork, not one chain.
+            return { valid: false, brokenAtEntryId: signature.entry_id };
+          }
+          genesis = signature;
+          continue;
+        }
+        if (byPrevHash.has(signature.previous_chain_hash)) {
+          // Two signatures claim the same predecessor — a fork, not a chain.
+          return { valid: false, brokenAtEntryId: signature.entry_id };
+        }
+        byPrevHash.set(signature.previous_chain_hash, signature);
+      }
+
+      if (!genesis) return { valid: false, brokenAtEntryId: entries[0].id };
+
+      const visited = new Set<string>();
+      let current: EntrySignature | null = genesis;
+      while (current) {
+        if (visited.has(current.id)) {
+          return { valid: false, brokenAtEntryId: current.entry_id }; // cycle
+        }
+        visited.add(current.id);
+        current = (current.chain_hash && byPrevHash.get(current.chain_hash)) || null;
+      }
+
+      // Any signature unreachable from genesis is an orphaned/broken link.
+      if (visited.size !== signatures.length) {
+        const orphan = signatures.find((s) => !visited.has(s.id));
+        return { valid: false, brokenAtEntryId: orphan?.entry_id };
+      }
+
+      return { valid: true };
     },
   };
 }

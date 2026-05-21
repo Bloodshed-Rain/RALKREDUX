@@ -299,3 +299,11 @@ export function useEntryChainValid(
     },
   });
 }
+
+export function useVerifyFullChain() {
+  return useQuery({
+    queryKey: ['verifyFullChain'],
+    queryFn: () => createLogbookService(getClient()).verifyFullChain(),
+    staleTime: Infinity, // Only run once per mount/invalidate
+  });
+}

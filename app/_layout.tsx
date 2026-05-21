@@ -1,5 +1,9 @@
 import { Stack } from 'expo-router';
 import { AppProviders } from '@/src/providers/app-providers';
+import { AuthProvider } from '@/src/providers/auth-provider';
+import { AuthGate } from '@/src/providers/auth-gate';
+import { AppLock } from '@/src/providers/app-lock';
+import { TamperGuard } from '@/src/providers/tamper-guard';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function ThemedStack() {
@@ -58,7 +62,15 @@ function ThemedStack() {
 export default function RootLayout() {
   return (
     <AppProviders>
-      <ThemedStack />
+      <AuthProvider>
+        <AuthGate>
+          <AppLock>
+            <TamperGuard>
+              <ThemedStack />
+            </TamperGuard>
+          </AppLock>
+        </AuthGate>
+      </AuthProvider>
     </AppProviders>
   );
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { router, useLocalSearchParams } from 'expo-router';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import {
   useSupervisorContacts,
 } from '@/src/domain/logbook/use-logbook';
 import type { CertLevel, CertScheme, SignerScheme } from '@/src/domain/profile/types';
+import { PrefKeys, readPref } from '@/src/storage/local-prefs';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -164,8 +166,25 @@ export default function LocalSignScreen() {
     signatureReady &&
     attestationAccepted;
 
-  function submit() {
+  async function submit() {
     if (!canSign || !entryId) return;
+    // Optional biometric/passcode confirmation just before sealing into the
+    // chain (Security → "Biometric prompt before signing"). If no auth method
+    // is enrolled we can't prompt, so we proceed — the app-open lock is the
+    // primary guard and signing must never be permanently blockable.
+    if (await readPref<boolean>(PrefKeys.biometricForSigning, false)) {
+      const level = await LocalAuthentication.getEnrolledLevelAsync();
+      if (level !== LocalAuthentication.SecurityLevel.NONE) {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Confirm to sign',
+          disableDeviceFallback: false,
+        });
+        if (!result.success) {
+          haptics.error();
+          return;
+        }
+      }
+    }
     signEntry.mutate(
       {
         entry_id: entryId,

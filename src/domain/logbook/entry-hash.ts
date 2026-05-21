@@ -42,7 +42,7 @@ export function canonicalizeEntry(entry: LogbookEntry, version: number = ENTRY_H
       sprat_level_snapshot: entry.sprat_level_snapshot,
       structure_type: entry.structure_type,
       work_task: entry.work_task,
-      work_hours: Number(entry.work_hours.toFixed(2)),
+      work_hours: Number((entry.work_hours ?? 0).toFixed(2)),
     },
     schema: 'ralb.logbook.entry',
     version,

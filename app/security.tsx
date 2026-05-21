@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, type TextStyle } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
@@ -12,7 +12,7 @@ import {
   ToggleRow,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { IconArrowLeft, IconLock, IconWarn } from '@/src/ui/icons';
+import { IconArrowLeft } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 import {
   AUTO_LOCK_OPTIONS,
@@ -67,10 +67,6 @@ export default function SecurityScreen() {
     setDeviceLockEnabled(next);
     haptics.selection();
     writePref(PrefKeys.deviceLockEnabled, next);
-    if (!next) {
-      // If device lock is off, biometric-for-signing has no enforcement path
-      // either — keep the toggle independent but make clear it's a separate guard.
-    }
   }
 
   function persistAutoLock(next: AutoLockMinutesPref) {
@@ -99,10 +95,6 @@ export default function SecurityScreen() {
         contentContainerStyle={{ paddingBottom: 28 + insets.bottom, gap: 12 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
-          <PendingBuildBanner />
-        </View>
-
         <SectionH kicker="DEVICE" title="Lock the app" />
         <View style={{ paddingHorizontal: 20, gap: 8 }}>
           <ToggleRow
@@ -151,49 +143,6 @@ export default function SecurityScreen() {
           </Card>
         </View>
       </ScrollView>
-    </View>
-  );
-}
-
-function PendingBuildBanner() {
-  const { tokens } = useTheme();
-  const containerStyle = {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    gap: 10,
-    padding: 12,
-    backgroundColor: tokens.warnSoft,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: tokens.warn,
-  };
-  const headerStyle: TextStyle = {
-    fontFamily: 'Manrope_600SemiBold',
-    fontWeight: '600',
-    fontSize: 13,
-    lineHeight: 16,
-    color: tokens.text,
-    letterSpacing: -0.1,
-  };
-  const bodyStyle: TextStyle = {
-    ...type.cardSub,
-    color: tokens.textDim,
-    marginTop: 2,
-    lineHeight: 18,
-  };
-  return (
-    <View style={containerStyle}>
-      <View style={{ marginTop: 2 }}>
-        <IconWarn size={18} color={tokens.warn} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={headerStyle}>Toggles persist, enforcement is pending</Text>
-        <Text style={bodyStyle}>
-          Saving the prefs works now. The actual biometric prompt needs a dev-client rebuild
-          to include the native authentication module — these toggles will activate
-          automatically once the next build lands.
-        </Text>
-      </View>
     </View>
   );
 }

@@ -21,7 +21,21 @@ describe('database migrations', () => {
       { id: 11, name: 'gear-catalog-image-url' },
       { id: 12, name: 'site-signer-role-employer' },
       { id: 13, name: 'performance-indexes' },
+      { id: 14, name: 'timezone-anchoring-and-photos' },
     ]);
+  });
+
+  it('adds timezone anchoring and the entry photos table (migration 14)', async () => {
+    const db = await createTestClient();
+    const entryColumns = await db.getAll<{ name: string }>('PRAGMA table_info(entries)');
+    expect(entryColumns.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['timezone_offset']),
+    );
+
+    const photoColumns = await db.getAll<{ name: string }>('PRAGMA table_info(entry_photos)');
+    expect(photoColumns.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['id', 'entry_id', 'file_uri', 'created_at']),
+    );
   });
 
   it('adds site-signer scheme/role/employer fields to signatures', async () => {
@@ -73,6 +87,7 @@ describe('database migrations', () => {
         'gear_catalog',
         'entry_gear_usage',
         'entry_attachments',
+        'entry_photos',
         'entry_templates',
         'supervisors',
         'cloud_state',

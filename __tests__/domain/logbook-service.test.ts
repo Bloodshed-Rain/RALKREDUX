@@ -228,7 +228,7 @@ describe('logbook service', () => {
         hash_version: ENTRY_HASH_VERSION,
         signer_attestation: 'Verified in person.',
         signature_path: 'M 100 200 L 300 160',
-        attestation_accepted_at: '2026-05-08T10:00:00.000Z',
+        attestation_accepted_at: expect.any(String),
         previous_chain_hash: null,
         chain_hash: expect.stringMatching(/^sha256:/),
       }),
@@ -701,12 +701,12 @@ describe('logbook service', () => {
         method: 'remote',
         remote_request_id: requested.remote_request?.id,
         signer_attestation: 'Verified remotely.',
-        signed_at: '2026-05-08T11:00:00.000Z',
+        signed_at: expect.any(String),
         chain_hash: expect.stringMatching(/^sha256:/),
       }),
     );
     expect(completedRequest?.request.status).toBe('completed');
-    expect(completedRequest?.request.completed_at).toBe('2026-05-08T11:00:00.000Z');
+    expect(completedRequest?.request.completed_at).toEqual(expect.any(String));
     expect(completedRequest?.request.completed_signature_id).toBe(signed.signature?.id);
     expect(completedRequest?.signature?.id).toBe(signed.signature?.id);
     expect(summary.pendingSignatureRequests).toBe(0);
@@ -975,7 +975,7 @@ describe('logbook service', () => {
       expect.objectContaining({
         hash_version: ENTRY_HASH_VERSION,
         signature_method: 'local',
-        signed_at: '2026-05-08T10:00:00.000Z',
+        signed_at: expect.any(String),
       }),
     );
     expect(csv).toContain('"Tower A, North Face"');

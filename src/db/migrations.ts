@@ -548,6 +548,32 @@ const migrations: Migration[] = [
       );
     },
   },
+  {
+    id: 14,
+    name: 'timezone-anchoring-and-photos',
+    async up(db) {
+      // 1. Timezone anchoring: Store the UTC offset (in minutes) at the time
+      // the entry was created to prevent day-shifting when crossing timezones.
+      const entryColumns = await db.getAll<{ name: string }>('PRAGMA table_info(entries)');
+      const names = new Set(entryColumns.map((column) => column.name));
+
+      if (!names.has('timezone_offset')) {
+        await db.exec('ALTER TABLE entries ADD COLUMN timezone_offset INTEGER;');
+      }
+
+      // 2. Photo storage: Store lightweight URIs pointing to expo-file-system
+      // rather than blowing up SQLite with base64 blobs.
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS entry_photos (
+          id TEXT PRIMARY KEY,
+          entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+          file_uri TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+      `);
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_entry_photos_entry_id ON entry_photos(entry_id);');
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the

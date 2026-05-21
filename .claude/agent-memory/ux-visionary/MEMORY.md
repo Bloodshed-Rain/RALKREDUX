@@ -1,6 +1,7 @@
 - [Project: Tidewater redesign phase](project_tidewater_redesign.md) — RALB is in Phase B redesigning to a doc-system UI; primitives landed, Today screen first
 - [Project: 2026-05 full-app audit punch list](project_audit_punch_list_2026_05.md) — first post-redesign audit; P0s 1+2 fixed by 2026-05-17, P0s 3+4 still present
 - [Project: 2026-05-17 re-audit](project_audit_2026_05_17.md) — IconBtn sm=28px cross-cuts every TopBar; Retire-gear dead button; QuickLog chips don't preload; sealing 3s setTimeout
+- [Project: 2026-05-20 audit](project_audit_2026_05_20.md) — most prior P0s fixed; NEW uncommitted AppLock unmounts forms on background + TamperGuard RSOD has no escape
 - [Feedback: don't dismiss safety advisories with one tap](feedback_advisory_dismiss.md) — destructive-risk pattern; long-press acknowledge + audit trail preferred
 - [Feedback: every irreversible write needs Alert.alert confirmation](feedback_destructive_confirmation_audit.md) — banners are signage, not confirmations; gear-fail audit gap
 - [Feedback: Cancel after a commit must never silently leave a draft](feedback_cancel_after_commit.md) — wizard Step 1 auto-commits; Cancel UX must branch on commit state

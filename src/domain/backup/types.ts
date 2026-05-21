@@ -2,6 +2,7 @@ import { GearInspection, GearItem } from '../gear/types';
 import {
   EntryAttachment,
   EntryGearUsage,
+  EntryPhoto,
   EntrySignature,
   EntryTemplate,
   LogbookEntry,
@@ -29,6 +30,7 @@ export interface BackupSnapshot {
     gear_inspections: GearInspection[];
     entry_gear_usage: EntryGearUsage[];
     entry_attachments: EntryAttachment[];
+    entry_photos: EntryPhoto[];
     entry_templates: EntryTemplate[];
   };
 }

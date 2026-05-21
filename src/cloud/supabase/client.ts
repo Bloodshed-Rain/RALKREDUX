@@ -33,11 +33,6 @@ export function getSupabaseClient(): SupabaseClient | null {
 export async function ensureSupabaseSession(): Promise<Session | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
-
-  const { data: existing } = await supabase.auth.getSession();
-  if (existing.session) return existing.session;
-
-  const { data, error } = await supabase.auth.signInAnonymously();
-  if (error) return null;
-  return data.session;
+  const { data } = await supabase.auth.getSession();
+  return data.session ?? null;
 }

@@ -1,8 +1,22 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-18 (site-signer three-scheme model rolls back the SPRAT-required overcorrection)
+Last updated: 2026-05-20 (real auth hard-gate + audit bug-fix pass)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
+
+## READ THIS FIRST — real auth replaces anonymous, hard gate, 2026-05-20
+
+Google / Apple / email-OTP sign-in now **hard-gates** the app (`AuthGate` in `app/_layout.tsx`, between `AuthProvider` and `AppLock`). Anonymous Supabase auth is GONE.
+
+- **Offline invariant:** only the first sign-in needs connectivity. `AuthProvider` (`src/providers/auth-provider.tsx`) resolves the persisted session; because Supabase `getSession()` returns `null` when it can't refresh an expired token offline, it falls back to a persisted `authedBefore` flag (`local-prefs`) so a known user stays in offline. Only a definitive `SIGNED_OUT` event (explicit sign-out / server-confirmed invalid token) clears it.
+- **Unconfigured = no gate.** If `EXPO_PUBLIC_SUPABASE_*` is unset, `AuthGate` falls through to local-only (preserves dev / web preview / offline-first).
+- **Native SDKs:** `expo-apple-authentication` + `@react-native-google-signin/google-signin` (v16). Requires an **EAS dev-client rebuild** — Expo Go won't work. Apple button is iOS-only.
+- **Code map:** `src/cloud/supabase/auth.ts` (sign-in fns, Apple nonce, Google idToken, OTP), `src/cloud/supabase/client.ts` (anon removed), `src/providers/auth-provider.tsx` + `auth-gate.tsx`, `src/ui/auth/auth-screen.tsx`, `app/account.tsx` (sign-out), More tab → Account row.
+- **Backend unchanged:** RLS + Edge Functions were already `authenticated`-scoped (`auth.uid() = owner_id`); real sessions satisfy them. Hosted remote-signing now runs as the real user.
+- **OWED before it works:** Google Cloud OAuth client IDs, Apple Service ID/key, Supabase dashboard provider config, SMTP for OTP email, and the `EXPO_PUBLIC_GOOGLE_*` env vars. Full checklist: `docs/auth-setup.md`. Validated at typecheck + 152/152 jest only — NOT runtime-tested (needs the rebuild + credentials).
+- Preview-stage: anonymous rows are NOT migrated/linked to new accounts.
+
+Also this session: a full code audit (`docs/codex-audit-2026-05-20.md`) plus a bug-fix pass that fixed the tamper-verification logic (missing `await` + chain-order), backup photo data-loss, CSV injection, two Fabric crash sites, wired up AppLock enforcement, and added a TamperGuard escape hatch. See the audit's "Resolution log".
 
 ## READ THIS FIRST — site signers ('site' scheme), 2026-05-18
 

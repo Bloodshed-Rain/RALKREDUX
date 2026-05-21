@@ -51,7 +51,12 @@ function nowIso(): string {
 }
 
 function csvCell(value: string | number | null | undefined): string {
-  const raw = value === null || value === undefined ? '' : String(value);
+  let raw = value === null || value === undefined ? '' : String(value);
+  // Neutralize spreadsheet formula injection (CSV injection): a cell beginning
+  // with = + - @ or a control char is evaluated as a formula by Excel/Sheets.
+  // Prefix a single quote so it's treated as literal text. Audit fields like
+  // site/client/task/names are user-controlled and flow straight into the CSV.
+  if (/^[=+\-@\t\r]/.test(raw)) raw = `'${raw}`;
   if (!/[",\r\n]/.test(raw)) return raw;
   return `"${raw.replace(/"/g, '""')}"`;
 }

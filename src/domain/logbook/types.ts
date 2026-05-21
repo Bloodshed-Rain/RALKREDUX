@@ -39,6 +39,7 @@ export interface LogbookEntry {
   // pre-v3 rows keep their meaning. `rescue_cover` and `hazards` are nullable.
   // `hazards` is stored as a canonical (sorted, JSON-stringified) string —
   // consumers parse it with `parseHazards` for array access.
+  timezone_offset: number | null;
   entry_kind: EntryKind;
   rescue_cover: string | null;
   hazards: string | null;
@@ -159,7 +160,6 @@ export interface SignEntryInput {
   signature_path: string;
   attestation_accepted: boolean;
   signer_attestation?: string | null;
-  signed_at?: string;
 }
 
 export interface RemoteSignatureRequest {
@@ -278,6 +278,15 @@ export interface EntryAttachment {
   uri: string;
   mime_type: string | null;
   notes: string | null;
+  created_at: string;
+}
+
+// A photo attached to an entry. The bytes live on disk (expo-file-system);
+// only the URI is stored in SQLite. Added in migration 14 (`entry_photos`).
+export interface EntryPhoto {
+  id: string;
+  entry_id: string;
+  file_uri: string;
   created_at: string;
 }
 

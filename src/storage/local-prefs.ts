@@ -19,6 +19,12 @@ export const PrefKeys = {
   deviceLockEnabled: 'device-lock-enabled',
   autoLockMinutes: 'auto-lock-minutes',
   biometricForSigning: 'biometric-for-signing',
+  // Set true on a successful sign-in, cleared on a definitive sign-out. Lets the
+  // auth gate keep a known user in OFFLINE even after the access token expires
+  // (Supabase getSession() returns null when it can't refresh offline).
+  authedBefore: 'authed-before',
+  // Last email used for OTP sign-in, to prefill the field next time.
+  lastAuthEmail: 'last-auth-email',
 } as const;
 
 export type PrefKey = (typeof PrefKeys)[keyof typeof PrefKeys];

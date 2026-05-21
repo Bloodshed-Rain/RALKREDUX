@@ -13,11 +13,11 @@ export default (): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ropeaccess.logbook',
+    usesAppleSignIn: true,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription: 'Attach work and certification photos to your logbook.',
       NSPhotoLibraryUsageDescription: 'Choose photos for logbook entries and certifications.',
-      NSLocationWhenInUseUsageDescription: 'Optionally stamp a work entry with job-site location.',
     },
   },
   android: {
@@ -37,7 +37,21 @@ export default (): ExpoConfig => ({
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-router', 'expo-sqlite'],
+  plugins: [
+    'expo-router',
+    'expo-sqlite',
+    'expo-apple-authentication',
+    [
+      '@react-native-google-signin/google-signin',
+      {
+        // Reversed iOS OAuth client ID. Set EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME
+        // before an iOS build; the placeholder only keeps config valid in dev.
+        iosUrlScheme:
+          process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME?.trim() ||
+          'com.googleusercontent.apps.PLACEHOLDER',
+      },
+    ],
+  ],
   extra: {
     appFlavor: 'codex-edition',
     eas: {

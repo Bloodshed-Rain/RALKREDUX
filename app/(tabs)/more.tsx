@@ -28,6 +28,7 @@ import {
   IconChevron,
   IconExport,
   IconLock,
+  IconProfile,
   IconSync,
   IconVerified,
   IconWarn,
@@ -246,6 +247,12 @@ export default function ProfileScreen() {
               amendedCount={summary.data?.amendedEntries ?? 0}
             />
           ) : null}
+          <SettingsRow
+            icon={IconProfile}
+            title="Account"
+            sub="Sign-in, subscription, and sign out"
+            onPress={() => router.push('/account' as never)}
+          />
           <SettingsRow
             icon={IconLock}
             title="Security"

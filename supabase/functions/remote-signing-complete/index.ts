@@ -32,13 +32,6 @@ function optionalString(value: unknown, label: string): string | null {
   return trimmed || null;
 }
 
-function validIsoDate(value: string, label: string): string {
-  if (Number.isNaN(new Date(value).getTime())) {
-    throw new Error(`${label}_invalid`);
-  }
-  return value;
-}
-
 async function hashIp(value: string | null): Promise<string | null> {
   if (!value) return null;
   const digest = await crypto.subtle.digest(
@@ -87,19 +80,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "remote_request_not_pending" }, 409);
     }
 
+    // The hosted verifier signs in real time, so the completion moment IS the
+    // signing moment. Stamp both timestamps server-side; never trust a
+    // client-supplied signed_at (it would let the attestation be backdated).
     const completedAt = new Date().toISOString();
-    const signedAt = validIsoDate(
-      optionalString(signature.signed_at, "signed_at") ?? completedAt,
-      "signed_at",
-    );
-    const attestationAcceptedAt = validIsoDate(
-      optionalString(
-        signature.attestation_accepted_at,
-        "attestation_accepted_at",
-      ) ??
-        signedAt,
-      "attestation_accepted_at",
-    );
+    const signedAt = completedAt;
+    const attestationAcceptedAt = completedAt;
 
     const supervisorScheme = requiredString(
       signature.supervisor_scheme,

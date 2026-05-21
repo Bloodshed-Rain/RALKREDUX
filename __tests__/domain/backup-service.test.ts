@@ -97,4 +97,37 @@ describe('backup service', () => {
     expect(restoredDetail?.attachments[0].label).toBe('Anchor photo');
     expect(cloudState?.last_restore_at).toEqual(expect.any(String));
   });
+
+  it('round-trips entry photos so restore does not drop them', async () => {
+    const sourceDb = await createTestClient();
+    const logbookService = createLogbookService(sourceDb);
+    const entry = await logbookService.createDraft({
+      employer: 'Northwind Rope',
+      site: 'Tower A',
+      client: 'City Works',
+      description: 'Inspected anchors.',
+      work_hours: 8,
+      work_task: 'Inspection',
+      access_method: 'Two-rope access',
+      structure_type: 'Tower',
+      max_height: 120,
+      height_unit: 'ft',
+      sprat_level_snapshot: 'III',
+    });
+    await sourceDb.run(
+      'INSERT INTO entry_photos (id, entry_id, file_uri, created_at) VALUES (?, ?, ?, ?)',
+      ['photo_1', entry.id, 'file:///photos/anchor.jpg', '2026-05-08T10:00:00.000Z'],
+    );
+
+    const snapshot = await createBackupService(sourceDb).createSnapshot();
+    expect(snapshot.data.entry_photos).toHaveLength(1);
+
+    const targetDb = await createTestClient();
+    await createBackupService(targetDb).restoreSnapshot(snapshot);
+
+    const restoredPhotos = await targetDb.getAll<{ id: string; file_uri: string }>(
+      'SELECT id, file_uri FROM entry_photos',
+    );
+    expect(restoredPhotos).toEqual([{ id: 'photo_1', file_uri: 'file:///photos/anchor.jpg' }]);
+  });
 });

@@ -2,6 +2,7 @@ import { DbClient } from '@/src/db/client';
 import { BackupSnapshot, RestoreBackupResult } from './types';
 
 const RESTORE_CLEAR_ORDER = [
+  'entry_photos',
   'entry_attachments',
   'entry_gear_usage',
   'gear_inspections',
@@ -25,6 +26,7 @@ const RESTORE_INSERT_ORDER = [
   'gear_inspections',
   'entry_gear_usage',
   'entry_attachments',
+  'entry_photos',
 ] as const;
 
 type SnapshotTable = keyof BackupSnapshot['data'];
@@ -81,6 +83,7 @@ export function createBackupService(db: DbClient) {
           gear_inspections: await getAll(db, 'gear_inspections'),
           entry_gear_usage: await getAll(db, 'entry_gear_usage'),
           entry_attachments: await getAll(db, 'entry_attachments'),
+          entry_photos: await getAll(db, 'entry_photos'),
           entry_templates: await getAll(db, 'entry_templates'),
         },
       };
@@ -88,6 +91,20 @@ export function createBackupService(db: DbClient) {
 
     async restoreSnapshot(snapshot: BackupSnapshot): Promise<RestoreBackupResult> {
       assertSnapshot(snapshot);
+
+      // Refuse a snapshot taken on a NEWER schema than this build understands —
+      // otherwise the INSERTs below fail with opaque "no such column" errors.
+      // Older snapshots restore fine: additive migrations default new columns.
+      const snapshotMaxMigration = snapshot.schema_migrations.reduce(
+        (max, row) => Math.max(max, row.id),
+        0,
+      );
+      const appliedRows = await db.getAll<{ id: number }>('SELECT id FROM schema_migrations');
+      const currentMaxMigration = appliedRows.reduce((max, row) => Math.max(max, row.id), 0);
+      if (snapshotMaxMigration > currentMaxMigration) {
+        throw new Error('backup_snapshot_newer_version');
+      }
+
       const restoredAt = nowIso();
 
       await db.exec('BEGIN');

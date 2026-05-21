@@ -281,16 +281,18 @@ function PullIndicator({
           />
         </Svg>
         <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: 28,
-            height: 28,
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: active ? [{ rotate }] : undefined,
-          }}
+          style={[
+            {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 28,
+              height: 28,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            active ? { transform: [{ rotate }] } : null,
+          ]}
         >
           <IconChain size={17} color={accent} fill={accent} />
         </Animated.View>

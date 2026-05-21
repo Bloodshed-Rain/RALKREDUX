@@ -119,6 +119,28 @@ describe('logbook export builders', () => {
     ]);
   });
 
+  it('neutralizes spreadsheet formula injection in CSV cells', () => {
+    const bundle = buildLogbookExportBundle({
+      profile,
+      exportedAt: '2026-05-08T12:00:00.000Z',
+      entries: [
+        {
+          entry: { ...entry, client: '=HYPERLINK("http://evil","x")', employer: '@SUM(A1)' },
+          signature,
+          gear_usage: [],
+          attachments: [],
+        },
+      ],
+    });
+
+    const dataRow = buildLogbookCsv(bundle).split('\n')[1];
+    // A leading = / @ (etc.) is prefixed with a single quote so Excel/Sheets
+    // treat the cell as text instead of evaluating it as a formula. The
+    // HYPERLINK cell also contains commas/quotes, so it stays quote-wrapped.
+    expect(dataRow).toContain(`"'=HYPERLINK`);
+    expect(dataRow).toContain(`'@SUM(A1)`);
+  });
+
   it('builds printable HTML and deterministic PDF filenames', () => {
     const packet = buildEntryExportPacket({
       profile,
