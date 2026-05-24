@@ -7,7 +7,12 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "665912221058-upf53dpmt1e339egkg8c2f0rep05n5qm.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "665912221058-aku17470luv2t4d72scv12293hb3950a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.665912221058-aku17470luv2t4d72scv12293hb3950a"
+      }
     },
     "preview": {
       "distribution": "internal",
