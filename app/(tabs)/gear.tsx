@@ -28,6 +28,7 @@ import {
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
+import { DateField } from '@/src/ui/primitives/v2/date-field';
 import { GEAR_ICON, IconChevron, IconPlus, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
@@ -256,12 +257,11 @@ export default function GearScreen() {
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Field
+                        <DateField
                           label="Next inspection"
-                          value={newNextDue}
-                          onChangeText={setNewNextDue}
-                          placeholder="YYYY-MM-DD"
-                          autoCapitalize="none"
+                          value={newNextDue || null}
+                          onChange={(iso) => setNewNextDue(iso ?? '')}
+                          clearable
                         />
                       </View>
                     </View>
