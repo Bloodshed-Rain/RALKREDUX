@@ -14,6 +14,7 @@ export interface DateFieldProps {
   minDate?: string | null;
   maxDate?: string | null;
   clearable?: boolean;
+  disabled?: boolean;
   title?: string; // sheet title; defaults to label
 }
 
@@ -26,6 +27,7 @@ export function DateField({
   minDate,
   maxDate,
   clearable = false,
+  disabled = false,
   title,
 }: DateFieldProps) {
   const { theme, tokens } = useTheme();
@@ -77,10 +79,12 @@ export function DateField({
     <View style={{ gap: 6 }}>
       {label ? <Text style={labelStyle}>{label}</Text> : null}
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={() => { if (!disabled) setOpen(true); }}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={`${label ?? title ?? 'Date'}: ${display ?? 'not set'}`}
-        style={({ pressed }) => [rowStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
+        accessibilityState={{ disabled }}
+        style={({ pressed }) => [rowStyle, pressed && !disabled ? { transform: [{ scale: 0.99 }] } : null]}
       >
         <Text style={valueStyle}>{display ?? placeholder}</Text>
         <IconCalendar size={18} color={tokens.textDim} />
