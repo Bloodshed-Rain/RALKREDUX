@@ -51,3 +51,36 @@ export function daysFromTodayIso(value: string | null | undefined, now = new Dat
   const msPerDay = 86_400_000;
   return Math.round((target.getTime() - today.getTime()) / msPerDay);
 }
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Serializes a Date to YYYY-MM-DD using LOCAL calendar parts — the day the user
+// sees on the calendar. NEVER use toISOString(): it shifts across the UTC
+// boundary and would freeze the wrong day into a signed entry.
+export function calendarDateToIso(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Parses YYYY-MM-DD into a LOCAL-midnight Date (so the calendar highlights the
+// intended day regardless of timezone). Returns null for missing/invalid input.
+export function isoToLocalDate(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const match = ISO_DATE_PATTERN.exec(iso);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+// Friendly display for a stored ISO date, e.g. '24 May 2026'. Parses the string
+// parts directly (no Date) so there is no timezone drift. Echoes unexpected
+// input unchanged rather than throwing.
+export function formatIsoForDisplay(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const match = ISO_DATE_PATTERN.exec(iso);
+  if (!match) return iso;
+  const monthIdx = Number(match[2]) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return iso;
+  return `${Number(match[3])} ${MONTHS_SHORT[monthIdx]} ${match[1]}`;
+}
