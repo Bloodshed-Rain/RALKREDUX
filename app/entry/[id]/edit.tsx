@@ -28,6 +28,7 @@ import {
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
+import { DateField } from '@/src/ui/primitives/v2/date-field';
 import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
 
 const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
@@ -315,21 +316,19 @@ export default function EditDraftScreen() {
         <View style={{ paddingHorizontal: 20, gap: 12 }}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Field
+              <DateField
                 label="From"
-                value={dateFrom}
-                onChangeText={setDateFrom}
-                placeholder="YYYY-MM-DD"
-                autoCapitalize="none"
+                value={dateFrom || null}
+                onChange={(iso) => setDateFrom(iso ?? '')}
+                maxDate={dateTo || null}
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Field
+              <DateField
                 label="To"
-                value={dateTo}
-                onChangeText={setDateTo}
-                placeholder="YYYY-MM-DD"
-                autoCapitalize="none"
+                value={dateTo || null}
+                onChange={(iso) => setDateTo(iso ?? '')}
+                minDate={dateFrom || null}
               />
             </View>
           </View>
