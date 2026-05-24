@@ -49,6 +49,7 @@ import {
   PhotoStrip,
   type PhotoStripItem,
 } from '@/src/ui/primitives/v2';
+import { DateField } from '@/src/ui/primitives/v2/date-field';
 import { GEAR_ICON, IconClose, IconSign, IconWarn } from '@/src/ui/icons';
 import {
   DEFAULT_TERMINAL_ACTION,
@@ -593,21 +594,19 @@ function StepWhere({
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
-          <Field
+          <DateField
             label="Date from"
-            value={draft.dateFrom}
-            onChangeText={(v) => update({ dateFrom: v, dateTo: draft.dateTo || v })}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
+            value={draft.dateFrom || null}
+            onChange={(iso) => update({ dateFrom: iso ?? '', dateTo: draft.dateTo || iso || '' })}
+            maxDate={draft.dateTo || null}
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Field
+          <DateField
             label="Date to"
-            value={draft.dateTo}
-            onChangeText={(v) => update({ dateTo: v })}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
+            value={draft.dateTo || null}
+            onChange={(iso) => update({ dateTo: iso ?? '' })}
+            minDate={draft.dateFrom || null}
             helper={isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom) ? undefined : 'Invalid range'}
           />
         </View>
