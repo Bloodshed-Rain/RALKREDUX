@@ -13,18 +13,29 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { EntryKind, HeightUnit } from '@/src/domain/logbook/types';
 import { parseHazards } from '@/src/domain/logbook/types';
-import { HAZARD_PRESETS } from '@/src/domain/logbook/hazards';
-import { useEntryDetail, useUpdateDraftEntry } from '@/src/domain/logbook/use-logbook';
+import {
+  WORK_TASK_PRESETS,
+  ACCESS_METHOD_PRESETS,
+  STRUCTURE_PRESETS,
+  HAZARD_PRESETS,
+} from '@/src/domain/logbook/classification';
+import {
+  useEntryDetail,
+  useRecentClassificationValues,
+  useRecentHazardValues,
+  useUpdateDraftEntry,
+} from '@/src/domain/logbook/use-logbook';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
   Button,
   Card,
   ChipSelect,
+  ClassificationChips,
   DateField,
   Field,
   IconBtn,
-  MultiChipSelect,
+  MultiClassificationChips,
   Pill,
   SectionH,
   TopBar,
@@ -43,26 +54,6 @@ function firstParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const TASK_OPTIONS = [
-  { value: 'Inspection', label: 'Inspection' },
-  { value: 'Maintenance', label: 'Maintenance' },
-  { value: 'Rescue standby', label: 'Rescue' },
-  { value: 'Training', label: 'Training' },
-];
-
-const ACCESS_OPTIONS = [
-  { value: 'Two-rope access', label: 'Two-rope' },
-  { value: 'Aid climb', label: 'Aid climb' },
-  { value: 'Rescue cover', label: 'Rescue cover' },
-  { value: 'Fall restraint', label: 'Restraint' },
-];
-
-const STRUCTURE_OPTIONS = [
-  { value: 'Bridge', label: 'Bridge' },
-  { value: 'Tower', label: 'Tower' },
-  { value: 'Wind turbine', label: 'Turbine' },
-  { value: 'Facade', label: 'Facade' },
-];
 
 function missingFields(input: {
   dateFrom: string;
@@ -97,6 +88,10 @@ export default function EditDraftScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = firstParam(id);
   const detail = useEntryDetail(entryId);
+  const recentWorkTask = useRecentClassificationValues('work_task');
+  const recentStructure = useRecentClassificationValues('structure_type');
+  const recentAccess = useRecentClassificationValues('access_method');
+  const recentHazards = useRecentHazardValues();
   const updateDraft = useUpdateDraftEntry();
 
   const [loadedId, setLoadedId] = React.useState<string | null>(null);
@@ -289,19 +284,23 @@ export default function EditDraftScreen() {
           <Field label="Site" value={site} onChangeText={setSite} placeholder="Tower / plant / bridge" />
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>TASK</Text>
-            <ChipSelect value={workTask} options={TASK_OPTIONS} onChange={setWorkTask} />
-            <View style={{ marginTop: 8 }}>
-              <Field
-                label="Or write your own"
-                value={workTask}
-                onChangeText={setWorkTask}
-                placeholder="Inspection / maintenance / rescue cover"
-              />
-            </View>
+            <ClassificationChips
+              label="Work task"
+              value={workTask}
+              onChange={setWorkTask}
+              presets={WORK_TASK_PRESETS}
+              recents={recentWorkTask.data ?? []}
+            />
           </View>
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>ACCESS</Text>
-            <ChipSelect value={accessMethod} options={ACCESS_OPTIONS} onChange={setAccessMethod} />
+            <ClassificationChips
+              label="Access method"
+              value={accessMethod}
+              onChange={setAccessMethod}
+              presets={ACCESS_METHOD_PRESETS}
+              recents={recentAccess.data ?? []}
+            />
           </View>
           <Field
             label="Rope access hours"
@@ -352,15 +351,13 @@ export default function EditDraftScreen() {
         <View style={{ paddingHorizontal: 20, gap: 12 }}>
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>STRUCTURE</Text>
-            <ChipSelect value={structureType} options={STRUCTURE_OPTIONS} onChange={setStructureType} />
-            <View style={{ marginTop: 8 }}>
-              <Field
-                label="Or write your own"
-                value={structureType}
-                onChangeText={setStructureType}
-                placeholder="Bridge / tower / wind turbine"
-              />
-            </View>
+            <ClassificationChips
+              label="Structure"
+              value={structureType}
+              onChange={setStructureType}
+              presets={STRUCTURE_PRESETS}
+              recents={recentStructure.data ?? []}
+            />
           </View>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-end' }}>
             <View style={{ flex: 2 }}>
@@ -408,10 +405,12 @@ export default function EditDraftScreen() {
           />
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>HAZARDS</Text>
-            <MultiChipSelect
+            <MultiClassificationChips
+              label="Hazards"
               values={hazards}
-              options={[...HAZARD_PRESETS]}
               onChange={setHazards}
+              presets={HAZARD_PRESETS}
+              recents={recentHazards.data ?? []}
             />
             <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>
               Tap each hazard present on the job. Extra context goes in Notes above.
