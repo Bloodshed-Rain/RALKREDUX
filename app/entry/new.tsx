@@ -21,7 +21,12 @@ import type {
   SupervisorContact,
   UpdateDraftEntryInput,
 } from '@/src/domain/logbook/types';
-import { HAZARD_PRESETS } from '@/src/domain/logbook/hazards';
+import {
+  WORK_TASK_PRESETS,
+  ACCESS_METHOD_PRESETS,
+  STRUCTURE_PRESETS,
+  HAZARD_PRESETS,
+} from '@/src/domain/logbook/classification';
 import { parseHazards } from '@/src/domain/logbook/types';
 import type { CertLevel } from '@/src/domain/profile/types';
 import {
@@ -31,6 +36,8 @@ import {
   useDeleteDraftEntry,
   useEntries,
   useEntryDetail,
+  useRecentClassificationValues,
+  useRecentHazardValues,
   useRemoveGearFromEntry,
   useSupervisorContacts,
   useUpdateDraftEntry,
@@ -43,11 +50,12 @@ import {
   Button,
   Card,
   ChipSelect,
+  ClassificationChips,
   DateField,
   Field,
-  MultiChipSelect,
-  Pill,
+  MultiClassificationChips,
   PhotoStrip,
+  Pill,
   type PhotoStripItem,
 } from '@/src/ui/primitives/v2';
 import { GEAR_ICON, IconClose, IconSign, IconWarn } from '@/src/ui/icons';
@@ -61,9 +69,6 @@ import {
 import { haptics } from '@/src/ui/haptics';
 import type { GearCategory } from '@/src/domain/gear/types';
 
-const WORK_TASK_PRESETS = ['Inspection', 'Maintenance', 'Rescue standby', 'Training'];
-const ACCESS_METHOD_PRESETS = ['Two-rope access', 'Aid climb', 'Rescue cover', 'Fall restraint'];
-const STRUCTURE_PRESETS = ['Tower', 'Tank', 'Bridge', 'Wind turbine', 'Building'];
 const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
   { value: 'work', label: 'Work' },
   { value: 'training', label: 'Training' },
@@ -619,6 +624,10 @@ function StepWhere({
 
 function StepWhat({ draft, update }: StepProps) {
   const { tokens } = useTheme();
+  const recentWorkTask = useRecentClassificationValues('work_task');
+  const recentStructure = useRecentClassificationValues('structure_type');
+  const recentAccess = useRecentClassificationValues('access_method');
+  const recentHazards = useRecentHazardValues();
   const gearItems = useGearItems();
   const detail = useEntryDetail(draft.entryId);
   const attachGear = useAttachGearToEntry();
@@ -664,28 +673,34 @@ function StepWhat({ draft, update }: StepProps) {
     <View style={{ gap: 14 }}>
       <View>
         <SectionKicker>WORK TASK</SectionKicker>
-        <ChipSelect
+        <ClassificationChips
+          label="Work task"
           value={draft.workTask}
-          options={WORK_TASK_PRESETS.map((t) => ({ value: t, label: t }))}
           onChange={(v) => update({ workTask: v })}
+          presets={WORK_TASK_PRESETS}
+          recents={recentWorkTask.data ?? []}
         />
       </View>
 
       <View>
         <SectionKicker>STRUCTURE</SectionKicker>
-        <ChipSelect
+        <ClassificationChips
+          label="Structure"
           value={draft.structureType}
-          options={STRUCTURE_PRESETS.map((t) => ({ value: t, label: t }))}
           onChange={(v) => update({ structureType: v })}
+          presets={STRUCTURE_PRESETS}
+          recents={recentStructure.data ?? []}
         />
       </View>
 
       <View>
         <SectionKicker>ACCESS METHOD</SectionKicker>
-        <ChipSelect
+        <ClassificationChips
+          label="Access method"
           value={draft.accessMethod}
-          options={ACCESS_METHOD_PRESETS.map((t) => ({ value: t, label: t }))}
           onChange={(v) => update({ accessMethod: v })}
+          presets={ACCESS_METHOD_PRESETS}
+          recents={recentAccess.data ?? []}
         />
       </View>
 
@@ -770,10 +785,12 @@ function StepWhat({ draft, update }: StepProps) {
 
       <View>
         <SectionKicker>HAZARDS</SectionKicker>
-        <MultiChipSelect
+        <MultiClassificationChips
+          label="Hazards"
           values={draft.hazards}
-          options={[...HAZARD_PRESETS]}
           onChange={(next) => update({ hazards: next })}
+          presets={HAZARD_PRESETS}
+          recents={recentHazards.data ?? []}
         />
         <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>
           Tap each hazard present on the job. Extra context goes in Description.
