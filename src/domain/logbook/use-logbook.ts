@@ -7,6 +7,7 @@ import {
   filterRecentValues,
   filterRecentHazards,
 } from './classification';
+import { scheduleCloudBackupAfterSigning } from '@/src/domain/cloud-backup/use-cloud-backup';
 import {
   AddEntryAttachmentInput,
   AttachGearToEntryInput,
@@ -178,6 +179,8 @@ export function useSignEntryLocal() {
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
+      // New immutable signature → refresh the cloud safety net (debounced, gated).
+      scheduleCloudBackupAfterSigning();
     },
   });
 }
@@ -225,6 +228,8 @@ export function useCompleteRemoteSignatureRequest() {
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
+      // Imported a completed remote signature → refresh the cloud safety net.
+      scheduleCloudBackupAfterSigning();
     },
   });
 }
