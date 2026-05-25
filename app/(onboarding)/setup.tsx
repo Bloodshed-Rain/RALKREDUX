@@ -25,6 +25,7 @@ import {
   Button,
   Card,
   ChipSelect,
+  DateField,
   Field,
   Pill,
   SectionH,
@@ -366,12 +367,12 @@ function CertCard({ scheme, entry, onChange, badge, onRemove }: CertCardProps) {
           }
           autoCapitalize="none"
         />
-        <Field
+        <DateField
           label="Expires on"
-          value={entry.expiresOn}
-          onChangeText={setExpiry}
-          placeholder="YYYY-MM-DD (optional)"
-          autoCapitalize="none"
+          value={entry.expiresOn || null}
+          onChange={(iso) => setExpiry(iso ?? '')}
+          placeholder="Optional"
+          clearable
         />
       </View>
     </Card>

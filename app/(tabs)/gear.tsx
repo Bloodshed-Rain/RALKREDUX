@@ -22,6 +22,7 @@ import {
   Button,
   Card,
   ChipSelect,
+  DateField,
   Field,
   GearCard,
   IconBtn,
@@ -256,12 +257,11 @@ export default function GearScreen() {
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Field
+                        <DateField
                           label="Next inspection"
-                          value={newNextDue}
-                          onChangeText={setNewNextDue}
-                          placeholder="YYYY-MM-DD"
-                          autoCapitalize="none"
+                          value={newNextDue || null}
+                          onChange={(iso) => setNewNextDue(iso ?? '')}
+                          clearable
                         />
                       </View>
                     </View>

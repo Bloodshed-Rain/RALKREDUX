@@ -26,6 +26,7 @@ import {
   Card,
   ChipSelect,
   CountdownDial,
+  DateField,
   Field,
   IconBtn,
   Pill,
@@ -356,22 +357,22 @@ export default function GearDetailScreen() {
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Field
+                  <DateField
                     label="Inspected on"
-                    value={inspDate}
-                    onChangeText={setInspDate}
-                    placeholder="YYYY-MM-DD"
-                    autoCapitalize="none"
+                    value={inspDate || null}
+                    onChange={(iso) => setInspDate(iso ?? '')}
+                    maxDate={todayLocalIsoDate()}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Field
+                  <DateField
                     label="Next due"
-                    value={inspNextDue}
-                    onChangeText={setInspNextDue}
-                    placeholder={inspResult === 'fail' ? 'Cleared on retire' : 'YYYY-MM-DD'}
-                    autoCapitalize="none"
-                    readOnly={inspResult === 'fail'}
+                    value={inspNextDue || null}
+                    onChange={(iso) => setInspNextDue(iso ?? '')}
+                    minDate={inspDate || null}
+                    clearable
+                    disabled={inspResult === 'fail'}
+                    placeholder={inspResult === 'fail' ? 'Cleared on retire' : undefined}
                   />
                 </View>
               </View>

@@ -31,7 +31,7 @@ import {
   Button,
   Card,
   ChipSelect,
-  Field,
+  DateField,
   IconBtn,
   Pill,
   SectionH,
@@ -232,21 +232,21 @@ export default function ExportScreen() {
           {range === 'custom' ? (
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Field
+                <DateField
                   label="From"
-                  value={customFrom}
-                  onChangeText={setCustomFrom}
-                  placeholder="YYYY-MM-DD"
-                  autoCapitalize="none"
+                  value={customFrom || null}
+                  onChange={(iso) => setCustomFrom(iso ?? '')}
+                  maxDate={customTo || null}
+                  clearable
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Field
+                <DateField
                   label="To"
-                  value={customTo}
-                  onChangeText={setCustomTo}
-                  placeholder="YYYY-MM-DD"
-                  autoCapitalize="none"
+                  value={customTo || null}
+                  onChange={(iso) => setCustomTo(iso ?? '')}
+                  minDate={customFrom || null}
+                  clearable
                 />
               </View>
             </View>

@@ -1,27 +1,28 @@
 ---
 name: hash-version-bump-candidates
-description: Pending entry/signature-shape changes that would require ENTRY_HASH_VERSION to go from 2 to 3, batched so future reviews stay consistent
+description: What already shipped in ENTRY_HASH_VERSION 3, and the remaining entry/signature-shape changes that would force a future v4 — batched so reviews stay consistent
 metadata:
   type: project
 ---
 
-Pending changes that, if any one lands, force `ENTRY_HASH_VERSION` from 2 → 3 and an update to `canonicalizeEntry` (and possibly `hashSignatureChain` inputs). Batch them into a single v3 cycle rather than serial bumps.
+`ENTRY_HASH_VERSION` is **3** as of the code read on 2026-05-24 (`src/domain/logbook/entry-hash.ts`). v3 canonicalization includes `entry_kind`, `hazards`, and `rescue_cover` on top of the v2 entry fields. The earlier "pending v3 batch" is largely landed — this file now tracks the v4 horizon.
 
-**Why:** Each schema bump fragments the audit narrative ("v2 entries vs v3 entries"). One coherent v3 ("introduces supervisor scheme, hazards, rescue cover, hours bucketing") is easier to defend than three sequential bumps, and reduces test surface.
+**Why batch:** Each hash bump fragments the audit narrative ("v2 vs v3 vs v4 entries") and widens the test surface in `entry-hash.test.ts` + `verify-full-chain.test.ts`. One coherent bump is easier to defend to an auditor than serial ones.
 
-**How to apply:** When a proposal touches any of these, raise the v3-batch question before greenlighting it solo. If the team wants to land one early, document why the rest can't wait. The advisor (me) will flag in every entry-shape review.
+**How to apply:** When a proposal touches what a signer attests to, ask the v4-batch question before greenlighting it solo. The advisor (me) flags this in every entry-shape review.
 
-Pending v3 candidates from the 2026-05-12 audit:
+Already shipped — do NOT re-flag as pending:
+- `entry_kind` ('work' | 'training' | 'assessment' | 'rescue_drill') — top-level entry attribute, in the hash. See [[hours-bucket-breakdown]].
+- `hazards` array on entries (controlled vocabulary, `HAZARD_PRESETS`), in the hash.
+- `rescue_cover` free-text on entries, in the hash.
+- Supervisor/signer scheme on signatures: `supervisor_scheme` is `SignerScheme` ('sprat' | 'irata' | 'site'), with `supervisor_role` / `supervisor_employer` captured for the 'site' path. NOTE: this is on the *signature* row, not entry canonicalization — it rides the signature chain, not the entry hash. See [[cert-required-gate-supervisor-not-tech]] and [[signer-authority-site-vs-scheme]].
 
-- Supervisor scheme + supervisor level on signatures (today SPRAT loses level; IRATA encodes it in cert-number leading digit). See [[cert-required-gate-supervisor-not-tech]].
-- `actual_signer_name` separate from `recipient_name` on signatures so requested-verifier vs actual-signer is reconcilable. See [[verifier-identity-must-reconcile]].
-- Hours-type breakdown on entries (`work` / `training` / `assessment` / `rescue_drill`). See [[hours-bucket-breakdown]].
-- `rescue_cover` / `rescue_plan_summary` fields on entries.
-- `hazards` array on entries (controlled vocabulary).
-- `anchor_method` separate from `access_method` on entries.
-- `entry_kind` ('work' | 'training' | 'assessment') as top-level entry attribute.
+Still genuinely pending (would force a v4 if it lands in entry canonicalization):
+- `anchor_method` separate from `access_method` on entries — NOT shipped. Today access_method is one free-text-ish field; splitting anchor vs access is a real v4 entry-shape change.
+- `rescue_plan_summary` as a distinct structured field beyond the current free-text `rescue_cover` — NOT shipped.
+- `actual_signer_name` as a field distinct from `supervisor_name` — NOT shipped as a separate column. Current model treats `supervisor_name` as the actual signer and reconciles against the request's `recipient_name`. This is a signature-shape question, not entry canonicalization. See [[verifier-identity-must-reconcile]].
 
-Items that do NOT need a v3 bump (signature-image / inspector identity / gear fields):
-- Drawn signature ink is not in the entry hash by design (chain hash still binds it via signature_id). Just document this in exports.
-- Gear inspection inspector identity is its own table, not part of entry canonicalization.
-- Gear item manufacture/in-service dates are gear-table, not signature-attested.
+NOT hash-version changes (kept here so they don't get mis-filed):
+- Drawn signature ink is not in the entry hash by design (chain hash binds it via signature_id). Document in exports.
+- Gear inspection inspector identity / gear manufacture/in-service dates live in gear tables, not entry canonicalization.
+- Expanding `WORK_TASK_PRESETS` / `ACCESS_METHOD_PRESETS` / `STRUCTURE_PRESETS` or allowing custom free-text in those fields is NOT a hash change — the canonical serialization stores the string as-typed; what's hashed is what's signed. See [[work-task-taxonomy-and-custom-entry]].
