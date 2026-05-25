@@ -33,6 +33,7 @@ import {
   SupervisorContact,
   UpdateDraftEntryInput,
   canonicalizeHazards,
+  parseHazards,
 } from './types';
 
 function isoDateToUtcMs(value: string): number {
@@ -390,6 +391,50 @@ export function createLogbookService(db: DbClient) {
         'SELECT * FROM entries WHERE amends_entry_id = ? ORDER BY created_at ASC',
         [entryId],
       );
+    },
+
+    // Distinct prior values of a classification column, most-recent-first.
+    // Raw (unsuppressed) — the UI layer applies the preset/denylist filter via
+    // `filterRecentValues`. The column name comes from a fixed allow-list, never
+    // user input, so the interpolation is safe (SQLite can't bind identifiers).
+    async listRecentClassificationValues(
+      field: 'work_task' | 'access_method' | 'structure_type',
+    ): Promise<string[]> {
+      const allowed = { work_task: 'work_task', access_method: 'access_method', structure_type: 'structure_type' } as const;
+      const column = allowed[field];
+      if (!column) throw new Error('invalid_classification_field');
+      const rows = await db.getAll<{ value: string }>(
+        `SELECT ${column} AS value, MAX(created_at) AS last_used
+         FROM entries
+         WHERE ${column} IS NOT NULL AND TRIM(${column}) <> ''
+         GROUP BY ${column}
+         ORDER BY last_used DESC
+         LIMIT 50`,
+      );
+      return rows.map((r) => r.value);
+    },
+
+    // Distinct hazard strings across all entries, most-recent-first. Hazards are
+    // stored as canonical JSON, so we parse and flatten in JS.
+    async listRecentHazardValues(): Promise<string[]> {
+      const rows = await db.getAll<{ hazards: string | null }>(
+        `SELECT hazards FROM entries
+         WHERE hazards IS NOT NULL AND TRIM(hazards) <> ''
+         ORDER BY created_at DESC
+         LIMIT 200`,
+      );
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const row of rows) {
+        for (const hazard of parseHazards(row.hazards)) {
+          const key = hazard.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            out.push(hazard);
+          }
+        }
+      }
+      return out;
     },
 
     getEntryDetail,

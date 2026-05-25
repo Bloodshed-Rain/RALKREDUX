@@ -1078,3 +1078,42 @@ describe('logbook service chain head + remote request lookup', () => {
     expect(completedLookup?.id).toBe(requested.remote_request?.id);
   });
 });
+
+async function makeServiceWithEntries(fixtures: Array<Partial<CreateEntryInput>>) {
+  const db = await createTestClient();
+  const service = createLogbookService(db);
+  let tick = 0;
+  for (const f of fixtures) {
+    const entry = await service.createDraft(draftInput(f));
+    tick += 1;
+    // Force a deterministic, strictly-increasing created_at so recency order is reproducible.
+    const stamp = new Date(Date.UTC(2026, 0, 1, 0, 0, tick)).toISOString();
+    await db.run('UPDATE entries SET created_at = ? WHERE id = ?', [stamp, entry.id]);
+  }
+  return { db, service };
+}
+
+describe('recents queries', () => {
+  it('returns distinct classification values most-recent-first', async () => {
+    const { service } = await makeServiceWithEntries([
+      { work_task: 'Cathodic protection survey', access_method: 'Two-rope access', structure_type: 'Jetty' },
+      { work_task: 'Inspection (visual)', access_method: 'Two-rope access', structure_type: 'Jetty' },
+      { work_task: 'Cathodic protection survey', access_method: 'Two-rope access', structure_type: 'Pontoon' },
+    ]);
+    const tasks = await service.listRecentClassificationValues('work_task');
+    expect(tasks).toContain('Cathodic protection survey');
+    expect(tasks).toContain('Inspection (visual)');
+    expect(tasks.filter((t) => t === 'Cathodic protection survey')).toHaveLength(1);
+    const structures = await service.listRecentClassificationValues('structure_type');
+    expect(structures[0]).toBe('Pontoon'); // most recent insert (deterministic via forced created_at)
+  });
+
+  it('collects distinct hazard strings across entries', async () => {
+    const { service } = await makeServiceWithEntries([
+      { hazards: ['Falling objects', 'Tidal cutoff'] },
+      { hazards: ['Tidal cutoff', 'Public access'] },
+    ]);
+    const hazards = await service.listRecentHazardValues();
+    expect(new Set(hazards)).toEqual(new Set(['Falling objects', 'Tidal cutoff', 'Public access']));
+  });
+});
