@@ -31,6 +31,7 @@ import {
   TopBar,
 } from '@/src/ui/primitives/v2';
 import { IconCheck, IconClose, IconLock, IconPlus } from '@/src/ui/icons';
+import { DateField } from '@/src/ui/primitives/v2/date-field';
 import { haptics } from '@/src/ui/haptics';
 
 interface CertEntry {
@@ -366,12 +367,11 @@ function CertCard({ scheme, entry, onChange, badge, onRemove }: CertCardProps) {
           }
           autoCapitalize="none"
         />
-        <Field
+        <DateField
           label="Expires on"
-          value={entry.expiresOn}
-          onChangeText={setExpiry}
-          placeholder="YYYY-MM-DD (optional)"
-          autoCapitalize="none"
+          value={entry.expiresOn || null}
+          onChange={(iso) => setExpiry(iso ?? '')}
+          clearable
         />
       </View>
     </Card>
