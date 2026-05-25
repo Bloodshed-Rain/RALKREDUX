@@ -22,13 +22,13 @@ import {
   Button,
   Card,
   ChipSelect,
+  DateField,
   Field,
   GearCard,
   IconBtn,
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { DateField } from '@/src/ui/primitives/v2/date-field';
 import { GEAR_ICON, IconChevron, IconPlus, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 

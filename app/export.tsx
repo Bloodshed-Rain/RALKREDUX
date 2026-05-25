@@ -31,13 +31,13 @@ import {
   Button,
   Card,
   ChipSelect,
+  DateField,
   IconBtn,
   Pill,
   SectionH,
   ToggleRow,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { DateField } from '@/src/ui/primitives/v2/date-field';
 import {
   IconArrowLeft,
   IconBrand,

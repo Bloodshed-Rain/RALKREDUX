@@ -43,13 +43,13 @@ import {
   Button,
   Card,
   ChipSelect,
+  DateField,
   Field,
   MultiChipSelect,
   Pill,
   PhotoStrip,
   type PhotoStripItem,
 } from '@/src/ui/primitives/v2';
-import { DateField } from '@/src/ui/primitives/v2/date-field';
 import { GEAR_ICON, IconClose, IconSign, IconWarn } from '@/src/ui/icons';
 import {
   DEFAULT_TERMINAL_ACTION,

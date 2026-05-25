@@ -21,6 +21,7 @@ import {
   Button,
   Card,
   ChipSelect,
+  DateField,
   Field,
   IconBtn,
   MultiChipSelect,
@@ -28,7 +29,6 @@ import {
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { DateField } from '@/src/ui/primitives/v2/date-field';
 import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
 
 const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [

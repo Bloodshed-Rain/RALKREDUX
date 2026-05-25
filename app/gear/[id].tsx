@@ -26,6 +26,7 @@ import {
   Card,
   ChipSelect,
   CountdownDial,
+  DateField,
   Field,
   IconBtn,
   Pill,
@@ -33,7 +34,6 @@ import {
   TopBar,
   type CountdownStatus,
 } from '@/src/ui/primitives/v2';
-import { DateField } from '@/src/ui/primitives/v2/date-field';
 import {
   GEAR_ICON,
   IconArrowLeft,
@@ -369,6 +369,7 @@ export default function GearDetailScreen() {
                     label="Next due"
                     value={inspNextDue || null}
                     onChange={(iso) => setInspNextDue(iso ?? '')}
+                    minDate={inspDate || null}
                     clearable
                     disabled={inspResult === 'fail'}
                     placeholder={inspResult === 'fail' ? 'Cleared on retire' : undefined}
