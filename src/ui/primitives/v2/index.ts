@@ -38,3 +38,10 @@ export { SwipeableRow } from './swipeable-row';
 export { InfoSheet } from './info-sheet';
 export { DatePickerSheet, type DatePickerSheetProps } from './date-picker-sheet';
 export { DateField, type DateFieldProps } from './date-field';
+export { ClassificationPickerSheet, type ClassificationPickerSheetProps } from './classification-picker-sheet';
+export {
+  ClassificationChips,
+  type ClassificationChipsProps,
+  MultiClassificationChips,
+  type MultiClassificationChipsProps,
+} from './classification-chips';
