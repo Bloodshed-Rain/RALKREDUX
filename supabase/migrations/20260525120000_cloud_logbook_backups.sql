@@ -83,6 +83,9 @@ execute function public.set_logbook_backups_updated_at();
 -- file_size_limit 50 MB (defensive; snapshots are <few MB).
 -- allowed_mime_types restricts uploads to JSON.
 -- ---------------------------------------------------------------------------
+-- Self-healing: if the bucket already exists (an earlier attempt created
+-- 'logbook-backups' on 2026-04-17 with no limits), still converge it to the
+-- intended private + size/mime config. `public` is left untouched on conflict.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'logbook-backups',
@@ -91,7 +94,9 @@ values (
   52428800,                      -- 50 MiB in bytes
   array['application/json']
 )
-on conflict (id) do nothing;
+on conflict (id) do update set
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 -- ---------------------------------------------------------------------------
 -- Storage RLS on storage.objects, scoped to this bucket. Path convention:
