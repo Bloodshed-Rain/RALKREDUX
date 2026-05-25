@@ -3,6 +3,11 @@ import { getClient } from '@/src/db/initialize';
 import { verifyChainHashFor } from './entry-hash';
 import { createLogbookService } from './logbook-service';
 import {
+  ClassificationField,
+  filterRecentValues,
+  filterRecentHazards,
+} from './classification';
+import {
   AddEntryAttachmentInput,
   AttachGearToEntryInput,
   CompleteRemoteSignatureRequestInput,
@@ -296,6 +301,28 @@ export function useEntryChainValid(
     queryFn: () => {
       if (!entry || !signature) throw new Error('entry_and_signature_required');
       return verifyChainHashFor({ entry, signature });
+    },
+  });
+}
+
+const RECENTS_CAP = 8;
+
+export function useRecentClassificationValues(field: ClassificationField) {
+  return useQuery<string[]>({
+    queryKey: ['recentClassification', field],
+    queryFn: async () => {
+      const raw = await createLogbookService(getClient()).listRecentClassificationValues(field);
+      return filterRecentValues(field, raw, RECENTS_CAP);
+    },
+  });
+}
+
+export function useRecentHazardValues() {
+  return useQuery<string[]>({
+    queryKey: ['recentHazards'],
+    queryFn: async () => {
+      const raw = await createLogbookService(getClient()).listRecentHazardValues();
+      return filterRecentHazards(raw, RECENTS_CAP);
     },
   });
 }
