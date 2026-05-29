@@ -50,7 +50,6 @@ import {
   IconArrowLeft,
   IconCamera,
   IconExport,
-  IconMore,
   IconSync,
   IconVerified,
   IconWarn,
@@ -163,11 +162,20 @@ export default function EntryDetailScreen() {
 
   async function shareEntryPacket() {
     if (!entryId) return;
-    const packet = await exportEntry.mutateAsync(entryId);
-    await Share.share({
-      title: 'RALB entry audit packet',
-      message: JSON.stringify(packet, null, 2),
-    });
+    try {
+      const packet = await exportEntry.mutateAsync(entryId);
+      await Share.share({
+        title: 'RALB entry audit packet',
+        message: JSON.stringify(packet, null, 2),
+      });
+    } catch (err) {
+      // A failed packet build (e.g. an evicted offline photo) previously threw
+      // an unhandled rejection with no feedback — surface it instead.
+      Alert.alert(
+        'Could not build audit packet',
+        err instanceof Error ? err.message : 'The audit packet could not be created. Please try again.',
+      );
+    }
   }
 
   async function shareEntryPdf() {
@@ -280,12 +288,11 @@ export default function EntryDetailScreen() {
           <View style={{ flexDirection: 'row', gap: 4 }}>
             <IconBtn
               icon={IconExport}
-              label="Export"
+              label="Export PDF"
               size="md"
               onPress={shareEntryPdf}
               disabled={pdfPending || exportEntry.isPending}
             />
-            <IconBtn icon={IconMore} label="More" size="md" />
           </View>
         }
       />

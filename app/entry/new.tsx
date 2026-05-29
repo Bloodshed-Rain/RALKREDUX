@@ -150,6 +150,28 @@ function step2Ready(draft: DraftState): boolean {
   return draft.workTask.trim().length > 0 && Number(draft.hours) > 0;
 }
 
+// Names the field(s) still blocking Continue so the tech isn't left hunting a
+// greyed-out button with no explanation.
+function missingStepHint(step: 1 | 2 | 3, draft: DraftState): string | null {
+  if (step === 1) {
+    const need: string[] = [];
+    if (!isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom)) {
+      need.push('a valid date range');
+    }
+    if (draft.employer.trim().length === 0 && draft.site.trim().length === 0) {
+      need.push('a site or employer');
+    }
+    return need.length ? `Add ${need.join(' and ')} to continue.` : null;
+  }
+  if (step === 2) {
+    const need: string[] = [];
+    if (draft.workTask.trim().length === 0) need.push('a work task');
+    if (!(Number(draft.hours) > 0)) need.push('hours worked');
+    return need.length ? `Add ${need.join(' and ')} to continue.` : null;
+  }
+  return null;
+}
+
 function buildCreateInput(draft: DraftState): CreateEntryInput {
   const maxHeightTrimmed = draft.maxHeight.trim();
   const maxHeight = maxHeightTrimmed === '' ? 0 : Number(maxHeightTrimmed);
@@ -423,27 +445,39 @@ export default function NewEntryWizard() {
         ) : null}
       </ScrollView>
 
-      {step < 3 ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            gap: 10,
-            paddingHorizontal: 20,
-            paddingTop: 12,
-            paddingBottom: 12 + insets.bottom,
-            borderTopWidth: 1,
-            borderTopColor: tokens.lineSoft,
-            backgroundColor: tokens.bg,
-          }}
-        >
-          <Button variant="ghost" full onPress={handleBack}>
-            {step === 1 ? 'Cancel' : 'Back'}
-          </Button>
-          <Button variant="primary" full onPress={handleContinue} disabled={!canContinue}>
-            Continue
-          </Button>
+      <View
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 12 + insets.bottom,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+          backgroundColor: tokens.bg,
+          gap: 8,
+        }}
+      >
+        {step < 3 && !canContinue ? (
+          <Text style={{ ...type.cardSub, color: tokens.warn }}>
+            {missingStepHint(step, draft)}
+          </Text>
+        ) : null}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {step < 3 ? (
+            <>
+              <Button variant="ghost" full onPress={handleBack}>
+                {step === 1 ? 'Cancel' : 'Back'}
+              </Button>
+              <Button variant="primary" full onPress={handleContinue} disabled={!canContinue}>
+                Continue
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" full onPress={handleBack}>
+              Back to edit
+            </Button>
+          )}
         </View>
-      ) : null}
+      </View>
     </KeyboardAvoidingView>
   );
 }
