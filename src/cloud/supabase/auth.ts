@@ -1,11 +1,6 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
-import {
-  GoogleSignin,
-  isErrorWithCode,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
 import type { Session } from '@supabase/supabase-js';
 
 import { getSupabaseClient } from './client';
@@ -18,6 +13,30 @@ const GOOGLE_IOS_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() ?? '';
 
 let googleConfigured = false;
+
+// The native Google SDK evaluates `TurboModuleRegistry.getEnforcing('RNGoogleSignin')`
+// at *import* time, which throws in any binary that doesn't contain the native
+// module (e.g. Expo Go). A static `import` therefore crashes the whole app at
+// boot — even in local-only mode where Google sign-in is never used. Loading it
+// lazily + guarded keeps the app booting everywhere; Google sign-in is simply
+// unavailable until you run a dev/standalone build that includes the module.
+type GoogleSignInModule = typeof import('@react-native-google-signin/google-signin');
+let googleModuleCache: GoogleSignInModule | null | undefined;
+function getGoogleSignin(): GoogleSignInModule | null {
+  if (googleModuleCache !== undefined) return googleModuleCache;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    googleModuleCache = require('@react-native-google-signin/google-signin') as GoogleSignInModule;
+  } catch {
+    googleModuleCache = null;
+  }
+  return googleModuleCache;
+}
+
+/** True when the native Google SDK is present in the current binary. */
+export function isGoogleSignInSupported(): boolean {
+  return getGoogleSignin() !== null;
+}
 
 /**
  * Returns the active Supabase client or throws `supabase_not_configured` when
@@ -47,7 +66,10 @@ export function configureGoogleSignIn(): void {
   if (googleConfigured) return;
   if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) return;
 
-  GoogleSignin.configure({
+  const google = getGoogleSignin();
+  if (!google) return; // native module absent (e.g. Expo Go) — no-op, don't crash boot
+
+  google.GoogleSignin.configure({
     webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
     iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
   });
@@ -143,6 +165,10 @@ export async function signInWithApple(): Promise<Session> {
 export async function signInWithGoogle(): Promise<Session> {
   const supabase = requireSupabaseClient();
 
+  const google = getGoogleSignin();
+  if (!google) throw new Error('google_signin_unavailable');
+  const { GoogleSignin, isErrorWithCode, statusCodes } = google;
+
   let idToken: string | null | undefined;
   try {
     await GoogleSignin.hasPlayServices();
@@ -185,7 +211,8 @@ export async function signOut(): Promise<void> {
   if (error) throw error;
 
   try {
-    await GoogleSignin.signOut();
+    const google = getGoogleSignin();
+    if (google) await google.GoogleSignin.signOut();
   } catch {
     // Best-effort: ignore failures clearing the native Google session.
   }
