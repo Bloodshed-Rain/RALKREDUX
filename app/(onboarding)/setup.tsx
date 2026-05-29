@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -119,7 +120,14 @@ export default function SetupScreen() {
           haptics.success();
           router.replace('/today');
         },
-        onError: () => haptics.error(),
+        onError: (err) => {
+          haptics.error();
+          Alert.alert(
+            'Could not create your logbook',
+            (err instanceof Error ? err.message : 'Something went wrong setting up your profile.') +
+              '\n\nYour details are still on this screen — please try again.',
+          );
+        },
       },
     );
   }

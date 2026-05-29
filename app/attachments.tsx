@@ -8,6 +8,7 @@ import { Card, EmptyState, IconBtn, TopBar } from '@/src/ui/primitives/v2';
 import { IconArrowLeft, IconCamera } from '@/src/ui/icons';
 import { useAllAttachments } from '@/src/domain/logbook/use-logbook';
 import type { EntryAttachmentWithEntry } from '@/src/domain/logbook/types';
+import { formatDateOrDash } from '@/src/domain/date-format';
 
 const MONTH_LABEL_FMT = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
 
@@ -145,7 +146,7 @@ function AttachmentRow({ item }: { item: EntryAttachmentWithEntry }) {
             {item.label}
           </Text>
           <Text numberOfLines={1} style={{ ...type.cardSub, color: tokens.textDim }}>
-            {item.entry_site || 'Untitled entry'} · {item.entry_date}
+            {item.entry_site || 'Untitled entry'} · {formatDateOrDash(item.entry_date)}
           </Text>
         </View>
       </View>

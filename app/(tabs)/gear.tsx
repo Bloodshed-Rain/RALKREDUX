@@ -15,6 +15,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GearCategory, GearItemDetail, GearStatus } from '@/src/domain/gear/types';
 import { useCreateGearItem, useGearItems, useGearSummary } from '@/src/domain/gear/use-gear';
+import { DUE_SOON_DAYS } from '@/src/domain/gear/gear-service';
 import { consumeGearCatalogPick } from '@/src/storage/gear-catalog-pick';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
@@ -176,7 +177,7 @@ export default function GearScreen() {
     );
   }
 
-  const subLine = `${totalActive} active · ${overdueItems.length} overdue · ${dueSoonItems.length} due ≤14d`;
+  const subLine = `${totalActive} active · ${overdueItems.length} overdue · ${dueSoonItems.length} due ≤${DUE_SOON_DAYS}d`;
 
   return (
     <KeyboardAvoidingView
@@ -310,7 +311,7 @@ export default function GearScreen() {
                         INSPECTION DEADLINES
                       </Text>
                       <Text style={{ ...type.cardTitle, color: tokens.text, marginTop: 2 }}>
-                        {`${overdueItems.length} overdue · ${dueSoonItems.length} due ≤14d`}
+                        {`${overdueItems.length} overdue · ${dueSoonItems.length} due ≤${DUE_SOON_DAYS}d`}
                       </Text>
                     </View>
                   </View>
@@ -419,13 +420,17 @@ function DeadlineRow({ detail, today }: { detail: GearItemDetail; today: Date })
 
   const captionStyle: TextStyle = {
     ...type.monoSm,
-    color: fg,
+    // warn/danger over their own *Soft fill fails AA on the light palettes;
+    // render the caption in readable ink and let the colored icon carry the
+    // urgency signal.
+    color: tokens.text,
     letterSpacing: 0.5,
   };
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${detail.item.name}, ${captionText}`}
       onPress={() => router.push(`/gear/${detail.item.id}` as never)}
       style={({ pressed }) => [rowStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
     >

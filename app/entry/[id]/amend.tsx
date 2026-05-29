@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -144,7 +145,14 @@ export default function AmendEntryScreen() {
           haptics.success();
           router.replace(`/entry/${draft.id}`);
         },
-        onError: () => haptics.error(),
+        onError: (err) => {
+          haptics.error();
+          Alert.alert(
+            'Could not create amendment',
+            (err instanceof Error ? err.message : 'The amendment was not saved.') +
+              '\n\nYour entries are still on this screen — nothing was lost. Please try again.',
+          );
+        },
       },
     );
   }
@@ -196,6 +204,14 @@ export default function AmendEntryScreen() {
                 {missingCount === 0 ? 'Complete' : `${missingCount} missing`}
               </Pill>
             </View>
+            {missingCount > 0 && !sourceLocked ? (
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
+                {`Still needed: ${Object.entries(isMissing)
+                  .filter(([, v]) => v)
+                  .map(([k]) => k)
+                  .join(', ')}.`}
+              </Text>
+            ) : null}
             {entry && !sourceLocked
               ? (() => {
                   const changes = computeAmendmentChanges(entry, {
@@ -279,7 +295,9 @@ export default function AmendEntryScreen() {
                     Amendments need a signed source
                   </Text>
                   <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }}>
-                    Drafts should be edited directly instead.
+                    {entry?.status === 'draft'
+                      ? 'This entry is still a draft — edit it directly. Use the button below to go there; changes here will not be saved.'
+                      : 'This entry can’t be amended from here. Use the button below to go back.'}
                   </Text>
                 </View>
               </View>
@@ -408,14 +426,27 @@ export default function AmendEntryScreen() {
           variant="primary"
           size="lg"
           full
-          onPress={save}
-          disabled={!canSave || createAmendment.isPending}
+          onPress={
+            sourceLocked
+              ? () =>
+                  router.replace(
+                    (entry?.status === 'draft'
+                      ? `/entry/${entryId}/edit`
+                      : `/entry/${entryId}`) as never,
+                  )
+              : save
+          }
+          disabled={sourceLocked ? false : !canSave || createAmendment.isPending}
         >
-          {createAmendment.isPending
-            ? 'Creating amendment…'
-            : canSave
-              ? 'Create amendment draft'
-              : 'Finish amendment'}
+          {sourceLocked
+            ? entry?.status === 'draft'
+              ? 'Edit this draft instead'
+              : 'Back to entry'
+            : createAmendment.isPending
+              ? 'Creating amendment…'
+              : canSave
+                ? 'Create amendment draft'
+                : 'Finish amendment'}
         </Button>
       </View>
     </KeyboardAvoidingView>

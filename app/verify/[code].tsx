@@ -53,8 +53,13 @@ import {
 import { IconArrowLeft, IconCheck, IconVerified } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
-const ATTESTATION_TEXT =
+// The signer may be the requested verifier, OR a delegate ("Different signer"
+// path). Forcing "I am the requested verifier" on a delegate persists a false
+// claim into the audit record, so the attestation branches on who is signing.
+const ATTESTATION_VERIFIER =
   'I am the requested verifier, I reviewed this remote request and work record, and I authorize this signature.';
+const ATTESTATION_DELEGATE =
+  'I reviewed this remote request and work record, and I authorize this signature on my own authority as named.';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -122,6 +127,21 @@ export default function RemoteVerifyScreen() {
   const isSiteSigner = supervisorScheme === 'site';
   const requiresCertNumber = supervisorScheme === 'irata';
 
+  // Deep-link entry means the portal is often the first screen on the stack, so
+  // router.back() may have nowhere to go — fall back to the root.
+  const goClose = React.useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  }, []);
+
+  // The signer differs from who the request was sent to → delegated signature.
+  const isDelegateSigner =
+    supervisorName.trim().length > 0 &&
+    !!request?.recipient_name &&
+    supervisorName.trim().toLowerCase() !== request.recipient_name.trim().toLowerCase();
+  const attestationText = isDelegateSigner ? ATTESTATION_DELEGATE : ATTESTATION_VERIFIER;
+  const submitFailed = completeRequest.isError || hostedCompleteFailed;
+
   React.useEffect(() => {
     const requestChanged = previousRequestCodeRef.current !== requestCode;
     if (requestChanged) {
@@ -130,6 +150,11 @@ export default function RemoteVerifyScreen() {
       setSupervisorName('');
       setSupervisorScheme('sprat');
       setSupervisorCertNumber('');
+      // Site-signer fields must reset too, or a delegated role/employer from
+      // the previous request leaks onto the next one (wrong identity on an
+      // audit record).
+      setSupervisorRole('');
+      setSupervisorEmployer('');
       setSupervisorIrataLevel('II');
       setSignaturePath('');
       setSignatureActive(false);
@@ -194,7 +219,7 @@ export default function RemoteVerifyScreen() {
       supervisor_employer: isSiteSigner ? supervisorEmployer : null,
       signature_path: signaturePath,
       attestation_accepted: attestationAccepted,
-      signer_attestation: ATTESTATION_TEXT,
+      signer_attestation: attestationText,
     };
 
     if (isHostedRequest) {
@@ -229,7 +254,10 @@ export default function RemoteVerifyScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: tokens.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <TopBar title="Submitted" />
+        <TopBar
+          title="Submitted"
+          leading={<IconBtn icon={IconArrowLeft} label="Close" size="md" onPress={goClose} />}
+        />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 + insets.bottom, gap: 14 }}
@@ -279,7 +307,13 @@ export default function RemoteVerifyScreen() {
             >
               Return to logbook
             </Button>
-          ) : null}
+          ) : (
+            // Hosted verifier has no local logbook to return to — give them an
+            // explicit way to leave the page after submitting.
+            <Button variant="secondary" full onPress={goClose}>
+              Done
+            </Button>
+          )}
         </ScrollView>
       </View>
     );
@@ -290,7 +324,10 @@ export default function RemoteVerifyScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: tokens.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <TopBar title="Verifier portal" />
+        <TopBar
+          title="Verifier portal"
+          leading={<IconBtn icon={IconArrowLeft} label="Close" size="md" onPress={goClose} />}
+        />
         <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 12 }}>
           <Card padding={18}>
             <Text style={{ ...type.cardTitle, color: tokens.text }}>Secure link required</Text>
@@ -332,9 +369,49 @@ export default function RemoteVerifyScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: tokens.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <TopBar title="Verifier portal" />
+        <TopBar
+          title="Verifier portal"
+          leading={<IconBtn icon={IconArrowLeft} label="Close" size="md" onPress={goClose} />}
+        />
         <View style={{ padding: 20 }}>
           <Text style={{ ...type.body, color: tokens.textDim }}>Loading request…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Connection error -----------------------------------------------
+  // A thrown fetch (offline / network) lands the query in error with no data.
+  // Without this branch the screen falls through to "Request not found",
+  // telling a verifier with a valid code their code is wrong. The hosted fetch
+  // returns null (not throw) for a genuinely-missing request, so reaching here
+  // means a connection problem, not a bad code.
+  if (requestDetail.isError || hostedRequestDetail.isError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <TopBar
+          title="Verifier portal"
+          leading={<IconBtn icon={IconArrowLeft} label="Close" size="md" onPress={goClose} />}
+        />
+        <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 12 }}>
+          <Card padding={18}>
+            <Text style={{ ...type.cardTitle, color: tokens.text }}>Couldn’t connect</Text>
+            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
+              Check your internet connection and try again. Your request code is fine — this is a
+              connection problem, not a missing request.
+            </Text>
+          </Card>
+          <Button
+            variant="primary"
+            full
+            onPress={() => {
+              requestDetail.refetch();
+              hostedRequestDetail.refetch();
+            }}
+          >
+            Try again
+          </Button>
         </View>
       </View>
     );
@@ -345,7 +422,10 @@ export default function RemoteVerifyScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: tokens.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <TopBar title="Verifier portal" />
+        <TopBar
+          title="Verifier portal"
+          leading={<IconBtn icon={IconArrowLeft} label="Close" size="md" onPress={goClose} />}
+        />
         <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
           <Card padding={18}>
             <Text style={{ ...type.cardTitle, color: tokens.text }}>Request not found</Text>
@@ -475,11 +555,12 @@ export default function RemoteVerifyScreen() {
           </Card>
         </View>
 
-        <SectionH kicker="RECORD CHANGE CHECK" title="Tamper proof" />
+        <SectionH kicker="RECORD CHANGE CHECK" title="Record integrity" />
         <View style={{ paddingHorizontal: 20 }}>
           <Card padding={14}>
             <Text style={{ ...type.cardSub, color: tokens.textDim, marginBottom: 8 }}>
-              This hash proves the record has not changed since the request was sent.
+              This hash is tamper-evident: if the record changed after the request was sent, the
+              hash would no longer match.
             </Text>
             <Row label="Entry hash" value={truncateHash(request.entry_hash)} mono last />
           </Card>
@@ -652,6 +733,7 @@ export default function RemoteVerifyScreen() {
                 />
               </View>
               <AttestationRow
+                text={attestationText}
                 accepted={attestationAccepted}
                 onToggle={() => setAttestationAccepted((v) => !v)}
               />
@@ -659,10 +741,11 @@ export default function RemoteVerifyScreen() {
           </>
         ) : null}
 
-        {completeRequest.isError || hostedCompleteFailed ? (
+        {submitFailed ? (
           <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
             <Text style={{ ...type.cardSub, color: tokens.danger }}>
-              Remote signing failed. Refresh the request and try again.
+              Couldn’t submit the signature. Your details and signature are still here — tap Submit
+              to try again.
             </Text>
           </View>
         ) : null}
@@ -692,9 +775,11 @@ export default function RemoteVerifyScreen() {
           >
             {completeRequest.isPending || hostedCompletePending
               ? 'Submitting…'
-              : canSign
-                ? 'Submit remote signature'
-                : 'Finish verification'}
+              : submitFailed && canSign
+                ? 'Retry submit'
+                : canSign
+                  ? 'Submit remote signature'
+                  : 'Finish verification'}
           </Button>
         ) : (
           <Button
@@ -778,7 +863,15 @@ function WorkRecordBlock({ label, body }: { label: string; body: string }) {
   );
 }
 
-function AttestationRow({ accepted, onToggle }: { accepted: boolean; onToggle: () => void }) {
+function AttestationRow({
+  text,
+  accepted,
+  onToggle,
+}: {
+  text: string;
+  accepted: boolean;
+  onToggle: () => void;
+}) {
   const { tokens } = useTheme();
   const rowStyle: ViewStyle = {
     flexDirection: 'row',
@@ -813,7 +906,7 @@ function AttestationRow({ accepted, onToggle }: { accepted: boolean; onToggle: (
           <IconCheck size={17} color={tokens.bg} fill={tokens.bg} />
         ) : null}
       </View>
-      <Text style={textStyle}>{ATTESTATION_TEXT}</Text>
+      <Text style={textStyle}>{text}</Text>
     </Pressable>
   );
 }

@@ -40,6 +40,10 @@ const entry: LogbookEntry = {
   height_unit: 'ft',
   sprat_level_snapshot: 'III',
   irata_level_snapshot: null,
+  timezone_offset: null,
+  entry_kind: 'work',
+  rescue_cover: null,
+  hazards: null,
   status: 'signed',
   amends_entry_id: null,
   pending_signature_id: null,
@@ -51,7 +55,10 @@ const signature: EntrySignature = {
   id: 'sig_1',
   entry_id: entry.id,
   supervisor_name: 'Jordan Lee',
+  supervisor_scheme: 'sprat',
   supervisor_cert_number: 'SPRAT-1234',
+  supervisor_role: null,
+  supervisor_employer: null,
   signed_at: '2026-05-08T10:00:00.000Z',
   entry_hash: 'sha256:entry',
   hash_version: 2,
@@ -114,9 +121,67 @@ describe('logbook export builders', () => {
     });
 
     expect(buildLogbookCsv(bundle).split('\n')).toEqual([
-      'status,date_from,date_to,employer,site,client,work_task,access_method,structure_type,work_hours,max_height,height_unit,supervisor_name,supervisor_cert_number,signed_at,entry_hash,hash_version,chain_hash,gear,attachment_count,amends_entry_id',
-      'signed,05/01/2026,05/01/2026,Northwind Rope,"Tower A, North Face",City Works,Inspection,Two-rope access,Tower,8,120,ft,Jordan Lee,SPRAT-1234,05/08/2026,sha256:entry,2,sha256:chain,,0,',
+      'status,entry_kind,date_from,date_to,employer,site,client,work_task,access_method,structure_type,hazards,rescue_cover,work_hours,max_height,height_unit,supervisor_name,supervisor_scheme,supervisor_cert_number,supervisor_role,supervisor_employer,signed_at,entry_hash,hash_version,chain_hash,gear,attachment_count,amends_entry_id',
+      'signed,work,05/01/2026,05/01/2026,Northwind Rope,"Tower A, North Face",City Works,Inspection,Two-rope access,Tower,,,8,120,ft,Jordan Lee,sprat,SPRAT-1234,,,05/08/2026,sha256:entry,2,sha256:chain,,0,',
     ]);
+  });
+
+  it('labels non-work hours by kind and carries entry_kind/hazards/rescue_cover into CSV', () => {
+    const trainingEntry: LogbookEntry = {
+      ...entry,
+      id: 'entry_train',
+      entry_kind: 'training',
+      hazards: JSON.stringify(['Overhead power', 'Wind']),
+      rescue_cover: 'Standby rescue team on site',
+    };
+    const bundle = buildLogbookExportBundle({
+      profile,
+      exportedAt: '2026-05-08T12:00:00.000Z',
+      entries: [{ entry: trainingEntry, signature, gear_usage: [], attachments: [] }],
+    });
+    const dataRow = buildLogbookCsv(bundle).split('\n')[1];
+
+    // entry_kind column populated; hazards joined; rescue_cover carried.
+    expect(dataRow).toContain('training');
+    expect(dataRow).toContain('Overhead power; Wind');
+    expect(dataRow).toContain('Standby rescue team on site');
+
+    // The full-logbook PDF labels training hours as Training, not "Rope access".
+    const pdf = buildLogbookPdfHtml(bundle);
+    expect(pdf).toContain('Training hours');
+    expect(pdf).not.toContain('Rope access hours');
+    expect(pdf).toContain('Overhead power, Wind');
+    expect(pdf).toContain('Standby rescue team on site');
+  });
+
+  it('renders site-signer authority (role + employer) instead of a blank cert cell', () => {
+    const siteSignature: EntrySignature = {
+      ...signature,
+      supervisor_scheme: 'site',
+      supervisor_cert_number: '',
+      supervisor_role: 'Site safety officer',
+      supervisor_employer: 'City Works',
+    };
+    const packet = buildEntryExportPacket({
+      profile,
+      detail: { entry, signature: siteSignature, remote_request: null, gear_usage: [], attachments: [] },
+      exportedAt: '2026-05-08T12:00:00.000Z',
+    });
+    const pdf = buildEntryPdfHtml(packet);
+
+    expect(pdf).toContain('Site-authorised');
+    expect(pdf).toContain('Site safety officer');
+    expect(pdf).toContain('City Works');
+
+    // CSV carries the scheme + role + employer.
+    const bundle = buildLogbookExportBundle({
+      profile,
+      exportedAt: '2026-05-08T12:00:00.000Z',
+      entries: [{ entry, signature: siteSignature, gear_usage: [], attachments: [] }],
+    });
+    const dataRow = buildLogbookCsv(bundle).split('\n')[1];
+    expect(dataRow).toContain('site');
+    expect(dataRow).toContain('Site safety officer');
   });
 
   it('neutralizes spreadsheet formula injection in CSV cells', () => {

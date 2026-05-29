@@ -37,6 +37,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
+      hitSlop={7}
       style={({ pressed }) => [s.item, pressed ? { transform: [{ scale: 0.97 }] } : null]}
     >
       <Text selectable={false} style={s.label}>{label}</Text>

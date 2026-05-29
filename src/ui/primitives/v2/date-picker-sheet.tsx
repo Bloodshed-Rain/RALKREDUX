@@ -37,9 +37,13 @@ export function DatePickerSheet({
   const defaultStyles = useDefaultStyles();
   const [draftIso, setDraftIso] = React.useState<string | null>(value);
 
+  // Seed the draft from `value` only when the sheet opens — keying on `value`
+  // too would clobber the user's live in-sheet selection if the prop changed
+  // underneath them.
   React.useEffect(() => {
     if (visible) setDraftIso(value);
-  }, [visible, value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const themedStyles = React.useMemo(
     () => ({

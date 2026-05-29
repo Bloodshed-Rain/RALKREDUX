@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import {
   Newsreader_600SemiBold_Italic,
   useFonts,
@@ -27,7 +27,7 @@ import { ThemeProvider, useTheme } from '@/src/ui/theme/theme-provider';
 const queryClient = new QueryClient();
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
@@ -41,20 +41,37 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   });
   const [dbReady, setDbReady] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [slowFonts, setSlowFonts] = React.useState(false);
 
-  React.useEffect(() => {
+  const runInit = React.useCallback(() => {
+    setError(null);
+    setDbReady(false);
     initializeDatabase()
       .then(() => setDbReady(true))
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : String(caught));
       });
-    void loadHapticsPref();
   }, []);
 
-  const booting = !fontsLoaded || !dbReady;
+  React.useEffect(() => {
+    runInit();
+    void loadHapticsPref();
+  }, [runInit]);
+
+  // Don't block the boot forever on fonts — after a grace period (or immediately
+  // if the font load errored) proceed with system fonts. Typography degrades
+  // but the app is usable; previously an unresolved useFonts hung the splash.
+  React.useEffect(() => {
+    if (fontsLoaded) return;
+    const t = setTimeout(() => setSlowFonts(true), 10000);
+    return () => clearTimeout(t);
+  }, [fontsLoaded]);
+
+  const fontsReady = fontsLoaded || slowFonts || Boolean(fontError);
+  const booting = !fontsReady || !dbReady;
   const status = error
     ? `Database setup failed — ${error}`
-    : !fontsLoaded
+    : !fontsReady
       ? 'Loading typeface'
       : !dbReady
         ? 'Opening local ledger'
@@ -64,7 +81,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <SafeAreaProvider>
       <ThemeProvider>
         {error || booting ? (
-          <BootSplash label={status} failed={Boolean(error)} fontsLoaded={fontsLoaded} />
+          <BootSplash
+            label={status}
+            failed={Boolean(error)}
+            fontsLoaded={fontsLoaded}
+            onRetry={error ? runInit : undefined}
+          />
         ) : (
           <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         )}
@@ -77,9 +99,10 @@ interface BootSplashProps {
   label: string;
   failed: boolean;
   fontsLoaded: boolean;
+  onRetry?: () => void;
 }
 
-function BootSplash({ label, failed, fontsLoaded }: BootSplashProps) {
+function BootSplash({ label, failed, fontsLoaded, onRetry }: BootSplashProps) {
   const { tokens } = useTheme();
   return (
     <View
@@ -128,6 +151,34 @@ function BootSplash({ label, failed, fontsLoaded }: BootSplashProps) {
       >
         {label}
       </Text>
+      {failed && onRetry ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Try again"
+          onPress={onRetry}
+          hitSlop={8}
+          style={{
+            marginTop: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 22,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: tokens.line,
+            backgroundColor: tokens.surface,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fontsLoaded ? 'Manrope_600SemiBold' : undefined,
+              fontWeight: '600',
+              fontSize: 14,
+              color: tokens.text,
+            }}
+          >
+            Try again
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -65,6 +65,10 @@ export default function AccountScreen() {
   const restore = useRestoreFromCloud();
   const backups = backupsQuery.data?.ok ? backupsQuery.data.backups : [];
   const lastBackup = backups[0] ?? null;
+  // A list FAILURE must not read as "no backups" on the disaster-recovery
+  // screen — someone recovering a lost device would believe they have nothing.
+  const backupListFailed = backupsQuery.isError || (!!backupsQuery.data && !backupsQuery.data.ok);
+  const backupListLoading = !backupsQuery.data && !backupsQuery.isError;
 
   async function onBackupNow() {
     const result = await backupNow.mutateAsync();
@@ -114,7 +118,7 @@ export default function AccountScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <TopBar
         title="Account"
-        subtitle="Sign-in and subscription"
+        subtitle="Sign-in and sign out"
         leading={<IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />}
       />
       <ScrollView
@@ -145,13 +149,30 @@ export default function AccountScreen() {
               <Card padding={14}>
                 <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>LAST BACKUP</Text>
                 <Text style={{ ...type.cardTitle, color: tokens.text, marginTop: 4 }}>
-                  {lastBackup ? formatBackupTime(lastBackup.created_at) : 'No cloud backups yet'}
+                  {backupListLoading
+                    ? 'Checking for cloud backups…'
+                    : backupListFailed
+                      ? 'Couldn’t load your cloud backups'
+                      : lastBackup
+                        ? formatBackupTime(lastBackup.created_at)
+                        : 'No cloud backups yet'}
                 </Text>
                 <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4, lineHeight: 20 }}>
-                  {lastBackup
-                    ? backupSummaryLine(lastBackup)
-                    : 'Your logbook backs up automatically after you sign an entry, and whenever you tap below.'}
+                  {backupListLoading
+                    ? 'Looking for backups saved to the cloud.'
+                    : backupListFailed
+                      ? 'This is a connection problem, not an empty account — check your internet and retry.'
+                      : lastBackup
+                        ? backupSummaryLine(lastBackup)
+                        : 'Your logbook backs up automatically after you sign an entry, and whenever you tap below.'}
                 </Text>
+                {backupListFailed ? (
+                  <View style={{ marginTop: 10 }}>
+                    <Button variant="ghost" onPress={() => void backupsQuery.refetch()}>
+                      Retry
+                    </Button>
+                  </View>
+                ) : null}
               </Card>
               <Button full disabled={backupNow.isPending} onPress={onBackupNow}>
                 {backupNow.isPending ? 'Backing up…' : 'Back up now'}

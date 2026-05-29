@@ -13,7 +13,7 @@ import {
   SearchGearCatalogInput,
 } from './types';
 
-const DUE_SOON_DAYS = 30;
+export const DUE_SOON_DAYS = 30;
 
 function isoDateToUtcMs(value: string): number {
   return new Date(`${value}T00:00:00.000Z`).getTime();

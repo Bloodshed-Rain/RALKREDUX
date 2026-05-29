@@ -189,7 +189,19 @@ export default function GearDetailScreen() {
           setInspectorCertNumber('');
           setShowInspect(false);
         },
-        onError: () => haptics.error(),
+        onError: (err) => {
+          haptics.error();
+          const code = err instanceof Error ? err.message : String(err);
+          const friendly =
+            code === 'gear_retired'
+              ? 'This item is already retired, so the inspection was not recorded and the item was not changed. Pull to refresh and reopen the item.'
+              : code === 'gear_not_found'
+                ? 'This gear item could not be found — it may have been removed on another device. Nothing was changed.'
+                : code === 'inspector_identity_required'
+                  ? 'Add the inspector name before saving. The inspection was not recorded.'
+                  : 'Could not save the inspection. The item was NOT changed — please try again.';
+          Alert.alert('Inspection not saved', friendly);
+        },
       },
     );
   }
@@ -376,6 +388,13 @@ export default function GearDetailScreen() {
                   />
                 </View>
               </View>
+              {inspResult !== 'fail' && !inspNextDue.trim() ? (
+                // A clean pass with no next-due silently drops the item to
+                // "unscheduled" (a warning state) — warn before that happens.
+                <Text style={{ ...type.cardSub, color: tokens.text }}>
+                  No next-due date set — this item will show as “unscheduled” until one is added.
+                </Text>
+              ) : null}
               <Field
                 label="Notes"
                 value={inspNotes}

@@ -39,6 +39,7 @@ import {
 } from '@/src/ui/primitives/v2';
 import { IconArrowLeft, IconCheck } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
+import { useUnsavedGuard } from '@/src/ui/use-unsaved-guard';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -89,6 +90,21 @@ export default function LocalSignScreen() {
 
   const sigPadRef = React.useRef<SigPadHandle>(null);
   const didPrefillSupervisor = React.useRef(false);
+
+  // Guard against losing a drawn signature + attestation to a stray back-tap or
+  // edge-back at the device-handoff moment. Disabled once sealing starts so the
+  // success navigation isn't intercepted.
+  const signDirty =
+    signaturePath.trim().length > 0 ||
+    attestationAccepted ||
+    supervisorCertNumber.trim().length > 0 ||
+    supervisorRole.trim().length > 0 ||
+    supervisorEmployer.trim().length > 0;
+  useUnsavedGuard(signDirty && !sealing && !sealedChainHash, {
+    title: 'Discard this signature?',
+    message: 'The drawn signature and details on this screen will be lost.',
+    confirmLabel: 'Discard',
+  });
   const sealNavTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const sealNavRouteRef = React.useRef<string | null>(null);
 
@@ -108,8 +124,11 @@ export default function LocalSignScreen() {
       clearTimeout(sealNavTimeoutRef.current);
       sealNavTimeoutRef.current = null;
     }
-    const target = sealNavRouteRef.current;
-    if (target) router.replace(target as never);
+    // Fall back to the entry (or records) so a missing target can't strand the
+    // user on the sealed-animation screen with no way out.
+    const target =
+      sealNavRouteRef.current ?? (entryId ? `/entry/${entryId}` : '/records');
+    router.replace(target as never);
   }
 
   const entry = detail.data?.entry;

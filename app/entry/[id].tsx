@@ -50,9 +50,9 @@ import {
   IconArrowLeft,
   IconCamera,
   IconExport,
-  IconMore,
   IconSync,
   IconVerified,
+  IconWarn,
 } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
@@ -162,11 +162,20 @@ export default function EntryDetailScreen() {
 
   async function shareEntryPacket() {
     if (!entryId) return;
-    const packet = await exportEntry.mutateAsync(entryId);
-    await Share.share({
-      title: 'RALB entry audit packet',
-      message: JSON.stringify(packet, null, 2),
-    });
+    try {
+      const packet = await exportEntry.mutateAsync(entryId);
+      await Share.share({
+        title: 'RALB entry audit packet',
+        message: JSON.stringify(packet, null, 2),
+      });
+    } catch (err) {
+      // A failed packet build (e.g. an evicted offline photo) previously threw
+      // an unhandled rejection with no feedback — surface it instead.
+      Alert.alert(
+        'Could not build audit packet',
+        err instanceof Error ? err.message : 'The audit packet could not be created. Please try again.',
+      );
+    }
   }
 
   async function shareEntryPdf() {
@@ -279,12 +288,11 @@ export default function EntryDetailScreen() {
           <View style={{ flexDirection: 'row', gap: 4 }}>
             <IconBtn
               icon={IconExport}
-              label="Export"
+              label="Export PDF"
               size="md"
               onPress={shareEntryPdf}
               disabled={pdfPending || exportEntry.isPending}
             />
-            <IconBtn icon={IconMore} label="More" size="md" />
           </View>
         }
       />
@@ -605,6 +613,7 @@ export default function EntryDetailScreen() {
             isReady={isReady}
             entryId={entry.id}
             signature={signature ?? null}
+            chainValid={chainValid.data}
           />
 
           {/* REMOTE REQUEST */}
@@ -811,14 +820,34 @@ function SignatureBlock({
   isReady,
   entryId,
   signature,
+  chainValid,
 }: {
   isDraft: boolean;
   isReady: boolean;
   entryId: string;
   signature: NonNullable<ReturnType<typeof useEntryDetail>['data']>['signature'] | null;
+  chainValid?: boolean;
 }) {
   const { tokens } = useTheme();
   if (signature) {
+    // Only assert "Verified" when the chain-hash check has actually passed.
+    // chainValid === false → the entry was altered after signing (or its hash
+    // version is out of range): show a danger pill, never the green tick.
+    // undefined → the async check is still running.
+    const statusPill =
+      chainValid === false ? (
+        <Pill tone="danger" size="sm" icon={IconWarn}>
+          Chain mismatch
+        </Pill>
+      ) : chainValid === true ? (
+        <Pill tone="ok" size="sm" icon={IconVerified}>
+          Verified
+        </Pill>
+      ) : (
+        <Pill tone="chip" size="sm">
+          Checking…
+        </Pill>
+      );
     return (
       <Card padding={16}>
         <View
@@ -830,18 +859,27 @@ function SignatureBlock({
           }}
         >
           <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>SIGNATURE</Text>
-          <Pill tone="ok" size="sm" icon={IconVerified}>
-            Verified
-          </Pill>
+          {statusPill}
         </View>
         <SigFill name={signature.supervisor_name} />
         <View style={{ marginTop: 12 }}>
           <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
             {signature.supervisor_name}
           </Text>
-          {signature.supervisor_cert_number ? (
+          {signature.supervisor_scheme === 'site' ? (
+            <>
+              <Text style={{ ...type.mono, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+                Site-authorised{signature.supervisor_role ? ` · ${signature.supervisor_role}` : ''}
+              </Text>
+              {signature.supervisor_employer ? (
+                <Text style={{ ...type.mono, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+                  {signature.supervisor_employer}
+                </Text>
+              ) : null}
+            </>
+          ) : signature.supervisor_cert_number ? (
             <Text style={{ ...type.mono, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
-              Cert {signature.supervisor_cert_number}
+              {signature.supervisor_scheme ? `${signature.supervisor_scheme.toUpperCase()} ` : ''}Cert {signature.supervisor_cert_number}
             </Text>
           ) : null}
         </View>

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -98,7 +99,14 @@ export default function RemoteSignatureRequestScreen() {
           haptics.success();
           router.replace(`/entry/${updated.entry.id}`);
         },
-        onError: () => haptics.error(),
+        onError: (err) => {
+          haptics.error();
+          Alert.alert(
+            'Could not create request',
+            (err instanceof Error ? err.message : 'The remote request was not created.') +
+              '\n\nYour verifier details are still on this screen — please try again.',
+          );
+        },
       },
     );
   }
@@ -305,7 +313,7 @@ export default function RemoteSignatureRequestScreen() {
             ? 'Creating request…'
             : canCreate
               ? 'Create remote request'
-              : hasVerifierName
+              : blockingMessage
                 ? 'Finish entry first'
                 : 'Add verifier name'}
         </Button>
