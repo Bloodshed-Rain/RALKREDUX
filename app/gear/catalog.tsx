@@ -161,6 +161,9 @@ function CatalogRow({
 }) {
   const { tokens } = useTheme();
   const Icon = GEAR_ICON[entry.category];
+  // Offline-first: if a remote product image fails to load, fall back to the
+  // category icon rather than an empty grey box.
+  const [imageFailed, setImageFailed] = React.useState(false);
 
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
@@ -197,11 +200,12 @@ function CatalogRow({
       >
         {/* Schema carries an optional licensed product image_url; when
             present we render it, otherwise the category icon stands in. */}
-        {entry.image_url ? (
+        {entry.image_url && !imageFailed ? (
           <Image
             source={{ uri: entry.image_url }}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <Icon size={26} color={tokens.text} fill={tokens.accent} />

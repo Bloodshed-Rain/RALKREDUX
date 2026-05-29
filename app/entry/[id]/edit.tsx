@@ -267,6 +267,11 @@ export default function EditDraftScreen() {
                 <Pill tone="chip">{`${parsedHeight.toFixed(0)} ${heightUnit}`}</Pill>
               ) : null}
             </View>
+            {!isAuditReady ? (
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
+                {`Still needed: ${missing.join(', ')}.`}
+              </Text>
+            ) : null}
             {lockedNotice ? (
               <View
                 style={{

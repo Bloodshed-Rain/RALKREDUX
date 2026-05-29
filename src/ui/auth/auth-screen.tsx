@@ -51,6 +51,14 @@ export function AuthScreen() {
   const [step, setStep] = React.useState<EmailStep>('enter_email');
   const [email, setEmail] = React.useState('');
   const [code, setCode] = React.useState('');
+  // Seconds until the OTP code can be re-sent (0 = allowed).
+  const [resendIn, setResendIn] = React.useState(0);
+
+  React.useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   // Prefill the last email used for OTP so returning users don't retype it.
   React.useEffect(() => {
@@ -90,6 +98,16 @@ export function AuthScreen() {
       await sendEmailOtp(trimmed);
       void writePref(PrefKeys.lastAuthEmail, trimmed);
       setStep('enter_code');
+      setResendIn(30);
+    });
+  }
+
+  function onResendCode() {
+    const trimmed = email.trim();
+    if (!EMAIL_RE.test(trimmed) || resendIn > 0) return;
+    void run('email', async () => {
+      await sendEmailOtp(trimmed);
+      setResendIn(30);
     });
   }
 
@@ -231,6 +249,15 @@ export function AuthScreen() {
               onPress={onVerifyCode}
             >
               {busy === 'email' ? 'Verifying…' : 'Verify & sign in'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              full
+              disabled={disabled || resendIn > 0}
+              onPress={onResendCode}
+            >
+              {resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
             </Button>
             <Button
               variant="ghost"

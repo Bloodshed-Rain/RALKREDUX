@@ -19,8 +19,10 @@ import {
 import { IconExport, IconSearch } from '@/src/ui/icons';
 
 // Once per app session: play a wiggle on the first deletable draft so users
-// discover that draft rows can be swiped.
-let swipeHintShown = false;
+// discover that draft rows can be swiped. The decision is made in an effect
+// (not during render) so StrictMode / concurrent discarded renders can't
+// consume the flag without the hint ever painting.
+let swipeHintConsumed = false;
 
 type FilterKey = 'all' | 'drafts' | 'pending' | 'signed' | 'amended';
 
@@ -300,6 +302,17 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: Recor
     return groups.map((g) => ({ ...g, data: g.entries }));
   }, [groups]);
 
+  // Decide the one hint target once per session, off the render path.
+  const [hintEntryId, setHintEntryId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (swipeHintConsumed) return;
+    const firstDraft = sections.flatMap((s) => s.data).find((e) => e.status === 'draft');
+    if (firstDraft) {
+      swipeHintConsumed = true;
+      setHintEntryId(firstDraft.id);
+    }
+  }, [sections]);
+
   return (
     <SectionList
       style={{ flex: 1, paddingHorizontal: 20 }}
@@ -341,12 +354,10 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: Recor
         if (!isDraft) {
           return row;
         }
-        const playHint = !swipeHintShown;
-        if (playHint) swipeHintShown = true;
         return (
           <SwipeableRow
             onDelete={() => onDeleteDraft(entry)}
-            hint={playHint}
+            hint={entry.id === hintEntryId}
           >
             {row}
           </SwipeableRow>

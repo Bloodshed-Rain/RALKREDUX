@@ -388,6 +388,13 @@ export default function GearDetailScreen() {
                   />
                 </View>
               </View>
+              {inspResult !== 'fail' && !inspNextDue.trim() ? (
+                // A clean pass with no next-due silently drops the item to
+                // "unscheduled" (a warning state) — warn before that happens.
+                <Text style={{ ...type.cardSub, color: tokens.text }}>
+                  No next-due date set — this item will show as “unscheduled” until one is added.
+                </Text>
+              ) : null}
               <Field
                 label="Notes"
                 value={inspNotes}

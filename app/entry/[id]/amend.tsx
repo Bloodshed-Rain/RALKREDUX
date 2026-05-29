@@ -204,6 +204,14 @@ export default function AmendEntryScreen() {
                 {missingCount === 0 ? 'Complete' : `${missingCount} missing`}
               </Pill>
             </View>
+            {missingCount > 0 && !sourceLocked ? (
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
+                {`Still needed: ${Object.entries(isMissing)
+                  .filter(([, v]) => v)
+                  .map(([k]) => k)
+                  .join(', ')}.`}
+              </Text>
+            ) : null}
             {entry && !sourceLocked
               ? (() => {
                   const changes = computeAmendmentChanges(entry, {
