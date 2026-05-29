@@ -20,3 +20,14 @@ export function useCreateProfile() {
   });
 }
 
+export function useUpdateAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (avatarUri: string | null) =>
+      createProfileService(getClient()).updateAvatar(avatarUri),
+    onSuccess: (profile) => {
+      queryClient.setQueryData(['profile'], profile);
+    },
+  });
+}
+

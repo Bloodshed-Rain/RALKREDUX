@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, Share, Text, TextInput, View, type TextStyle, type ViewStyle } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Share, Text, TextInput, View, type TextStyle, type ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/backup/use-backup';
@@ -7,8 +7,10 @@ import type { BackupSnapshot } from '@/src/domain/backup/types';
 import { formatDateOrDash } from '@/src/domain/date-format';
 import { daysFromTodayIso } from '@/src/domain/date-utils';
 import { useChainHead, useDashboardSummary } from '@/src/domain/logbook/use-logbook';
-import { useProfile } from '@/src/domain/profile/use-profile';
+import { useProfile, useUpdateAvatar } from '@/src/domain/profile/use-profile';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
+import { captureOrPickPhoto } from '@/src/ui/photo-picker';
+import { deleteAvatarFile, persistAvatarFile } from '@/src/ui/avatar-storage';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { THEME_ORDER, THEMES, type Theme } from '@/src/ui/theme/themes';
 import { type } from '@/src/ui/theme/type';
@@ -58,6 +60,7 @@ export default function ProfileScreen() {
   const chainHead = useChainHead();
   const p = profile.data;
 
+  const updateAvatar = useUpdateAvatar();
   const createBackup = useCreateBackupSnapshot();
   const restoreBackup = useRestoreBackupSnapshot();
   const [restoreText, setRestoreText] = React.useState('');
@@ -93,6 +96,60 @@ export default function ProfileScreen() {
     setHapticsOn(value);
     setHapticsEnabled(value);
     haptics.selection();
+  }
+
+  async function pickAndSetAvatar() {
+    const picked = await captureOrPickPhoto({
+      promptTitle: 'Profile photo',
+      promptMessage: 'Take a new photo or choose one from your library.',
+      square: true,
+    });
+    if (!picked) return;
+
+    // Order matters: persist the new file, record it, THEN delete the old one.
+    // If the DB write fails after the copy we orphan one file but the previous
+    // avatar still resolves — never a broken pointer.
+    const previous = p?.avatar_uri ?? null;
+    try {
+      const durable = await persistAvatarFile(picked.uri);
+      await updateAvatar.mutateAsync(durable);
+      if (previous && previous !== durable) await deleteAvatarFile(previous);
+      haptics.success();
+    } catch (err) {
+      haptics.error();
+      Alert.alert(
+        'Could not update photo',
+        err instanceof Error ? err.message : 'The profile photo could not be saved.',
+      );
+    }
+  }
+
+  async function removeAvatar() {
+    const previous = p?.avatar_uri ?? null;
+    try {
+      await updateAvatar.mutateAsync(null);
+      await deleteAvatarFile(previous);
+      haptics.success();
+    } catch (err) {
+      haptics.error();
+      Alert.alert(
+        'Could not remove photo',
+        err instanceof Error ? err.message : 'The profile photo could not be removed.',
+      );
+    }
+  }
+
+  function handleEditAvatar() {
+    if (!p) return;
+    if (p.avatar_uri) {
+      Alert.alert('Profile photo', undefined, [
+        { text: 'Change photo', onPress: () => void pickAndSetAvatar() },
+        { text: 'Remove photo', style: 'destructive', onPress: () => void removeAvatar() },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    } else {
+      void pickAndSetAvatar();
+    }
   }
 
   async function shareBackupSnapshot() {
@@ -179,6 +236,8 @@ export default function ProfileScreen() {
               p ? `Local ledger · ${p.primary_scheme.toUpperCase()} primary` : 'Set up your profile to start logging'
             }
             active={!!p}
+            avatarUri={p?.avatar_uri ?? null}
+            onEditAvatar={p ? handleEditAvatar : undefined}
             sprat={
               p
                 ? {
@@ -339,18 +398,37 @@ interface OperatorCardProps {
   fullName: string;
   employerLine: string;
   active: boolean;
+  avatarUri: string | null;
+  onEditAvatar?: () => void;
   sprat: CertSlot | null;
   irata: CertSlot | null;
 }
 
-function OperatorCard({ fullName, employerLine, active, sprat, irata }: OperatorCardProps) {
+function OperatorCard({
+  fullName,
+  employerLine,
+  active,
+  avatarUri,
+  onEditAvatar,
+  sprat,
+  irata,
+}: OperatorCardProps) {
   const { tokens } = useTheme();
   const initials = deriveInitials(fullName);
+  // A persisted avatar URI can dangle after a restore-to-new-device (the file
+  // bytes aren't in the backup), so a load error falls back to the initials.
+  const [avatarFailed, setAvatarFailed] = React.useState(false);
+  React.useEffect(() => setAvatarFailed(false), [avatarUri]);
+  const showImage = !!avatarUri && !avatarFailed;
 
   return (
     <Card padding={18}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View
+        <Pressable
+          onPress={onEditAvatar}
+          disabled={!onEditAvatar}
+          accessibilityRole={onEditAvatar ? 'button' : undefined}
+          accessibilityLabel={onEditAvatar ? 'Change profile photo' : undefined}
           style={{
             width: 58,
             height: 58,
@@ -358,20 +436,49 @@ function OperatorCard({ fullName, employerLine, active, sprat, irata }: Operator
             backgroundColor: tokens.accent,
             alignItems: 'center',
             justifyContent: 'center',
+            overflow: 'hidden',
           }}
         >
-          <Text
-            style={{
-              fontFamily: 'Manrope_800ExtraBold',
-              fontSize: 20,
-              fontWeight: '800',
-              letterSpacing: -0.4,
-              color: tokens.accentInk,
-            }}
-          >
-            {initials}
-          </Text>
-        </View>
+          {showImage ? (
+            <Image
+              source={{ uri: avatarUri as string }}
+              onError={() => setAvatarFailed(true)}
+              style={{ width: 58, height: 58 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text
+              style={{
+                fontFamily: 'Manrope_800ExtraBold',
+                fontSize: 20,
+                fontWeight: '800',
+                letterSpacing: -0.4,
+                color: tokens.accentInk,
+              }}
+            >
+              {initials}
+            </Text>
+          )}
+          {onEditAvatar ? (
+            <View
+              style={{
+                position: 'absolute',
+                right: 0,
+                bottom: 0,
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: tokens.surface,
+                borderWidth: 1.5,
+                borderColor: tokens.bg,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IconCamera size={12} color={tokens.text} />
+            </View>
+          ) : null}
+        </Pressable>
         <View style={{ flex: 1, gap: 2 }}>
           <Text
             style={{

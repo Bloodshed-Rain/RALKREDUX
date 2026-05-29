@@ -574,6 +574,23 @@ const migrations: Migration[] = [
       await db.exec('CREATE INDEX IF NOT EXISTS idx_entry_photos_entry_id ON entry_photos(entry_id);');
     },
   },
+  {
+    id: 15,
+    name: 'profile-avatar',
+    async up(db) {
+      // Optional local avatar. Stores a file URI pointing at expo-file-system's
+      // documentDirectory (not a blob) — cosmetic local identity only, so it is
+      // NOT part of any entry attestation and does not touch ENTRY_HASH_VERSION.
+      // The file is device-local: it rides along in backups as a string but the
+      // bytes do not, so consumers must tolerate a dangling URI (see the Image
+      // onError → initials fallback on the Profile tab).
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+      const names = new Set(columns.map((column) => column.name));
+      if (!names.has('avatar_uri')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN avatar_uri TEXT;');
+      }
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the

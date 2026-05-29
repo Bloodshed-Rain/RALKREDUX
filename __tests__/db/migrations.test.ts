@@ -22,7 +22,14 @@ describe('database migrations', () => {
       { id: 12, name: 'site-signer-role-employer' },
       { id: 13, name: 'performance-indexes' },
       { id: 14, name: 'timezone-anchoring-and-photos' },
+      { id: 15, name: 'profile-avatar' },
     ]);
+  });
+
+  it('adds the optional avatar_uri column to profiles (migration 15)', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+    expect(columns.map((c) => c.name)).toEqual(expect.arrayContaining(['avatar_uri']));
   });
 
   it('adds timezone anchoring and the entry photos table (migration 14)', async () => {

@@ -39,6 +39,25 @@ export function createProfileService(db: DbClient) {
       if (!created) throw new Error('profile_create_failed');
       return created;
     },
+
+    // Set or clear the local avatar URI. Pass null to remove the photo.
+    // The caller owns the on-disk file lifecycle (persist/delete); this only
+    // records the pointer. Throws `profile_not_found` when there is no profile
+    // yet — there is nothing to attach a photo to before first-run setup.
+    async updateAvatar(avatarUri: string | null): Promise<Profile> {
+      const existing = await this.getProfile();
+      if (!existing) throw new Error('profile_not_found');
+
+      await db.run('UPDATE profiles SET avatar_uri = ?, updated_at = ? WHERE id = ?', [
+        avatarUri,
+        new Date().toISOString(),
+        existing.id,
+      ]);
+
+      const updated = await this.getProfile();
+      if (!updated) throw new Error('profile_not_found');
+      return updated;
+    },
   };
 }
 

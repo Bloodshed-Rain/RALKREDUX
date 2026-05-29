@@ -19,6 +19,11 @@ export interface Profile {
   irata_id: string | null;
   irata_level: CertLevel | null;
   irata_expires_on: string | null;
+  // Optional local avatar — a device-local expo-file-system URI. Cosmetic only;
+  // not part of any signature/entry attestation. May dangle after a restore to
+  // a new device (the bytes are not in the backup), so always render with a
+  // load-error fallback.
+  avatar_uri: string | null;
   created_at: string;
   updated_at: string;
 }
