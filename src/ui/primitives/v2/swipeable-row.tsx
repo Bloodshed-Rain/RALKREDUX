@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated, PanResponder, Pressable, View } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
-import { IconVoid } from '@/src/ui/icons';
+import { IconTrash } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 import { scaled } from '@/src/ui/scale';
 
@@ -124,7 +124,7 @@ export function SwipeableRow({ onDelete, hint, children }: SwipeableRowProps) {
             justifyContent: 'center',
           }}
         >
-          <IconVoid size={scaled(22)} color={tokens.accentInk} />
+          <IconTrash size={scaled(22)} color={tokens.accentInk} />
         </Pressable>
       </View>
       <Animated.View {...responder.panHandlers} style={{ transform: [{ translateX }] }}>

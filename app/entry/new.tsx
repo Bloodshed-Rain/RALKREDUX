@@ -50,6 +50,7 @@ import {
   Button,
   Card,
   ChipSelect,
+  type ChipOption,
   ClassificationChips,
   DateField,
   Field,
@@ -58,7 +59,16 @@ import {
   Pill,
   type PhotoStripItem,
 } from '@/src/ui/primitives/v2';
-import { GEAR_ICON, IconClose, IconSign, IconWarn } from '@/src/ui/icons';
+import {
+  GEAR_ICON,
+  IconClimber,
+  IconClose,
+  IconInspect,
+  IconRescue,
+  IconSign,
+  IconTraining,
+  IconWarn,
+} from '@/src/ui/icons';
 import {
   DEFAULT_TERMINAL_ACTION,
   PrefKeys,
@@ -69,11 +79,11 @@ import {
 import { haptics } from '@/src/ui/haptics';
 import type { GearCategory } from '@/src/domain/gear/types';
 
-const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
-  { value: 'work', label: 'Work' },
-  { value: 'training', label: 'Training' },
-  { value: 'assessment', label: 'Assessment' },
-  { value: 'rescue_drill', label: 'Rescue drill' },
+const ENTRY_KIND_OPTIONS: Array<ChipOption<EntryKind>> = [
+  { value: 'work', label: 'Work', icon: IconClimber },
+  { value: 'training', label: 'Training', icon: IconTraining },
+  { value: 'assessment', label: 'Assessment', icon: IconInspect },
+  { value: 'rescue_drill', label: 'Rescue drill', icon: IconRescue },
 ];
 const HEIGHT_UNIT_OPTIONS = [
   { value: 'ft' as HeightUnit, label: 'ft' },

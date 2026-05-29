@@ -9,6 +9,8 @@
       "distribution": "internal",
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://zooxewiwaurbfmulkwia.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvb3hld2l3YXVyYmZtdWxrd2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzOTQwNDUsImV4cCI6MjA5MTk3MDA0NX0.Qi6dunmEmbUUNg8M632ZfMWfWQkgOPzVjK1cAcru14Q",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "665912221058-upf53dpmt1e339egkg8c2f0rep05n5qm.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "665912221058-aku17470luv2t4d72scv12293hb3950a.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.665912221058-aku17470luv2t4d72scv12293hb3950a"
@@ -17,6 +19,13 @@
     "preview": {
       "distribution": "internal",
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://zooxewiwaurbfmulkwia.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvb3hld2l3YXVyYmZtdWxrd2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzOTQwNDUsImV4cCI6MjA5MTk3MDA0NX0.Qi6dunmEmbUUNg8M632ZfMWfWQkgOPzVjK1cAcru14Q",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "665912221058-upf53dpmt1e339egkg8c2f0rep05n5qm.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "665912221058-aku17470luv2t4d72scv12293hb3950a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.665912221058-aku17470luv2t4d72scv12293hb3950a"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -26,6 +35,13 @@
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://zooxewiwaurbfmulkwia.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvb3hld2l3YXVyYmZtdWxrd2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzOTQwNDUsImV4cCI6MjA5MTk3MDA0NX0.Qi6dunmEmbUUNg8M632ZfMWfWQkgOPzVjK1cAcru14Q",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "665912221058-upf53dpmt1e339egkg8c2f0rep05n5qm.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "665912221058-aku17470luv2t4d72scv12293hb3950a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.665912221058-aku17470luv2t4d72scv12293hb3950a"
+      },
       "ios": {
         "resourceClass": "m-medium"
       }

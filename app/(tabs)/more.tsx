@@ -26,10 +26,10 @@ import {
   IconCamera,
   IconChain,
   IconChevron,
+  IconCloudBackup,
   IconExport,
   IconLock,
   IconProfile,
-  IconSync,
   IconVerified,
   IconWarn,
   type IconProps,
@@ -219,7 +219,7 @@ export default function ProfileScreen() {
             onPress={() => router.push('/export' as never)}
           />
           <SettingsRow
-            icon={IconSync}
+            icon={IconCloudBackup}
             title="Sync & backup"
             sub={showBackup ? 'Tap to close' : 'Share or restore a recovery snapshot'}
             onPress={() => setShowBackup((v) => !v)}

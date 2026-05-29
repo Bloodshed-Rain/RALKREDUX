@@ -1,11 +1,13 @@
 import React from 'react';
 import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import type { IconProps } from '@/src/ui/icons';
 
 export interface ChipOption<T extends string = string> {
   value: T;
   label: string;
   count?: number;
+  icon?: React.ComponentType<IconProps>;
 }
 
 export interface ChipSelectProps<T extends string = string> {
@@ -39,6 +41,7 @@ export function ChipSelect<T extends string = string>({
       {options.map((raw) => {
         const o = normalize(raw);
         const active = o.value === value;
+        const Icon = o.icon;
 
         const itemStyle: ViewStyle = {
           flexDirection: 'row',
@@ -83,6 +86,13 @@ export function ChipSelect<T extends string = string>({
               pressed ? { transform: [{ scale: 0.97 }] } : null,
             ]}
           >
+            {Icon ? (
+              <Icon
+                size={14}
+                color={active ? tokens.accentInk : tokens.textDim}
+                fill={active ? tokens.accentInk : tokens.textDim}
+              />
+            ) : null}
             <Text selectable={false} style={labelStyle}>
               {o.label}
             </Text>

@@ -27,6 +27,7 @@ import {
   Button,
   Card,
   ChipSelect,
+  type ChipOption,
   ClassificationChips,
   Field,
   IconBtn,
@@ -35,14 +36,21 @@ import {
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
+import {
+  IconArrowLeft,
+  IconClimber,
+  IconInspect,
+  IconRescue,
+  IconTraining,
+  IconWarn,
+} from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
-const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
-  { value: 'work', label: 'Work' },
-  { value: 'training', label: 'Training' },
-  { value: 'assessment', label: 'Assessment' },
-  { value: 'rescue_drill', label: 'Rescue drill' },
+const ENTRY_KIND_OPTIONS: Array<ChipOption<EntryKind>> = [
+  { value: 'work', label: 'Work', icon: IconClimber },
+  { value: 'training', label: 'Training', icon: IconTraining },
+  { value: 'assessment', label: 'Assessment', icon: IconInspect },
+  { value: 'rescue_drill', label: 'Rescue drill', icon: IconRescue },
 ];
 
 function firstParam(value: string | string[] | undefined): string | null {
