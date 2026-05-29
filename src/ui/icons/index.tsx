@@ -97,20 +97,11 @@ function CustomIcon({ xml, size = 24, color, fill }: IconProps & { xml: string }
 // ─── Navigation ────────────────────────────────────────────────────────────
 
 export function IconBrand(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={
-        <Path d="M12 3a5 5 0 0 1 5 5v8a5 5 0 0 1-10 0V8a5 5 0 0 1 5-5Zm0 2.4A2.6 2.6 0 0 0 9.4 8v8a2.6 2.6 0 0 0 5.2 0V8A2.6 2.6 0 0 0 12 5.4Z" />
-      }
-      shape={
-        <>
-          <Path d="M12 3a5 5 0 0 1 5 5v.8a.9.9 0 1 1-1.8 0V8a3.2 3.2 0 0 0-6.4 0v8a3.2 3.2 0 0 0 6.4 0v-.8a.9.9 0 1 1 1.8 0v.8a5 5 0 0 1-10 0V8a5 5 0 0 1 5-5Z" />
-          <Rect x={11.1} y={10} width={1.8} height={4} rx={0.9} />
-        </>
-      }
-    />
-  );
+  // App mark: the rope-access climber silhouette (same custom art as the Profile
+  // icon). Replaces the legacy duotone carabiner-style mark so the brand renders
+  // single-tone and theme-aware like the rest of the icon set. Every call site
+  // passes its own `color`, which CustomIcon honors.
+  return <CustomIcon {...p} xml={profileXml} />;
 }
 
 export function IconToday(p: IconProps) {
