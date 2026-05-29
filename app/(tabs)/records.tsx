@@ -334,7 +334,6 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: Recor
             site={entry.site}
             task={entry.work_task}
             hours={entry.work_hours}
-            chainHash={entry.id}
             onPress={() => onEntryPress(entry.id)}
             onLongPress={isDraft ? () => onDeleteDraft(entry) : undefined}
           />

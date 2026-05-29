@@ -269,7 +269,6 @@ export default function TodayScreen() {
                 site={entry.site}
                 task={entry.work_task}
                 hours={entry.work_hours}
-                chainHash={chainHead.data}
                 onPress={() => router.push(`/entry/${entry.id}` as never)}
               />
             ))

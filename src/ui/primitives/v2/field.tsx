@@ -18,6 +18,10 @@ export interface FieldProps {
   suffix?: React.ReactNode;
   prefix?: React.ReactNode;
   helper?: string;
+  // When set, the field renders an invalid state: a danger border plus this
+  // message in danger text (overrides `helper`). Not color-only — the border
+  // also thickens so the state reads on the ink-on-paper Heliotype palette.
+  error?: string;
   readOnly?: boolean;
   keyboardType?: TextInputProps['keyboardType'];
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -36,6 +40,7 @@ export function Field({
   suffix,
   prefix,
   helper,
+  error,
   readOnly,
   keyboardType,
   autoCapitalize,
@@ -57,13 +62,16 @@ export function Field({
     textTransform: 'uppercase',
   };
 
+  const hasError = !!error;
   const rowBaseBorder = isHeliotype ? 1.5 : 1;
-  const focusedBorder = focused ? 1.5 : rowBaseBorder;
-  const rowBorderColor = focused
-    ? tokens.accent
-    : isHeliotype
-      ? tokens.line
-      : tokens.lineSoft;
+  const focusedBorder = focused || hasError ? 1.5 : rowBaseBorder;
+  const rowBorderColor = hasError
+    ? tokens.danger
+    : focused
+      ? tokens.accent
+      : isHeliotype
+        ? tokens.line
+        : tokens.lineSoft;
 
   const rowStyle: ViewStyle = {
     flexDirection: 'row',
@@ -72,7 +80,7 @@ export function Field({
     backgroundColor: tokens.surface,
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: multiline ? 10 : 10,
+    paddingVertical: 10,
     borderWidth: focusedBorder,
     borderColor: rowBorderColor,
   };
@@ -135,7 +143,11 @@ export function Field({
           )
         ) : null}
       </View>
-      {helper ? <Text style={helperStyle}>{helper}</Text> : null}
+      {error ? (
+        <Text style={[helperStyle, { color: tokens.danger }]}>{error}</Text>
+      ) : helper ? (
+        <Text style={helperStyle}>{helper}</Text>
+      ) : null}
     </View>
   );
 }

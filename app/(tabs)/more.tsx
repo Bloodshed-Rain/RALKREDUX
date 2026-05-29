@@ -772,7 +772,7 @@ function BackupInlinePanel({
         }}
       >
         <IconWarn size={19} color={tokens.warn} fill={tokens.warn} />
-        <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+        <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
           Replacing the local ledger is destructive. Signatures made since the snapshot
           will become unreachable — the chain head moves backward to the snapshot's head.
           {currentChainShort ? ` Current head: ${currentChainShort}…` : ''}

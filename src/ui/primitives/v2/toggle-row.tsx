@@ -102,6 +102,11 @@ export function ToggleRow({ label, sub, value, onChange, disabled }: ToggleRowPr
             height: KNOB,
             borderRadius: KNOB / 2,
             backgroundColor: tokens.bg,
+            // On dark palettes bg ≈ the surface2 off-track, so the knob was a
+            // dark disc on dark distinguished only by a shadow (weak in glare).
+            // A hairline edge delineates it against both track states.
+            borderWidth: 1,
+            borderColor: tokens.line,
             shadowColor: '#000',
             shadowOpacity: 0.25,
             shadowOffset: { width: 0, height: 1 },

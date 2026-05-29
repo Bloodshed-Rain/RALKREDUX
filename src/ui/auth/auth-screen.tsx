@@ -138,7 +138,8 @@ export function AuthScreen() {
           <Text style={titleStyle}>RALB</Text>
           <Text style={subStyle}>
             Sign in to your rope-access logbook. Your records stay on this device; an account
-            secures remote signing and your subscription.
+            secures remote signing. First sign-in needs internet — after that the app works
+            offline.
           </Text>
         </View>
 
@@ -152,7 +153,7 @@ export function AuthScreen() {
               borderColor: tokens.danger,
             }}
           >
-            <Text style={{ ...type.cardSub, color: tokens.danger }}>{error}</Text>
+            <Text style={{ ...type.cardSub, color: tokens.text }}>{error}</Text>
           </View>
         ) : null}
 

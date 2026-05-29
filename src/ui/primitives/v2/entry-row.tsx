@@ -1,8 +1,9 @@
 import React from 'react';
 import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import { scaled } from '@/src/ui/scale';
 import { StatusPill, type EntryStatusKey } from './pill';
-import { HashGlyph } from './hash-glyph';
 import { IconChevron } from '@/src/ui/icons';
 
 export interface EntryRowProps {
@@ -12,7 +13,6 @@ export interface EntryRowProps {
   site: string;
   task?: string;
   hours?: number;
-  chainHash?: string | null;
   onPress?: () => void;
   // Long-press on the row itself. Must live on the inner Pressable, otherwise
   // a child press handler claims the gesture before any wrapping Pressable
@@ -33,9 +33,17 @@ function parseLocalDate(iso: string): { day: number; month: number } | null {
   return { day: Number(m[3]), month: Number(m[2]) };
 }
 
-export function EntryRow({ status, date, site, task, hours, chainHash, onPress, onLongPress, action }: EntryRowProps) {
+export function EntryRow({ status, date, site, task, hours, onPress, onLongPress, action }: EntryRowProps) {
   const { tokens } = useTheme();
   const parsed = parseLocalDate(date);
+  const statusWord = status.charAt(0).toUpperCase() + status.slice(1);
+  const dateWords = parsed ? `${MONTH_ABBR[parsed.month - 1]} ${parsed.day}` : date;
+  // Fold status + hours into the label so a screen reader hears the row's
+  // decision-critical attributes (the StatusPill text is otherwise suppressed
+  // by this label on the accessible Pressable).
+  const a11yLabel =
+    `${statusWord} entry, ${site || 'untitled'}, ${dateWords}` +
+    (hours != null ? `, ${hours.toFixed(1)} hours` : '');
 
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
@@ -49,37 +57,29 @@ export function EntryRow({ status, date, site, task, hours, chainHash, onPress, 
     borderColor: tokens.lineSoft,
   };
 
+  // Type tokens carry UI_SCALE; the day numeral has no token so it is scaled
+  // explicitly to stay in proportion with the rest of the row.
   const dayStyle: TextStyle = {
     fontFamily: 'Manrope_700Bold',
     fontWeight: '700',
-    fontSize: 22,
-    lineHeight: 24,
+    fontSize: scaled(22),
+    lineHeight: scaled(24),
     letterSpacing: -0.6,
     color: tokens.text,
   };
 
   const monthStyle: TextStyle = {
-    fontFamily: 'JetBrainsMono_600SemiBold',
-    fontWeight: '600',
-    fontSize: 10,
-    lineHeight: 12,
-    letterSpacing: 1.5,
+    ...type.monoKicker,
     color: tokens.textFaint,
   };
 
   const titleStyle: TextStyle = {
-    fontFamily: 'Manrope_600SemiBold',
-    fontWeight: '600',
-    fontSize: 14,
-    lineHeight: 18,
-    letterSpacing: -0.14,
+    ...type.cardTitle,
     color: tokens.text,
   };
 
   const subStyle: TextStyle = {
-    fontFamily: 'JetBrainsMono_400Regular',
-    fontSize: 11,
-    lineHeight: 14,
+    ...type.monoSm,
     color: tokens.textDim,
     marginTop: 2,
   };
@@ -87,7 +87,7 @@ export function EntryRow({ status, date, site, task, hours, chainHash, onPress, 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Entry on ${date} at ${site}`}
+      accessibilityLabel={a11yLabel}
       onPress={onPress}
       onLongPress={onLongPress}
       style={({ pressed }) => [containerStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
@@ -107,7 +107,6 @@ export function EntryRow({ status, date, site, task, hours, chainHash, onPress, 
         </Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {chainHash ? <HashGlyph hash={chainHash} size={24} /> : null}
         <StatusPill status={status} />
         {action}
         <IconChevron size={17} color={tokens.textFaint} />

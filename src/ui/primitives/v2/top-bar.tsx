@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, type ViewStyle, type TextStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
 
 export interface TopBarProps {
   title: string;
@@ -43,22 +44,24 @@ export function TopBar({ title, subtitle, large, leading, trailing, style }: Top
     textAlign: 'center',
   };
 
+  // Spread the scaled type tokens so titles track UI_SCALE instead of rendering
+  // ~16% smaller than the surrounding chrome (the typography-drift class).
   const heroTitleStyle: TextStyle = {
-    fontFamily: 'Manrope_800ExtraBold',
-    fontWeight: '800',
-    fontSize: 32,
-    lineHeight: 36,
-    letterSpacing: -1.12,
+    ...type.screenTitle,
     color: tokens.text,
   };
 
   const heroSubStyle: TextStyle = {
-    fontFamily: 'Manrope_500Medium',
-    fontWeight: '500',
-    fontSize: 13,
-    lineHeight: 18,
+    ...type.cardSub,
     color: tokens.textDim,
     marginTop: 4,
+  };
+
+  const compactSubStyle: TextStyle = {
+    ...type.cardSub,
+    color: tokens.textDim,
+    textAlign: 'center',
+    marginTop: 2,
   };
 
   return (
@@ -83,6 +86,12 @@ export function TopBar({ title, subtitle, large, leading, trailing, style }: Top
           <Text style={heroTitleStyle}>{title}</Text>
           {subtitle ? <Text style={heroSubStyle}>{subtitle}</Text> : null}
         </View>
+      ) : subtitle ? (
+        // Compact mode previously dropped the subtitle entirely — on screens
+        // like Attachments it carried the only file-count / loading text.
+        <Text style={compactSubStyle} numberOfLines={1}>
+          {subtitle}
+        </Text>
       ) : null}
     </View>
   );

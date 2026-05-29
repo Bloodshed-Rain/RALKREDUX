@@ -12,7 +12,6 @@ export interface ChipSelectProps<T extends string = string> {
   value: T | null;
   options: Array<ChipOption<T> | T>;
   onChange: (value: T) => void;
-  scrollable?: boolean;
   style?: ViewStyle;
 }
 
@@ -76,6 +75,9 @@ export function ChipSelect<T extends string = string>({
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(o.value)}
+            // Chips are ~30px tall; hitSlop lifts the effective touch target to
+            // the 44px the rest of the app (IconBtn) codifies — for gloved use.
+            hitSlop={7}
             style={({ pressed }) => [
               itemStyle,
               pressed ? { transform: [{ scale: 0.97 }] } : null,
