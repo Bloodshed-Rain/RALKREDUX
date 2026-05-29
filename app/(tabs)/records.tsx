@@ -237,7 +237,27 @@ export default function RecordsScreen() {
         ScrollView disables virtualization for SectionList/FlatList children,
         which would crash the app with an OOM on large logbooks.
       */}
-      {!entries.data ? null : filteredEntries.length === 0 ? (
+      {entries.isError ? (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 132 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ paddingTop: 16 }}>
+            <EmptyState
+              icon={IconSearch}
+              title="Couldn’t load your records"
+              sub="This is a read error, not an empty logbook. Try again."
+              action={
+                <Button variant="outline" onPress={() => void entries.refetch()}>
+                  Try again
+                </Button>
+              }
+            />
+          </View>
+        </ScrollView>
+      ) : !entries.data ? null : filteredEntries.length === 0 ? (
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 132 }}

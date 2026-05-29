@@ -116,6 +116,45 @@ export default function TodayScreen() {
     ]);
   }, [queryClient]);
 
+  if (profile.isError) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: tokens.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          gap: 14,
+        }}
+      >
+        <IconWarn size={40} color={tokens.danger} fill={tokens.danger} />
+        <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
+          Couldn’t load your logbook
+        </Text>
+        <Text style={{ ...type.cardSub, color: tokens.textDim, textAlign: 'center' }}>
+          This is a read error, not a missing logbook — check your connection or try again.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Try again"
+          onPress={() => void profile.refetch()}
+          hitSlop={8}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 22,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: tokens.line,
+            backgroundColor: tokens.surface,
+          }}
+        >
+          <Text style={{ ...type.buttonLabel, color: tokens.text }}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (!profile.data) return null;
 
   const today = new Date();
