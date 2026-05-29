@@ -979,7 +979,7 @@ describe('logbook service', () => {
       }),
     );
     expect(csv).toContain('"Tower A, North Face"');
-    expect(csv).toContain('Jordan Lee,SPRAT-1234');
+    expect(csv).toContain('Jordan Lee,sprat,SPRAT-1234');
   });
 });
 

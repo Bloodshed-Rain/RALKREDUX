@@ -859,9 +859,20 @@ function SignatureBlock({
           <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
             {signature.supervisor_name}
           </Text>
-          {signature.supervisor_cert_number ? (
+          {signature.supervisor_scheme === 'site' ? (
+            <>
+              <Text style={{ ...type.mono, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+                Site-authorised{signature.supervisor_role ? ` · ${signature.supervisor_role}` : ''}
+              </Text>
+              {signature.supervisor_employer ? (
+                <Text style={{ ...type.mono, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+                  {signature.supervisor_employer}
+                </Text>
+              ) : null}
+            </>
+          ) : signature.supervisor_cert_number ? (
             <Text style={{ ...type.mono, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
-              Cert {signature.supervisor_cert_number}
+              {signature.supervisor_scheme ? `${signature.supervisor_scheme.toUpperCase()} ` : ''}Cert {signature.supervisor_cert_number}
             </Text>
           ) : null}
         </View>

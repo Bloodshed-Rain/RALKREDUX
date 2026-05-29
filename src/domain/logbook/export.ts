@@ -1,9 +1,12 @@
 import {
   EntryDetail,
+  EntryKind,
   EntrySignature,
+  entryKindLabel,
   LogbookExportBundle,
   LogbookExportEntry,
   LogbookExportPacket,
+  parseHazards,
   SupervisorContact,
 } from './types';
 import { Profile } from '../profile/types';
@@ -24,6 +27,7 @@ interface BuildEntryExportInput {
 
 const CSV_HEADERS = [
   'status',
+  'entry_kind',
   'date_from',
   'date_to',
   'employer',
@@ -32,11 +36,16 @@ const CSV_HEADERS = [
   'work_task',
   'access_method',
   'structure_type',
+  'hazards',
+  'rescue_cover',
   'work_hours',
   'max_height',
   'height_unit',
   'supervisor_name',
+  'supervisor_scheme',
   'supervisor_cert_number',
+  'supervisor_role',
+  'supervisor_employer',
   'signed_at',
   'entry_hash',
   'hash_version',
@@ -83,6 +92,36 @@ function displayDate(value: string | null | undefined): string {
 
 function row(label: string, value: string | number | null | undefined): string {
   return `<tr><th>${html(label)}</th><td>${display(value)}</td></tr>`;
+}
+
+// Hours mean different things by activity kind. Only 'work' is rope-access
+// time; labelling training/assessment/rescue-drill hours "Rope access hours"
+// would let those count toward a progression threshold they don't belong to.
+function hoursLabel(kind: EntryKind): string {
+  return kind === 'work' ? 'Rope access hours' : `${entryKindLabel(kind)} hours`;
+}
+
+// Supervisor identity rows, scheme-aware. A 'site' signer (safety officer /
+// shift lead) has no cert number; their authority is role + employer, so we
+// render that instead of a blank "Certification number" cell that reads to an
+// auditor as a missing required field.
+function signerIdentityRows(signature: EntrySignature | null | undefined): string {
+  if (!signature) {
+    return row('Supervisor', null) + row('Certification number', null);
+  }
+  if (signature.supervisor_scheme === 'site') {
+    return (
+      row('Supervisor', signature.supervisor_name) +
+      row('Authority', 'Site-authorised') +
+      row('Signer role', signature.supervisor_role) +
+      row('Signer employer', signature.supervisor_employer)
+    );
+  }
+  return (
+    row('Supervisor', signature.supervisor_name) +
+    row('Scheme', signature.supervisor_scheme ? signature.supervisor_scheme.toUpperCase() : null) +
+    row('Certification number', signature.supervisor_cert_number)
+  );
 }
 
 function filenamePart(value: string | null | undefined): string {
@@ -216,6 +255,7 @@ export function buildLogbookCsv(bundle: LogbookExportBundle): string {
   const rows = bundle.entries.map(({ entry, signature, gear_usage, attachments }) =>
     [
       entry.status,
+      entry.entry_kind,
       formatDate(entry.date_from),
       formatDate(entry.date_to),
       entry.employer,
@@ -224,11 +264,16 @@ export function buildLogbookCsv(bundle: LogbookExportBundle): string {
       entry.work_task,
       entry.access_method,
       entry.structure_type,
+      parseHazards(entry.hazards).join('; '),
+      entry.rescue_cover,
       entry.work_hours,
       entry.max_height,
       entry.height_unit,
       signature?.supervisor_name,
+      signature?.supervisor_scheme,
       signature?.supervisor_cert_number,
+      signature?.supervisor_role,
+      signature?.supervisor_employer,
       formatDate(signature?.signed_at),
       signature?.entry_hash,
       signature?.hash_version,
@@ -278,15 +323,17 @@ function buildLogbookEntrySection(item: LogbookExportEntry, n: number): string {
     <table>
       ${row('Employer', entry.employer)}
       ${row('Client', entry.client)}
+      ${row('Activity', entryKindLabel(entry.entry_kind))}
       ${row('Work task', entry.work_task)}
       ${row('Access method', entry.access_method)}
       ${row('Structure type', entry.structure_type)}
-      ${row('Rope access hours', entry.work_hours.toFixed(1))}
+      ${row(hoursLabel(entry.entry_kind), entry.work_hours.toFixed(1))}
       ${row('Maximum height', !entry.max_height || entry.max_height <= 0 ? null : `${entry.max_height} ${entry.height_unit}`)}
+      ${row('Hazards', parseHazards(entry.hazards).join(', ') || null)}
+      ${row('Rescue cover', entry.rescue_cover)}
       ${row('Description', entry.description)}
       ${entry.amends_entry_id ? row('Amends entry', entry.amends_entry_id) : ''}
-      ${row('Supervisor', signature?.supervisor_name)}
-      ${row('Certification number', signature?.supervisor_cert_number)}
+      ${signerIdentityRows(signature)}
       ${row('Signed at', signature ? displayDate(signature.signed_at) : null)}
       ${row('Signature method', signature?.method)}
       ${row('Entry hash', signature?.entry_hash)}
@@ -503,19 +550,21 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
     ${row('Date', dateLabel)}
     ${row('Employer', entry.employer)}
     ${row('Client', entry.client)}
+    ${row('Activity', entryKindLabel(entry.entry_kind))}
     ${row('Work task', entry.work_task)}
     ${row('Access method', entry.access_method)}
     ${row('Structure type', entry.structure_type)}
-    ${row('Rope access hours', entry.work_hours.toFixed(1))}
+    ${row(hoursLabel(entry.entry_kind), entry.work_hours.toFixed(1))}
     ${row('Maximum height', !entry.max_height || entry.max_height <= 0 ? null : `${entry.max_height} ${entry.height_unit}`)}
+    ${row('Hazards', parseHazards(entry.hazards).join(', ') || null)}
+    ${row('Rescue cover', entry.rescue_cover)}
     ${row('Description', entry.description)}
     ${row('Amends entry', entry.amends_entry_id)}
   </table>
 
   <h2>Supervisor Signature</h2>
   <table>
-    ${row('Supervisor', signature.supervisor_name)}
-    ${row('Certification number', signature.supervisor_cert_number)}
+    ${signerIdentityRows(signature)}
     ${row('Method', signature.method)}
     ${row('Signed at', displayDate(signature.signed_at))}
     ${row('Attestation', signature.signer_attestation)}
