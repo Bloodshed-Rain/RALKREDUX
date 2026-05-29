@@ -430,6 +430,7 @@ function DeadlineRow({ detail, today }: { detail: GearItemDetail; today: Date })
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${detail.item.name}, ${captionText}`}
       onPress={() => router.push(`/gear/${detail.item.id}` as never)}
       style={({ pressed }) => [rowStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
     >

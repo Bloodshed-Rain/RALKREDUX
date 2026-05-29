@@ -230,7 +230,11 @@ export default function TodayScreen() {
           title="Last 5 entries"
           action={
             recentEntries.length === 5 ? (
-              <Pressable onPress={() => router.push('/records')}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="See all entries"
+                onPress={() => router.push('/records')}
+              >
                 <Text
                   style={{
                     ...type.cardSub,

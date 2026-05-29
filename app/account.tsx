@@ -114,7 +114,7 @@ export default function AccountScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <TopBar
         title="Account"
-        subtitle="Sign-in and subscription"
+        subtitle="Sign-in and sign out"
         leading={<IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />}
       />
       <ScrollView

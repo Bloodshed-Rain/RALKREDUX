@@ -124,8 +124,11 @@ export default function LocalSignScreen() {
       clearTimeout(sealNavTimeoutRef.current);
       sealNavTimeoutRef.current = null;
     }
-    const target = sealNavRouteRef.current;
-    if (target) router.replace(target as never);
+    // Fall back to the entry (or records) so a missing target can't strand the
+    // user on the sealed-animation screen with no way out.
+    const target =
+      sealNavRouteRef.current ?? (entryId ? `/entry/${entryId}` : '/records');
+    router.replace(target as never);
   }
 
   const entry = detail.data?.entry;

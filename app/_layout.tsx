@@ -55,6 +55,11 @@ function ThemedStack() {
       <Stack.Screen name="gear/[id]" options={{ title: 'Gear', headerShown: false }} />
       <Stack.Screen name="gear/catalog" options={{ title: 'Gear catalog', headerShown: false }} />
       <Stack.Screen name="export" options={{ title: 'Audit export', headerShown: false }} />
+      {/* These self-declare headerShown:false in-component; registering them
+          here keeps the chrome contract in one place from the first frame. */}
+      <Stack.Screen name="account" options={{ title: 'Account', headerShown: false }} />
+      <Stack.Screen name="security" options={{ title: 'Security', headerShown: false }} />
+      <Stack.Screen name="attachments" options={{ title: 'Attachments', headerShown: false }} />
     </Stack>
   );
 }

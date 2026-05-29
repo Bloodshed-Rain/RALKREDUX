@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Share, Text, TextInput, View, type TextStyle, type ViewStyle } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, Text, TextInput, View, type TextStyle, type ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/backup/use-backup';
@@ -96,12 +96,22 @@ export default function ProfileScreen() {
   }
 
   async function shareBackupSnapshot() {
-    const snapshot = await createBackup.mutateAsync();
-    haptics.success();
-    await Share.share({
-      title: 'RALB recovery snapshot',
-      message: JSON.stringify(snapshot, null, 2),
-    });
+    try {
+      const snapshot = await createBackup.mutateAsync();
+      haptics.success();
+      await Share.share({
+        title: 'RALB recovery snapshot',
+        message: JSON.stringify(snapshot, null, 2),
+      });
+    } catch (err) {
+      // A failed snapshot build (DB read error) previously threw an unhandled
+      // rejection with no feedback on the recovery surface — surface it.
+      haptics.error();
+      Alert.alert(
+        'Could not create backup',
+        err instanceof Error ? err.message : 'The recovery snapshot could not be created.',
+      );
+    }
   }
 
   function previewRestoreText() {
@@ -250,7 +260,7 @@ export default function ProfileScreen() {
           <SettingsRow
             icon={IconProfile}
             title="Account"
-            sub="Sign-in, subscription, and sign out"
+            sub="Sign-in and sign out"
             onPress={() => router.push('/account' as never)}
           />
           <SettingsRow
