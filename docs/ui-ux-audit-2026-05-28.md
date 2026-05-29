@@ -8,6 +8,32 @@
 
 ---
 
+## Resolution log — 2026-05-28 fix pass (branch `ui-ux-audit-fixes`)
+
+8 commits on top of the audit. **Gate after every commit: `tsc --noEmit` clean, `jest` 177/177** (was 175; +2 export tests). `functions:check` not run — **no Edge Function / `supabase/` files were touched**, so it doesn't apply.
+
+**Done + verifiable by tsc/jest (logic, wiring, types, the new export tests):**
+- **P0** #1 silent edit/amend save → `onError` Alerts; #2 gear inspection/retire silent failure → friendly Alert (item NOT changed); #3 false green "Verified" pill → gated on `chainValid`.
+- **Export compliance** #4 hours labelled by `entry_kind` + `entry_kind`/`hazards`/`rescue_cover` added to PDF+CSV; #5 site-signer authority (scheme/role/employer) in PDF+CSV+on-device. New tests cover both.
+- **Dead-ends / verifier** #6 dead "More" button removed; #8 verifier connection-error branch + retry; #13 new-entry step hints + Step-3 back; #14 amend redirect-to-edit; #30 verifier role/employer reset, "Record integrity" relabel, delegated-attestation branch, request-CTA/banner alignment.
+- **Primitives** #10 hitSlop on ChipSelect/ClassificationChips + dead `scrollable` removed; #19 compact TopBar subtitle; #21 scaled `type.*` in TopBar/EntryRow (primitive layer only); #12 misleading EntryRow glyph removed; #31 ToggleRow knob border + ChipSelect prop; #36 Field error prop + dead ternary, SyncChip box, date-sheet reset key, seal-screen fallback route.
+- **Friction** #17 OTP resend+cooldown; #18 QuickLog chip relabel/dedupe; #23 swipe-hint off the render path; #24 missing-field names on edit/amend; #25 gear due-soon copy derived from `DUE_SOON_DAYS`; #27 catalog image onError fallback.
+- **Async lie** #22 cloud-backup list failure no longer reads as "No cloud backups yet"; Today/Records read-error states.
+- **Copy / misc** #34 "subscription" copy removed + attachment ISO dates; routes registered in root Stack; share handlers (#29) guarded; #28 a11y labels (EntryRow status fold, See-all, DeadlineRow).
+- **#33 (safe half)** BootSplash "Try again" + 10s fonts timeout.
+
+**Done but NOT runtime-verified** (tsc-clean, but only confirmable by running the app — owed an on-device pass): every screen-level UX change — the `useUnsavedGuard` dirty guard on the sign screen (#15), the verifier terminal-state back/Done affordances (#7), the contrast swaps (#9/#20 — exact ratios are code-certain, the *feel* is not), keyboard/gesture behavior, and the new error/loading states.
+
+**Deliberately NOT done — needs a decision, a deploy, or is the owner's WIP:**
+- **#11 CustomIcon color contract** — left untouched: it's your in-flight, uncommitted icon rewrite (`src/ui/icons/index.tsx` + `custom/`). The contract break (tab focus / FAB ink / status-pill tint not applying to the SvgXml icons) is real; fix it as part of finishing that work — either make `CustomIcon` honor a single `color`, or keep the duotone `Icon` for any tinted/active/tone context.
+- **#32 verifier gear + evidence parity** — a backend change (hosted payload + Supabase schema + Edge Function redeploy, which is user-owned) **and** it changes what a signature attests to (compliance). Decide: (a) widen the remote payload to carry gear+attachments and render them before authorization, or (b) soften the attestation so it doesn't claim the full work record was reviewed remotely. Not bundled here.
+- **#33 (AppLock half)** — re-architecting the lock from subtree-unmount to an absolute-fill overlay (so an idle re-lock during a handoff doesn't destroy in-memory signature state) is security-adjacent and runtime-only; left for a focused change.
+- **#21 full typography sweep** across the remaining ~13 screens — the visible win was banked at the primitive layer (TopBar/EntryRow); the rest is low-value style spreads, deferred.
+- **Broader async-state convention** beyond Today/Records/account — the shared skeleton/error helper across all screens is a larger, runtime-only refactor.
+- **On-device 6-palette visual sweep** — still owed (pre-existing), and now also covers the contrast swaps above.
+
+---
+
 ## Verdict — `yes, fix now`
 
 This is a mature, well-architected app with a sound design system — **not** a redesign candidate. The bulk of findings are known-backlog typography drift and async-state polish that can wait. What forces action is a small, **code-certain cluster of NEW correctness/safety/audit-integrity bugs on error and edge paths**:
