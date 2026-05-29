@@ -17,6 +17,10 @@ export function useUnsavedGuard(
   opts?: { title?: string; message?: string; confirmLabel?: string },
 ): void {
   const navigation = useNavigation();
+  // Once the user confirms "Discard", we re-dispatch the navigation action —
+  // which re-fires `beforeRemove`. This ref lets that confirmed navigation pass
+  // straight through instead of re-prompting (no double-prompt / loop).
+  const bypassRef = React.useRef(false);
   React.useEffect(() => {
     if (!enabled) return;
     // `beforeRemove` is provided by stack / native-stack navigators; expo-router
@@ -27,6 +31,7 @@ export function useUnsavedGuard(
         cb: (e: { preventDefault: () => void; data: { action: unknown } }) => void,
       ) => () => void;
     }).addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return; // confirmed navigation — let it through
       e.preventDefault();
       Alert.alert(
         opts?.title ?? 'Discard changes?',
@@ -36,10 +41,12 @@ export function useUnsavedGuard(
           {
             text: opts?.confirmLabel ?? 'Discard',
             style: 'destructive',
-            onPress: () =>
+            onPress: () => {
+              bypassRef.current = true;
               (navigation as unknown as { dispatch: (action: unknown) => void }).dispatch(
                 e.data.action,
-              ),
+              );
+            },
           },
         ],
       );
