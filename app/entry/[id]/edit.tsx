@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -41,6 +42,7 @@ import {
   TopBar,
 } from '@/src/ui/primitives/v2';
 import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
+import { haptics } from '@/src/ui/haptics';
 
 const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
   { value: 'work', label: 'Work' },
@@ -183,7 +185,17 @@ export default function EditDraftScreen() {
         rescue_cover: rescueCover,
         hazards,
       },
-      { onSuccess: (updated) => router.replace(`/entry/${updated.entry.id}`) },
+      {
+        onSuccess: (updated) => router.replace(`/entry/${updated.entry.id}`),
+        onError: (err) => {
+          haptics.error();
+          Alert.alert(
+            'Could not save draft',
+            (err instanceof Error ? err.message : 'The draft was not saved.') +
+              '\n\nYour edits are still on this screen — please try again.',
+          );
+        },
+      },
     );
   }
 

@@ -53,6 +53,7 @@ import {
   IconMore,
   IconSync,
   IconVerified,
+  IconWarn,
 } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
@@ -605,6 +606,7 @@ export default function EntryDetailScreen() {
             isReady={isReady}
             entryId={entry.id}
             signature={signature ?? null}
+            chainValid={chainValid.data}
           />
 
           {/* REMOTE REQUEST */}
@@ -811,14 +813,34 @@ function SignatureBlock({
   isReady,
   entryId,
   signature,
+  chainValid,
 }: {
   isDraft: boolean;
   isReady: boolean;
   entryId: string;
   signature: NonNullable<ReturnType<typeof useEntryDetail>['data']>['signature'] | null;
+  chainValid?: boolean;
 }) {
   const { tokens } = useTheme();
   if (signature) {
+    // Only assert "Verified" when the chain-hash check has actually passed.
+    // chainValid === false → the entry was altered after signing (or its hash
+    // version is out of range): show a danger pill, never the green tick.
+    // undefined → the async check is still running.
+    const statusPill =
+      chainValid === false ? (
+        <Pill tone="danger" size="sm" icon={IconWarn}>
+          Chain mismatch
+        </Pill>
+      ) : chainValid === true ? (
+        <Pill tone="ok" size="sm" icon={IconVerified}>
+          Verified
+        </Pill>
+      ) : (
+        <Pill tone="chip" size="sm">
+          Checking…
+        </Pill>
+      );
     return (
       <Card padding={16}>
         <View
@@ -830,9 +852,7 @@ function SignatureBlock({
           }}
         >
           <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>SIGNATURE</Text>
-          <Pill tone="ok" size="sm" icon={IconVerified}>
-            Verified
-          </Pill>
+          {statusPill}
         </View>
         <SigFill name={signature.supervisor_name} />
         <View style={{ marginTop: 12 }}>

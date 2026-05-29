@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -144,7 +145,14 @@ export default function AmendEntryScreen() {
           haptics.success();
           router.replace(`/entry/${draft.id}`);
         },
-        onError: () => haptics.error(),
+        onError: (err) => {
+          haptics.error();
+          Alert.alert(
+            'Could not create amendment',
+            (err instanceof Error ? err.message : 'The amendment was not saved.') +
+              '\n\nYour entries are still on this screen — nothing was lost. Please try again.',
+          );
+        },
       },
     );
   }
