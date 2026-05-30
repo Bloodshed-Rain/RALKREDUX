@@ -21,6 +21,7 @@ import {
 } from '@/src/domain/logbook/use-logbook';
 import type { CertLevel, CertScheme, SignerScheme } from '@/src/domain/profile/types';
 import { PrefKeys, readPref } from '@/src/storage/local-prefs';
+import { returnToEntryDetail } from '@/src/ui/entry-nav';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -64,12 +65,14 @@ const IRATA_LEVELS: Array<{ value: CertLevel; label: string }> = [
 export default function LocalSignScreen() {
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
-  const { id, supervisor: supervisorParam } = useLocalSearchParams<{
+  const { id, supervisor: supervisorParam, from } = useLocalSearchParams<{
     id?: string | string[];
     supervisor?: string | string[];
+    from?: string | string[];
   }>();
   const entryId = firstParam(id);
   const supervisorIdParam = firstParam(supervisorParam);
+  const navOrigin = firstParam(from);
   const detail = useEntryDetail(entryId);
   const signEntry = useSignEntryLocal();
   const supervisors = useSupervisorContacts();
@@ -124,11 +127,16 @@ export default function LocalSignScreen() {
       clearTimeout(sealNavTimeoutRef.current);
       sealNavTimeoutRef.current = null;
     }
-    // Fall back to the entry (or records) so a missing target can't strand the
-    // user on the sealed-animation screen with no way out.
-    const target =
-      sealNavRouteRef.current ?? (entryId ? `/entry/${entryId}` : '/records');
-    router.replace(target as never);
+    // Return to this entry's detail. When signing was launched from the detail
+    // (origin 'detail'), pop back to the existing instance instead of replacing
+    // — replacing would stack a duplicate detail behind us. The '/records'
+    // fallback covers the defensive case where the entry id is missing so a
+    // missing target can't strand the user on the sealed-animation screen.
+    if (entryId) {
+      returnToEntryDetail(entryId, navOrigin);
+    } else {
+      router.replace((sealNavRouteRef.current ?? '/records') as never);
+    }
   }
 
   const entry = detail.data?.entry;

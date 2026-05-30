@@ -17,6 +17,7 @@ import {
   useEntryDetail,
   useSupervisorContacts,
 } from '@/src/domain/logbook/use-logbook';
+import { returnToEntryDetail } from '@/src/ui/entry-nav';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -39,12 +40,14 @@ function firstParam(value: string | string[] | undefined): string | null {
 export default function RemoteSignatureRequestScreen() {
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
-  const { id, supervisorId } = useLocalSearchParams<{
+  const { id, supervisorId, from } = useLocalSearchParams<{
     id?: string | string[];
     supervisorId?: string | string[];
+    from?: string | string[];
   }>();
   const entryId = firstParam(id);
   const supervisorIdParam = firstParam(supervisorId);
+  const navOrigin = firstParam(from);
   const detail = useEntryDetail(entryId);
   const createRequest = useCreateRemoteSignatureRequest();
   const supervisors = useSupervisorContacts();
@@ -97,7 +100,7 @@ export default function RemoteSignatureRequestScreen() {
       {
         onSuccess: (updated) => {
           haptics.success();
-          router.replace(`/entry/${updated.entry.id}`);
+          returnToEntryDetail(updated.entry.id, navOrigin);
         },
         onError: (err) => {
           haptics.error();

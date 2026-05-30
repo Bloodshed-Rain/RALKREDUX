@@ -915,7 +915,7 @@ function SignatureBlock({
           variant="primary"
           full
           disabled={isDraft && !isReady}
-          onPress={() => router.push(`/entry/${entryId}/sign` as never)}
+          onPress={() => router.push(`/entry/${entryId}/sign?from=detail` as never)}
         >
           Sign now
         </Button>
@@ -923,7 +923,7 @@ function SignatureBlock({
           variant="outline"
           full
           disabled={isDraft && !isReady}
-          onPress={() => router.push(`/entry/${entryId}/request-signature` as never)}
+          onPress={() => router.push(`/entry/${entryId}/request-signature?from=detail` as never)}
         >
           Request remote
         </Button>
@@ -962,7 +962,7 @@ function FooterActions({
         <Button
           variant="primary"
           full
-          onPress={() => router.push(`/entry/${entryId}/edit` as never)}
+          onPress={() => router.push(`/entry/${entryId}/edit?from=detail` as never)}
         >
           {isReady ? 'Edit draft' : 'Finish draft'}
         </Button>

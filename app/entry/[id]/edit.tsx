@@ -26,6 +26,7 @@ import {
   useRecentHazardValues,
   useUpdateDraftEntry,
 } from '@/src/domain/logbook/use-logbook';
+import { returnToEntryDetail } from '@/src/ui/entry-nav';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -95,8 +96,12 @@ function missingFields(input: {
 export default function EditDraftScreen() {
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id, from } = useLocalSearchParams<{
+    id?: string | string[];
+    from?: string | string[];
+  }>();
   const entryId = firstParam(id);
+  const navOrigin = firstParam(from);
   const detail = useEntryDetail(entryId);
   const recentWorkTask = useRecentClassificationValues('work_task');
   const recentStructure = useRecentClassificationValues('structure_type');
@@ -194,7 +199,7 @@ export default function EditDraftScreen() {
         hazards,
       },
       {
-        onSuccess: (updated) => router.replace(`/entry/${updated.entry.id}`),
+        onSuccess: (updated) => returnToEntryDetail(updated.entry.id, navOrigin),
         onError: (err) => {
           haptics.error();
           Alert.alert(
