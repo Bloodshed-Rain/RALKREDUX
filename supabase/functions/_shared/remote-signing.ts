@@ -38,11 +38,13 @@ export type RemoteSigningRow = {
   updated_at: string;
 };
 
-// v3 added the three rope-access-audit fields that were missing from v2:
-// entry_kind, rescue_cover, and hazards. Both client (entry-hash.ts) and
-// edge function must canonicalize against the same shape — keep these two
-// modules in lockstep on any future version bump.
-export const ENTRY_HASH_VERSION = 3;
+// v3 added entry_kind, rescue_cover, and hazards. v4 binds the signer envelope
+// into the client-side signature-chain hash (entry-hash.ts) — the ENTRY payload
+// canonicalized here is unchanged from v3 (no new entry-content fields), but the
+// shared version constant gates both, so it advances to 4. The request endpoint
+// only validates the entry hash + version, so mirroring the constant is all
+// that's required here. Keep client (entry-hash.ts) + this module in lockstep.
+export const ENTRY_HASH_VERSION = 4;
 
 type JsonValue = string | number | boolean | null | JsonValue[] | {
   [key: string]: JsonValue;

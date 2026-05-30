@@ -14,6 +14,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { EntryKind, HeightUnit } from '@/src/domain/logbook/types';
 import { parseHazards } from '@/src/domain/logbook/types';
+import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import {
   WORK_TASK_PRESETS,
   ACCESS_METHOD_PRESETS,
@@ -262,7 +263,7 @@ export default function EditDraftScreen() {
       >
         <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
           <Card padding={18}>
-            <Text style={heroKickerStyle}>DRAFT · ENTRY-HASH V2</Text>
+            <Text style={heroKickerStyle}>{`DRAFT · ENTRY-HASH V${ENTRY_HASH_VERSION}`}</Text>
             <Text style={heroTitleStyle} numberOfLines={2}>
               {site || entry?.site || 'Untitled draft'}
             </Text>

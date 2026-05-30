@@ -133,4 +133,49 @@ describe('verifyFullChain', () => {
     );
     expect((await service.verifyFullChain()).valid).toBe(false);
   });
+
+  // Regression for the v4 hash bump (P1-1): the signer's identity is what an
+  // audit logbook exists to certify, so re-attributing a sealed signature must
+  // break the chain. Pre-v4, the chain hash folded in only entry/timestamp/
+  // method, so the WHO and the drawn mark were not tamper-evident.
+  it('detects a re-attributed signer cert number on a sealed entry', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput());
+    await signDraft(service, entry.id);
+    expect((await service.verifyFullChain()).valid).toBe(true);
+
+    await db.run('UPDATE signatures SET supervisor_cert_number = ? WHERE entry_id = ?', [
+      'SPRAT-9999',
+      entry.id,
+    ]);
+
+    const result = await service.verifyFullChain();
+    expect(result.valid).toBe(false);
+    expect(result.brokenAtEntryId).toBe(entry.id);
+  });
+
+  it('detects a re-attributed signer name on a sealed entry', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput());
+    await signDraft(service, entry.id);
+    await db.run('UPDATE signatures SET supervisor_name = ? WHERE entry_id = ?', [
+      'Someone Else',
+      entry.id,
+    ]);
+    expect((await service.verifyFullChain()).valid).toBe(false);
+  });
+
+  it('detects a rewritten drawn signature path on a sealed entry', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput());
+    await signDraft(service, entry.id);
+    await db.run('UPDATE signatures SET signature_path = ? WHERE entry_id = ?', [
+      'M 0 0 L 9 9 forged mark',
+      entry.id,
+    ]);
+    expect((await service.verifyFullChain()).valid).toBe(false);
+  });
 });

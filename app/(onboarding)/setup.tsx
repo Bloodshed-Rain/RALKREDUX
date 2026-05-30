@@ -20,6 +20,7 @@ import {
 } from '@/src/domain/cert-number';
 import { useCreateProfile } from '@/src/domain/profile/use-profile';
 import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
+import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -159,7 +160,7 @@ export default function SetupScreen() {
       >
         <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
           <Card padding={18}>
-            <Text style={heroKickerStyle}>FIRST RUN · ENTRY-HASH V2</Text>
+            <Text style={heroKickerStyle}>{`FIRST RUN · ENTRY-HASH V${ENTRY_HASH_VERSION}`}</Text>
             <Text style={heroTitleStyle} numberOfLines={2}>
               {fullName.trim() || 'Set up your logbook'}
             </Text>
