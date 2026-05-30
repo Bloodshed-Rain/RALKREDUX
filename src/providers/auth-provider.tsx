@@ -77,8 +77,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [configured]);
 
   const signOut = React.useCallback(async () => {
-    await writePref(PrefKeys.authedBefore, false);
+    // Revoke FIRST, then persist the flag. authSignOut() throws on a failed or
+    // offline revoke (Supabase's _signOut swallows only AuthApiError 404/401/403,
+    // not a retryable network error). Writing authedBefore=false before the
+    // revoke would durably poison the flag, so the next offline cold start would
+    // resolve to signed_out and hard-gate an established technician out of their
+    // canonical local logbook. This order leaves offline access intact when the
+    // server can't be reached, while a successful revoke still clears the flag.
     await authSignOut();
+    await writePref(PrefKeys.authedBefore, false);
     setSession(null);
     setStatus('signed_out');
   }, []);

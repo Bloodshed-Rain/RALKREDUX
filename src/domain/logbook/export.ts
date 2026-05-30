@@ -10,7 +10,13 @@ import {
   SupervisorContact,
 } from './types';
 import { Profile } from '../profile/types';
-import { formatDate, formatDateOrDash, formatDateRange } from '../date-format';
+import {
+  formatDate,
+  formatDateOrDash,
+  formatDateRange,
+  formatTimestampDate,
+  formatTimestampDateOrDash,
+} from '../date-format';
 
 interface BuildLogbookExportInput {
   profile: Profile | null;
@@ -47,6 +53,8 @@ const CSV_HEADERS = [
   'supervisor_role',
   'supervisor_employer',
   'signed_at',
+  'signer_attestation',
+  'attestation_accepted_at',
   'entry_hash',
   'hash_version',
   'chain_hash',
@@ -88,6 +96,13 @@ function display(value: string | number | null | undefined): string {
 
 function displayDate(value: string | null | undefined): string {
   return formatDateOrDash(value);
+}
+
+// For timestamp-bearing values (signed_at, exported_at, attestation_accepted_at)
+// — renders the local calendar date so a UTC instant near midnight doesn't print
+// the wrong day for the technician's zone. Date-only values stay on displayDate.
+function displayTimestamp(value: string | null | undefined): string {
+  return formatTimestampDateOrDash(value);
 }
 
 function row(label: string, value: string | number | null | undefined): string {
@@ -274,7 +289,9 @@ export function buildLogbookCsv(bundle: LogbookExportBundle): string {
       signature?.supervisor_cert_number,
       signature?.supervisor_role,
       signature?.supervisor_employer,
-      formatDate(signature?.signed_at),
+      formatTimestampDate(signature?.signed_at),
+      signature?.signer_attestation,
+      formatTimestampDate(signature?.attestation_accepted_at),
       signature?.entry_hash,
       signature?.hash_version,
       signature?.chain_hash,
@@ -334,7 +351,9 @@ function buildLogbookEntrySection(item: LogbookExportEntry, n: number): string {
       ${row('Description', entry.description)}
       ${entry.amends_entry_id ? row('Amends entry', entry.amends_entry_id) : ''}
       ${signerIdentityRows(signature)}
-      ${row('Signed at', signature ? displayDate(signature.signed_at) : null)}
+      ${row('Attestation', signature?.signer_attestation)}
+      ${row('Attestation accepted', signature ? displayTimestamp(signature.attestation_accepted_at) : null)}
+      ${row('Signed at', signature ? displayTimestamp(signature.signed_at) : null)}
       ${row('Signature method', signature?.method)}
       ${row('Entry hash', signature?.entry_hash)}
       ${row('Chain hash', signature?.chain_hash)}
@@ -431,7 +450,7 @@ export function buildLogbookPdfHtml(bundle: LogbookExportBundle): string {
     </div>
     <div class="cover-footer">
       <div class="cover-footer-line">
-        <span>Audit logbook exported ${html(formatDate(bundle.exported_at))}</span>
+        <span>Audit logbook exported ${html(formatTimestampDate(bundle.exported_at))}</span>
         <span>${html(truncateHashForCover(chainHash))}</span>
       </div>
     </div>
@@ -523,7 +542,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
     </div>
     <div class="cover-footer">
       <div class="cover-footer-line">
-        <span>Audit packet exported ${html(formatDate(packet.exported_at))}</span>
+        <span>Audit packet exported ${html(formatTimestampDate(packet.exported_at))}</span>
         <span>${html(truncateHashForCover(verification.entry_hash))}</span>
       </div>
     </div>
@@ -532,7 +551,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   <header>
     <p class="status">${html(entry.status)}</p>
     <h1>${display(entry.site)}</h1>
-    <p class="meta">RALB Codex Edition audit packet - exported ${html(formatDate(packet.exported_at))}</p>
+    <p class="meta">RALB Codex Edition audit packet - exported ${html(formatTimestampDate(packet.exported_at))}</p>
   </header>
 
   <h2>Technician</h2>
@@ -566,7 +585,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   <table>
     ${signerIdentityRows(signature)}
     ${row('Method', signature.method)}
-    ${row('Signed at', displayDate(signature.signed_at))}
+    ${row('Signed at', displayTimestamp(signature.signed_at))}
     ${row('Attestation', signature.signer_attestation)}
   </table>
   <div class="signature">${signatureSvg}</div>
@@ -575,7 +594,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   <table>
     ${row('Hash version', verification.hash_version)}
     ${row('Signature method', verification.signature_method)}
-    ${row('Attestation accepted at', displayDate(verification.attestation_accepted_at))}
+    ${row('Attestation accepted at', displayTimestamp(verification.attestation_accepted_at))}
     ${row('Previous chain hash', verification.previous_chain_hash)}
     ${row('Chain hash', verification.chain_hash)}
   </table>

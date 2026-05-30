@@ -13,6 +13,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
+import { persistAttachmentFile } from '@/src/ui/attachment-storage';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type {
   CreateEntryInput,
@@ -699,10 +700,13 @@ function StepWhat({ draft, update }: StepProps) {
     if (!draft.entryId || addAttachment.isPending) return;
     const photo = await captureOrPickPhoto();
     if (!photo) return;
+    // Persist the picker's transient cache URI to durable storage before it's
+    // recorded — a signed entry locks, so a dangling pointer can't be repaired.
+    const uri = await persistAttachmentFile(photo.uri);
     addAttachment.mutate({
       entry_id: draft.entryId,
       label: photo.fileName || 'Evidence photo',
-      uri: photo.uri,
+      uri,
       mime_type: photo.mimeType ?? 'image/jpeg',
     });
   }
@@ -784,6 +788,7 @@ function StepWhat({ draft, update }: StepProps) {
                     <Pressable
                       key={opt.value}
                       accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
                       onPress={() => update({ heightUnit: opt.value })}
                       hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                       style={{
@@ -1013,6 +1018,7 @@ function StepReview({
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ selected: draft.selectedSupervisorId == null }}
               onPress={() => update({ selectedSupervisorId: null })}
               style={({ pressed }) => [
                 supervisorChipStyle(tokens, draft.selectedSupervisorId == null),
@@ -1034,6 +1040,7 @@ function StepReview({
                 <Pressable
                   key={s.id}
                   accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   onPress={() => update({ selectedSupervisorId: s.id })}
                   style={({ pressed }) => [
                     supervisorChipStyle(tokens, active),

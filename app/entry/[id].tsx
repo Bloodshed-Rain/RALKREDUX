@@ -1,6 +1,7 @@
 import React from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
+import { persistAttachmentFile } from '@/src/ui/attachment-storage';
 import * as Linking from 'expo-linking';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -248,10 +249,13 @@ export default function EntryDetailScreen() {
     if (!entryId || !entry || entry.status !== 'draft') return;
     const photo = await captureOrPickPhoto();
     if (!photo) return;
+    // Persist the picker's transient cache URI to durable storage before it's
+    // recorded — a signed entry locks, so a dangling pointer can't be repaired.
+    const uri = await persistAttachmentFile(photo.uri);
     addAttachment.mutate({
       entry_id: entryId,
       label: photo.fileName || 'Evidence photo',
-      uri: photo.uri,
+      uri,
       mime_type: photo.mimeType ?? 'image/jpeg',
     });
   }

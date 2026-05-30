@@ -56,10 +56,16 @@ import { haptics } from '@/src/ui/haptics';
 // The signer may be the requested verifier, OR a delegate ("Different signer"
 // path). Forcing "I am the requested verifier" on a delegate persists a false
 // claim into the audit record, so the attestation branches on who is signing.
+//
+// Scope claim: the portal shows the entry's work DETAILS only — not the gear
+// register or photo/evidence attachments (these are not on RemoteSignatureRequestDetail).
+// The wording is deliberately scoped to "the work details shown in this request" so a
+// remote signer never affirms reviewing a full work record they could not see. If that
+// payload is later widened to carry gear + attachments, revisit this. See docs/hosted-remote-signing.md.
 const ATTESTATION_VERIFIER =
-  'I am the requested verifier, I reviewed this remote request and work record, and I authorize this signature.';
+  'I am the requested verifier. I reviewed the work details shown in this request, and I authorize this signature.';
 const ATTESTATION_DELEGATE =
-  'I reviewed this remote request and work record, and I authorize this signature on my own authority as named.';
+  'I reviewed the work details shown in this request, and I authorize this signature on my own authority as named.';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;

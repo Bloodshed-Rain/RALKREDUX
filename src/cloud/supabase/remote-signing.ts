@@ -195,7 +195,14 @@ export async function fetchHostedRemoteSigningRequest(
   if (!url) return null;
 
   const response = await fetch(url, { headers: functionHeaders() });
-  if (!response.ok) return null;
+  // A genuine 404 means the request truly does not exist → null (the verify
+  // screen renders "Request not found"). Any other non-OK status is a transient
+  // backend error (the Edge GET returns 400 for thrown internal errors, plus
+  // 5xx): throw so the query lands in isError ("Couldn't connect") and the
+  // auto-sync poller increments its failure count and backs off — rather than
+  // masquerading as a missing request and polling a failing backend forever.
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('hosted_remote_signing_unavailable');
 
   return toRequestDetail(await response.json() as HostedRequestPayload);
 }

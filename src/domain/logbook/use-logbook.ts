@@ -176,6 +176,9 @@ export function useSignEntryLocal() {
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['chainHead'] });
+      // A new signature extends the chain → re-run the full-chain verification
+      // the audit-export screen's "Chain valid" pill is gated on.
+      queryClient.invalidateQueries({ queryKey: ['verifyFullChain'] });
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
@@ -225,6 +228,9 @@ export function useCompleteRemoteSignatureRequest() {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['remoteSignatureRequest', input.request_code] });
       queryClient.invalidateQueries({ queryKey: ['chainHead'] });
+      // A new signature extends the chain → re-run the full-chain verification
+      // the audit-export screen's "Chain valid" pill is gated on.
+      queryClient.invalidateQueries({ queryKey: ['verifyFullChain'] });
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
@@ -314,7 +320,10 @@ export function useVerifyFullChain() {
   return useQuery({
     queryKey: ['verifyFullChain'],
     queryFn: () => createLogbookService(getClient()).verifyFullChain(),
-    staleTime: Infinity, // Only run once per mount/invalidate
+    // Re-runs only when invalidated (the chain-extending sign / remote-complete
+    // mutations invalidate ['verifyFullChain']) or on a cold remount after gcTime —
+    // full-chain re-hashing is too costly to run on every render.
+    staleTime: Infinity,
   });
 }
 
