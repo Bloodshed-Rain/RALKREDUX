@@ -1,9 +1,18 @@
 
+# Auth is a code-only (6-digit OTP) flow for email; Apple/Google use native
+# id-tokens. The app never consumes a magic-link redirect (the Supabase client
+# runs with detectSessionInUrl:false), so any tappable link in a sign-in email
+# is a dead end: on a phone it lands on site_url and shows
+# "This site can't be reached / ERR_CONNECTION_REFUSED". Keep site_url off
+# localhost and keep the email templates code-only (see [auth.email.template.*]).
 [auth]
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["logbook://auth-callback"]
+# The mobile app has no web surface; point auth redirects at the app's deep-link
+# scheme (declared as `ralb` in app.config.ts) rather than an unreachable localhost.
+site_url = "ralb://auth-callback"
+additional_redirect_urls = ["ralb://auth-callback"]
 enable_manual_linking = true
-enable_anonymous_sign_ins = true
+# Anonymous sign-in was removed (real auth hard-gates the app; see CLAUDE.md).
+enable_anonymous_sign_ins = false
 minimum_password_length = 8
 password_requirements = "lower_upper_letters_digits_symbols"
 
@@ -14,7 +23,20 @@ verify_enabled = true
 [auth.email]
 enable_confirmations = true
 max_frequency = "1m0s"
-otp_length = 8
+# Must match the app UI, which is hard-locked to a 6-digit code.
+otp_length = 6
+
+# Code-only email templates: omit the confirmation URL entirely and show only
+# {{ .Token }}, so a tester types the code instead of tapping a link that dead-ends
+# on site_url. Both templates are wired because signInWithOtp sends "Confirm signup"
+# to brand-new users and "Magic Link" to returning ones.
+[auth.email.template.magic_link]
+subject = "Your RALB sign-in code"
+content_path = "./templates/magic-link.html"
+
+[auth.email.template.confirmation]
+subject = "Your RALB sign-in code"
+content_path = "./templates/magic-link.html"
 
 [functions.remote-signing-complete]
 enabled = true

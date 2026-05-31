@@ -12,8 +12,13 @@ The client code is implemented (`src/cloud/supabase/auth.ts`, `src/providers/aut
 
 **Email OTP**
 - Enable the **Email** provider.
-- Email Templates → confirm the template includes the code token `{{ .Token }}` (the default OTP email does).
+- **Use the 6-digit code, not a link.** The app verifies with `verifyOtp({ type: 'email' })` and runs the Supabase client with `detectSessionInUrl: false`, so it never consumes a magic-link redirect. Two dashboard settings make this work:
+  - **Authentication → Emails →** edit **both** *Magic Link* **and** *Confirm signup* templates (a brand-new email gets "Confirm signup"; a returning one gets "Magic Link"). Remove the `{{ .ConfirmationURL }}` link and show only `{{ .Token }}`. Paste the body from `supabase/templates/magic-link.html`.
+  - Set **OTP length = 6** (Authentication → Providers → Email, or Sign In/Up settings). The app's code field is hard-locked to 6 digits, so an 8-digit code can't be entered.
+- **Set the Site URL off `localhost`.** Authentication → URL Configuration → **Site URL** should be the app deep link `ralb://auth-callback` (and add it to **Redirect URLs**). If a stray link does get tapped, it must not point at `http://localhost:3000` — on a phone that shows *"This site can't be reached / ERR_CONNECTION_REFUSED"*. This is the exact symptom of a leftover default Site URL plus a link-bearing email template.
 - **Settings → SMTP — required before launch.** The built-in email sender is rate-limited (~4/hour) and not for production. Configure a real provider (Resend / Postmark / SendGrid).
+
+> The values in `supabase/config.toml` (`site_url`, `otp_length`, the `[auth.email.template.*]` blocks) only apply to a **local** `supabase start` stack and to `supabase config push`. A hosted **preview build talks to the remote project**, whose settings live in the dashboard — so for a preview bill you must change them there too.
 
 **Apple**
 - Enable the **Apple** provider.
