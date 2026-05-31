@@ -119,6 +119,9 @@ export function useDeleteDraftEntry() {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
       queryClient.invalidateQueries({ queryKey: ['careerStats'] });
+      // Deleting a draft cascade-deletes its attachments — refresh the
+      // cross-entry Attachments index so they don't linger there. (P3-3)
+      queryClient.invalidateQueries({ queryKey: ['attachmentsAll'] });
       queryClient.removeQueries({ queryKey: ['entryDetail', id] });
     },
   });
@@ -270,6 +273,8 @@ export function useAddEntryAttachment() {
       createLogbookService(getClient()).addEntryAttachment(input),
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      // Keep the cross-entry Attachments index fresh after a new attachment. (P3-3)
+      queryClient.invalidateQueries({ queryKey: ['attachmentsAll'] });
     },
   });
 }

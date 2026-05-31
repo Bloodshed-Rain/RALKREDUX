@@ -103,47 +103,71 @@ export function AppLock({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [evaluateLock]);
 
-  if (phase === 'unlocked') return <>{children}</>;
-
-  if (phase === 'checking') {
-    // Neutral hold screen while we resolve the lock state — never the
-    // protected content (this is what closes the flash-of-unlocked-UI race).
-    return (
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: tokens.bg, alignItems: 'center', justifyContent: 'center' },
-        ]}
-      >
-        <IconBrand size={64} color={tokens.accent} fill={tokens.accent} />
-        <ActivityIndicator color={tokens.accent} style={{ marginTop: 20 }} />
-      </View>
-    );
-  }
+  // Render the protected subtree UNCONDITIONALLY and layer the lock as an
+  // absolute-fill sibling on top. This used to return the overlay *instead of*
+  // children, so an idle re-lock unmounted the whole navigator and destroyed
+  // in-memory state — a captured-but-unsaved supervisor signature on the sign
+  // screen, or TamperGuard's "Continue to app" escape acknowledgment (audit
+  // #33 / P2-6). Keeping children mounted preserves that state across re-locks.
+  const covered = phase !== 'unlocked';
 
   return (
-    <View
-      style={[
-        StyleSheet.absoluteFill,
-        {
-          backgroundColor: tokens.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: 20,
-        },
-      ]}
-    >
-      <IconBrand size={64} color={tokens.accent} fill={tokens.accent} />
-      <Text style={{ marginTop: 24, fontSize: 18, color: tokens.text, fontFamily: 'Manrope_700Bold' }}>
-        App Locked
-      </Text>
-      <Text style={{ marginTop: 8, fontSize: 14, color: tokens.textDim, marginBottom: 32, textAlign: 'center' }}>
-        Authenticate to access your logbook and sign entries.
-      </Text>
-      <Button variant="primary" full onPress={authenticate}>
-        Unlock
-      </Button>
+    <View style={{ flex: 1 }}>
+      <View
+        style={{ flex: 1 }}
+        // While covered, hide the protected subtree from the accessibility tree
+        // and block touches, so the opaque overlay isn't a purely-visual cover
+        // that VoiceOver/TalkBack could read aloud or tap through.
+        // `accessibilityElementsHidden` is the iOS knob; `importantForAccessibility`
+        // the Android one; each no-ops on the other platform.
+        accessibilityElementsHidden={covered}
+        importantForAccessibility={covered ? 'no-hide-descendants' : 'auto'}
+        pointerEvents={covered ? 'none' : 'auto'}
+      >
+        {children}
+      </View>
+
+      {phase === 'checking' ? (
+        // Neutral hold while we resolve the lock state. Opaque + on top from the
+        // first frame (same commit as children), so nothing flashes through.
+        <View
+          accessibilityViewIsModal
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: tokens.bg, alignItems: 'center', justifyContent: 'center' },
+          ]}
+        >
+          <IconBrand size={64} color={tokens.accent} fill={tokens.accent} />
+          <ActivityIndicator color={tokens.accent} style={{ marginTop: 20 }} />
+        </View>
+      ) : null}
+
+      {phase === 'locked' ? (
+        <View
+          accessibilityViewIsModal
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: tokens.bg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: 20,
+            },
+          ]}
+        >
+          <IconBrand size={64} color={tokens.accent} fill={tokens.accent} />
+          <Text style={{ marginTop: 24, fontSize: 18, color: tokens.text, fontFamily: 'Manrope_700Bold' }}>
+            App Locked
+          </Text>
+          <Text style={{ marginTop: 8, fontSize: 14, color: tokens.textDim, marginBottom: 32, textAlign: 'center' }}>
+            Authenticate to access your logbook and sign entries.
+          </Text>
+          <Button variant="primary" full onPress={authenticate}>
+            Unlock
+          </Button>
+        </View>
+      ) : null}
     </View>
   );
 }

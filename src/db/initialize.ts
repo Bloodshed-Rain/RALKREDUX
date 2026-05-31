@@ -27,8 +27,14 @@ export async function initializeDatabase(): Promise<DbClient> {
   clientPromise = (async () => {
     const sqlite = await openAppDatabase();
     if (Platform.OS !== 'web') {
-      await sqlite.execAsync('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;');
+      // WAL + synchronous tuning is a native-storage optimization.
+      await sqlite.execAsync('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;');
     }
+    // foreign_keys is a per-connection enforcement pragma, NOT a native-only
+    // optimization: keeping it inside the native branch meant web preview ran
+    // every `ON DELETE CASCADE` as a no-op, so deleteDraftEntry orphaned child
+    // rows on web. Harmless on native (already on) and on the web engine. (P3-5)
+    await sqlite.execAsync('PRAGMA foreign_keys = ON;');
     const initializedClient = createExpoClient(sqlite);
     await runMigrations(initializedClient);
     client = initializedClient;

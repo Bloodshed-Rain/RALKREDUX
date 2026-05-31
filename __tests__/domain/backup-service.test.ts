@@ -130,4 +130,74 @@ describe('backup service', () => {
     );
     expect(restoredPhotos).toEqual([{ id: 'photo_1', file_uri: 'file:///photos/anchor.jpg' }]);
   });
+
+  it('enforces foreign keys at COMMIT, so the deferred-FK restore path is actually validated', async () => {
+    const db = await createTestClient();
+    // restoreSnapshot relies on `defer_foreign_keys = ON` + ordered inserts,
+    // whose FK validation lands at COMMIT — the load-bearing restore guarantee.
+    // Prove that path actually enforces: a child row with no parent must abort
+    // the COMMIT. If this stops throwing, the harness has lost FK enforcement
+    // and the round-trips below would degrade to no-ops (cf. P2-3 / the BUG-4
+    // data-loss in docs/codex-audit-2026-05-20.md, invisible for this reason).
+    // NB: we assert the COMMIT path, not an immediate insert — immediate
+    // insert-time FK enforcement is unreliable under jest's shared native-addon
+    // context, but the deferred-COMMIT path the restore uses enforces correctly
+    // (on-device expo-sqlite does both).
+    await db.exec('BEGIN');
+    await db.exec('PRAGMA defer_foreign_keys = ON;');
+    await db.run(
+      'INSERT INTO entry_attachments (id, entry_id, label, uri, created_at) VALUES (?, ?, ?, ?, ?)',
+      ['att_orphan', 'no_such_entry', 'Orphan', 'file:///x.jpg', '2026-05-08T10:00:00.000Z'],
+    );
+    let commitThrew = false;
+    try {
+      await db.exec('COMMIT');
+    } catch {
+      commitThrew = true;
+    }
+    await db.exec('ROLLBACK').catch(() => {});
+    expect(commitThrew).toBe(true);
+  });
+
+  it('round-trips a pending remote-signature request under FK enforcement', async () => {
+    const sourceDb = await createTestClient();
+    const logbookService = createLogbookService(sourceDb);
+    const entry = await logbookService.createDraft({
+      employer: 'Northwind Rope',
+      site: 'Tower A',
+      client: 'City Works',
+      description: 'Inspected anchors.',
+      work_hours: 8,
+      work_task: 'Inspection',
+      access_method: 'Two-rope access',
+      structure_type: 'Tower',
+      max_height: 120,
+      height_unit: 'ft',
+      sprat_level_snapshot: 'III',
+    });
+    await logbookService.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'Jordan Lee',
+      recipient_contact: 'jordan@site.example',
+      verifier_role: 'Safety officer',
+      verifier_company: 'City Works',
+    });
+
+    const snapshot = await createBackupService(sourceDb).createSnapshot();
+    expect(snapshot.data.remote_signature_requests).toHaveLength(1);
+
+    // `remote_signature_requests.entry_id REFERENCES entries(id)`. With FK ON,
+    // the restore transaction only COMMITs if entries are inserted before the
+    // request — the deferred-FK COMMIT path the prior tests couldn't reach
+    // under FK OFF. A future RESTORE_INSERT_ORDER regression fails here.
+    const targetDb = await createTestClient();
+    await createBackupService(targetDb).restoreSnapshot(snapshot);
+
+    const restored = await targetDb.getAll<{ id: string; entry_id: string; status: string }>(
+      'SELECT id, entry_id, status FROM remote_signature_requests',
+    );
+    expect(restored).toHaveLength(1);
+    expect(restored[0].entry_id).toBe(entry.id);
+    expect(restored[0].status).toBe('pending');
+  });
 });
