@@ -25,7 +25,16 @@ describe('database migrations', () => {
       { id: 15, name: 'profile-avatar' },
       { id: 16, name: 'profile-hours-baseline' },
       { id: 17, name: 'legacy-logbook-archives' },
+      { id: 18, name: 'entry-multi-classification' },
     ]);
+  });
+
+  it('adds the v5 multi-value classification columns to entries (migration 18)', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string }>('PRAGMA table_info(entries)');
+    expect(columns.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['work_task_list', 'access_method_list']),
+    );
   });
 
   it('creates the legacy logbook archive tables (migration 17)', async () => {

@@ -43,6 +43,14 @@ export interface LogbookEntry {
   entry_kind: EntryKind;
   rescue_cover: string | null;
   hazards: string | null;
+  // v5 hash-bumped fields. `work_task` and `access_method` became attested
+  // MULTI-value fields: the scalar columns above are frozen as the PRIMARY
+  // (index 0) so pre-v5 signatures keep verifying byte-identically, while these
+  // canonical JSON-string lists are what a v5 signature attests to. NULL on
+  // pre-v5 rows (migration 18 backfills from the scalar). Parse with
+  // `parseStringList`; write through `canonicalizeStringList`.
+  work_task_list: string | null;
+  access_method_list: string | null;
   status: EntryStatus;
   amends_entry_id: string | null;
   pending_signature_id: string | null;
@@ -53,7 +61,7 @@ export interface LogbookEntry {
 // Parses the raw `hazards` TEXT column into a string[]. Returns an empty
 // array for null / empty / malformed JSON so consumers can render
 // unconditionally.
-export function parseHazards(raw: string | null | undefined): string[] {
+export function parseStringList(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -64,6 +72,12 @@ export function parseHazards(raw: string | null | undefined): string[] {
   }
 }
 
+// `hazards`, `work_task_list`, and `access_method_list` share the same
+// JSON-array-in-TEXT shape, so they all parse through `parseStringList`.
+export function parseHazards(raw: string | null | undefined): string[] {
+  return parseStringList(raw);
+}
+
 // Canonicalizes a hazards array for storage / hashing: trim, drop empties,
 // dedupe, sort. Returns null when the resulting list is empty so the DB row
 // matches the "no hazards recorded" intent.
@@ -72,6 +86,19 @@ export function canonicalizeHazards(values: readonly string[] | null | undefined
   const cleaned = Array.from(
     new Set(values.map((v) => v.trim()).filter((v) => v.length > 0)),
   ).sort();
+  if (cleaned.length === 0) return null;
+  return JSON.stringify(cleaned);
+}
+
+// Like `canonicalizeHazards` but ORDER-PRESERVING: trim, drop empties, dedupe
+// keeping first occurrence (a Set preserves insertion order). Used for the v5
+// `work_task` / `access_method` lists, where order is meaningful — `work_task`
+// index 0 is the attested PRIMARY task.
+export function canonicalizeStringList(
+  values: readonly string[] | null | undefined,
+): string | null {
+  if (!values || values.length === 0) return null;
+  const cleaned = Array.from(new Set(values.map((v) => v.trim()).filter((v) => v.length > 0)));
   if (cleaned.length === 0) return null;
   return JSON.stringify(cleaned);
 }
@@ -135,6 +162,12 @@ export interface CreateEntryInput {
   entry_kind?: EntryKind;
   rescue_cover?: string | null;
   hazards?: readonly string[];
+  // v5: multi-select work_task / access_method. Optional so existing single-
+  // select call sites compile unchanged — when omitted, the service derives the
+  // list from the scalar (`[work_task]`). When provided, index 0 is the primary
+  // and the scalar column is set to it.
+  work_task_list?: readonly string[];
+  access_method_list?: readonly string[];
 }
 
 export interface UpdateDraftEntryInput extends CreateEntryInput {

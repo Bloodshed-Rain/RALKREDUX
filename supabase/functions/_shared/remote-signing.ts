@@ -40,11 +40,16 @@ export type RemoteSigningRow = {
 
 // v3 added entry_kind, rescue_cover, and hazards. v4 binds the signer envelope
 // into the client-side signature-chain hash (entry-hash.ts) — the ENTRY payload
-// canonicalized here is unchanged from v3 (no new entry-content fields), but the
-// shared version constant gates both, so it advances to 4. The request endpoint
-// only validates the entry hash + version, so mirroring the constant is all
-// that's required here. Keep client (entry-hash.ts) + this module in lockstep.
-export const ENTRY_HASH_VERSION = 4;
+// canonicalized here was unchanged from v3, but the shared version constant
+// gates both, so it advanced to 4.
+//
+// v5: work_task and access_method became attested MULTI-value fields. Under the
+// SAME keys, the canonical list strings (work_task_list / access_method_list)
+// replace the scalars in the entry payload. This MUST stay byte-identical to the
+// client `canonicalizeEntry` (src/domain/logbook/entry-hash.ts) at v5, or
+// hashEntryPayload != entry_hash and hosted v5 requests fail with
+// entry_hash_mismatch. Keep the two in lockstep.
+export const ENTRY_HASH_VERSION = 5;
 
 type JsonValue = string | number | boolean | null | JsonValue[] | {
   [key: string]: JsonValue;
@@ -127,7 +132,9 @@ export function canonicalizeEntryPayload(
       date_to: stringField(entry, "date_to"),
       description: stringField(entry, "description"),
       employer: stringField(entry, "employer"),
-      access_method: stringField(entry, "access_method"),
+      // v5: same key, but the value is the canonical access_method_list string
+      // (nullable) — matches `canonicalizeEntry`'s `version >= 5` override.
+      access_method: nullableStringField(entry, "access_method_list"),
       // v3 fields. `hazards` is the canonical (sorted, JSON-stringified) TEXT
       // that the client persists — hashing the raw string is safe because
       // every client write path runs input through `canonicalizeHazards`.
@@ -141,7 +148,8 @@ export function canonicalizeEntryPayload(
       site: stringField(entry, "site"),
       sprat_level_snapshot: nullableStringField(entry, "sprat_level_snapshot"),
       structure_type: stringField(entry, "structure_type"),
-      work_task: stringField(entry, "work_task"),
+      // v5: same key, value is the canonical work_task_list string (nullable).
+      work_task: nullableStringField(entry, "work_task_list"),
       work_hours: Number(numberField(entry, "work_hours").toFixed(2)),
     },
     schema: "ralb.logbook.entry",

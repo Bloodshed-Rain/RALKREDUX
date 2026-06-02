@@ -12,8 +12,15 @@ import { EntrySignature, LogbookEntry } from './types';
 // logbook exists to certify *who* attested, so re-attributing a sealed
 // signature must break the chain. The entry-content hash is unchanged from
 // v3 (no new entry fields) — only the chain-hash payload grew — but the
-// shared version constant gates both, so it advances to 4.
-export const ENTRY_HASH_VERSION = 4;
+// shared version constant gates both, so it advanced to 4.
+//
+// v5 makes work_task and access_method attested MULTI-value fields. The scalar
+// columns are frozen as the primary (index 0); the canonical list strings
+// (work_task_list / access_method_list) replace them in the v5 entry payload.
+// The v<5 canonicalization path is left byte-identical, so every pre-v5
+// signature keeps verifying. The hosted Deno mirror in
+// supabase/functions/_shared/remote-signing.ts MUST advance in lockstep.
+export const ENTRY_HASH_VERSION = 5;
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -75,6 +82,15 @@ export function canonicalizeEntry(entry: LogbookEntry, version: number = ENTRY_H
     payload.entry.entry_kind = entry.entry_kind;
     payload.entry.hazards = entry.hazards;
     payload.entry.rescue_cover = entry.rescue_cover;
+  }
+
+  // v5: override the frozen scalar work_task / access_method with their canonical
+  // list strings so a v5 signature attests to the full set (and order — index 0
+  // is the primary). Same keys, list-string values; leaving the v<5 path above
+  // untouched is what lets pre-v5 signatures verify byte-identically.
+  if (version >= 5) {
+    payload.entry.work_task = entry.work_task_list;
+    payload.entry.access_method = entry.access_method_list;
   }
 
   return stableStringify(payload);

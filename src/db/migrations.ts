@@ -657,6 +657,44 @@ const migrations: Migration[] = [
       );
     },
   },
+  {
+    id: 18,
+    name: 'entry-multi-classification',
+    async up(db) {
+      // v5: work_task and access_method became attested MULTI-value fields,
+      // stored as canonical JSON-array TEXT (the hazards pattern). The scalar
+      // work_task/access_method columns are kept FROZEN as the primary (index 0)
+      // so pre-v5 signatures keep verifying byte-identically; these lists are
+      // what a v5 signature attests to. See ENTRY_HASH_VERSION=5 in
+      // src/domain/logbook/entry-hash.ts and its Deno mirror in
+      // supabase/functions/_shared/remote-signing.ts.
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(entries)');
+      const names = new Set(columns.map((column) => column.name));
+      if (!names.has('work_task_list')) {
+        await db.exec('ALTER TABLE entries ADD COLUMN work_task_list TEXT;');
+      }
+      if (!names.has('access_method_list')) {
+        await db.exec('ALTER TABLE entries ADD COLUMN access_method_list TEXT;');
+      }
+      // Backfill in JS (NOT SQL json_array) so the stored string is byte-identical
+      // to canonicalizeStringList's output even for values with quotes/unicode —
+      // signing a backfilled old draft under v5 must hash deterministically.
+      const rows = await db.getAll<{
+        id: string;
+        work_task: string | null;
+        access_method: string | null;
+      }>('SELECT id, work_task, access_method FROM entries');
+      for (const row of rows) {
+        const workTask = (row.work_task ?? '').trim();
+        const accessMethod = (row.access_method ?? '').trim();
+        await db.run('UPDATE entries SET work_task_list = ?, access_method_list = ? WHERE id = ?', [
+          workTask ? JSON.stringify([workTask]) : null,
+          accessMethod ? JSON.stringify([accessMethod]) : null,
+          row.id,
+        ]);
+      }
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the
