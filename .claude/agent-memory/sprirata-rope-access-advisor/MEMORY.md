@@ -1,5 +1,7 @@
 - [Hash version: shipped at v3, what's pending for v4](hash-version-bump-candidates.md) — entry_kind/hazards/rescue_cover/supervisor_scheme shipped; anchor_method etc. still pending
-- [Work-task taxonomy + custom entry ruling](work-task-taxonomy-and-custom-entry.md) — work_task vs entry_kind separation, custom free-text guardrails, no hash bump
+- [Work-task taxonomy + custom entry ruling](work-task-taxonomy-and-custom-entry.md) — work_task vs entry_kind; multi-select needs a PRIMARY + hash bump; "Rescue Standby" belongs in rescue_cover
+- [Access-method two-axis ruling](access-method-two-axis-ruling.md) — access_method = rope technique; do NOT merge MEWP/scaffold/ladder; means_of_access controls hour-countability; hash bump
+- [Starting hours + legacy paper evidence](starting-hours-and-legacy-evidence.md) — per-scheme immutable self-declared baselines (profile, no hash); paper scans are evidence-not-entries, walled appendix in export
 - [Gear inventory gaps vs real PPE register](gear-inventory-gaps.md) — Inspector identity, manufacture/in-service dates, lot/batch, quarantine state
 - [Cert-gate logic ruling](cert-required-gate-supervisor-not-tech.md) — Supervisor scheme governs the cert-number requirement, not tech's IRATA level
 - [Compliance-language watch list](compliance-language-watchlist.md) — Specific phrases flagged in user-facing copy and where they live
