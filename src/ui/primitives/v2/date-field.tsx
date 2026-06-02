@@ -16,6 +16,7 @@ export interface DateFieldProps {
   clearable?: boolean;
   disabled?: boolean;
   title?: string; // sheet title; defaults to label
+  initialView?: 'day' | 'month' | 'year'; // calendar view to open on (default 'day')
 }
 
 export function DateField({
@@ -29,6 +30,7 @@ export function DateField({
   clearable = false,
   disabled = false,
   title,
+  initialView,
 }: DateFieldProps) {
   const { theme, tokens } = useTheme();
   const [open, setOpen] = React.useState(false);
@@ -99,6 +101,7 @@ export function DateField({
         minDate={minDate}
         maxDate={maxDate}
         clearable={clearable}
+        initialView={initialView}
       />
     </View>
   );

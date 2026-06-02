@@ -1,6 +1,19 @@
 import { DbClient } from '@/src/db/client';
 import { createId } from '../id';
-import { CreateProfileInput, Profile } from './types';
+import { CreateProfileInput, Profile, UpdateProfileInput } from './types';
+
+// Columns the post-onboarding edit flow is allowed to write. Kept explicit so a
+// stray/unknown key in the input can never reach the SQL.
+const UPDATABLE_COLUMNS: Array<keyof UpdateProfileInput> = [
+  'full_name',
+  'primary_scheme',
+  'sprat_id',
+  'sprat_level',
+  'sprat_expires_on',
+  'irata_id',
+  'irata_level',
+  'irata_expires_on',
+];
 
 export function createProfileService(db: DbClient) {
   return {
@@ -38,6 +51,34 @@ export function createProfileService(db: DbClient) {
       const created = await this.getProfile();
       if (!created) throw new Error('profile_create_failed');
       return created;
+    },
+
+    // Edit an existing profile. Only the keys present in `input` are written, so
+    // callers can patch a single field; passing `null` clears a nullable column.
+    // Throws `profile_not_found` when there is no profile to edit yet.
+    async updateProfile(input: UpdateProfileInput): Promise<Profile> {
+      const existing = await this.getProfile();
+      if (!existing) throw new Error('profile_not_found');
+
+      const sets: string[] = [];
+      const values: Array<string | null> = [];
+      for (const column of UPDATABLE_COLUMNS) {
+        if (!(column in input)) continue;
+        let value = input[column] ?? null;
+        if (column === 'full_name' && typeof value === 'string') value = value.trim();
+        sets.push(`${column} = ?`);
+        values.push(value);
+      }
+
+      sets.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(existing.id);
+
+      await db.run(`UPDATE profiles SET ${sets.join(', ')} WHERE id = ?`, values);
+
+      const updated = await this.getProfile();
+      if (!updated) throw new Error('profile_not_found');
+      return updated;
     },
 
     // Set or clear the local avatar URI. Pass null to remove the photo.

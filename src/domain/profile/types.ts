@@ -39,3 +39,18 @@ export interface CreateProfileInput {
   irata_expires_on?: string | null;
 }
 
+// Post-onboarding edits. Every field is optional; only keys actually present
+// are written (a provided `null` clears a nullable column, an absent key leaves
+// it untouched). Profile fields are never part of an entry signature, so edits
+// here never affect ENTRY_HASH_VERSION or any signed record.
+export interface UpdateProfileInput {
+  full_name?: string;
+  primary_scheme?: CertScheme;
+  sprat_id?: string | null;
+  sprat_level?: CertLevel | null;
+  sprat_expires_on?: string | null;
+  irata_id?: string | null;
+  irata_level?: CertLevel | null;
+  irata_expires_on?: string | null;
+}
+

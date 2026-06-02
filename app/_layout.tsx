@@ -60,6 +60,7 @@ function ThemedStack() {
       <Stack.Screen name="account" options={{ title: 'Account', headerShown: false }} />
       <Stack.Screen name="security" options={{ title: 'Security', headerShown: false }} />
       <Stack.Screen name="attachments" options={{ title: 'Attachments', headerShown: false }} />
+      <Stack.Screen name="profile-edit" options={{ title: 'Edit profile', headerShown: false }} />
     </Stack>
   );
 }

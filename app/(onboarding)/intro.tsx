@@ -3,6 +3,7 @@ import {
   Animated,
   Easing,
   Pressable,
+  ScrollView,
   Text,
   View,
   type TextStyle,
@@ -194,7 +195,12 @@ export default function OnboardingIntroScreen() {
         </Pressable>
       </View>
 
-      <View style={{ flex: 1, justifyContent: 'center', gap: 32 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 32 }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         <Animated.View
           style={{
             width: 96,
@@ -214,7 +220,7 @@ export default function OnboardingIntroScreen() {
           <Text style={titleStyle}>{slide.title}</Text>
           <Text style={subStyle}>{slide.sub}</Text>
         </Animated.View>
-      </View>
+      </ScrollView>
 
       <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', marginBottom: 20 }}>
         {SLIDES.map((_, i) => (

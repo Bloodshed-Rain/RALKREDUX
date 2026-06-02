@@ -257,6 +257,17 @@ export default function ProfileScreen() {
                 : null
             }
           />
+          {p ? (
+            <Button
+              variant="outline"
+              size="md"
+              full
+              icon={IconProfile}
+              onPress={() => router.push('/profile-edit' as never)}
+            >
+              Edit profile & certifications
+            </Button>
+          ) : null}
         </View>
 
         <SectionH kicker="APPEARANCE" title="Theme" />

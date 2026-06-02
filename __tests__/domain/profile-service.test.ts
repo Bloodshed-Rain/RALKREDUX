@@ -51,4 +51,53 @@ describe('profile service', () => {
 
     await expect(service.updateAvatar('file:///x.jpg')).rejects.toThrow('profile_not_found');
   });
+
+  it('updates editable profile fields, preserves untouched ones, and bumps updated_at', async () => {
+    const db = await createTestClient();
+    const service = createProfileService(db);
+
+    const created = await service.createProfile({
+      full_name: 'Sam Tech',
+      primary_scheme: 'sprat',
+      sprat_level: 'II',
+    });
+
+    const updated = await service.updateProfile({
+      full_name: '  Samuel Tech  ',
+      sprat_level: 'III',
+      sprat_expires_on: '2030-06-01',
+      irata_id: '3/12345',
+      irata_level: 'III',
+    });
+
+    expect(updated.id).toBe(created.id);
+    expect(updated.full_name).toBe('Samuel Tech'); // trimmed
+    expect(updated.sprat_level).toBe('III');
+    expect(updated.sprat_expires_on).toBe('2030-06-01');
+    expect(updated.irata_id).toBe('3/12345');
+    expect(updated.irata_level).toBe('III');
+    expect(updated.primary_scheme).toBe('sprat'); // untouched field preserved
+    expect(updated.updated_at >= created.updated_at).toBe(true);
+  });
+
+  it('clears a nullable field when explicitly passed null', async () => {
+    const db = await createTestClient();
+    const service = createProfileService(db);
+
+    await service.createProfile({
+      full_name: 'Sam Tech',
+      primary_scheme: 'sprat',
+      sprat_expires_on: '2027-01-01',
+    });
+
+    const cleared = await service.updateProfile({ sprat_expires_on: null });
+    expect(cleared.sprat_expires_on).toBeNull();
+  });
+
+  it('throws profile_not_found when updating with no profile', async () => {
+    const db = await createTestClient();
+    const service = createProfileService(db);
+
+    await expect(service.updateProfile({ full_name: 'X' })).rejects.toThrow('profile_not_found');
+  });
 });
