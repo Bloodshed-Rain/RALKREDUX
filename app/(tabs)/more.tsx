@@ -6,9 +6,11 @@ import { useCreateBackupSnapshot, useRestoreBackupSnapshot } from '@/src/domain/
 import type { BackupSnapshot } from '@/src/domain/backup/types';
 import { formatDateOrDash } from '@/src/domain/date-format';
 import { daysFromTodayIso } from '@/src/domain/date-utils';
-import { useChainHead, useDashboardSummary } from '@/src/domain/logbook/use-logbook';
+import { useCareerStats, useChainHead, useDashboardSummary } from '@/src/domain/logbook/use-logbook';
 import { useProfile, useUpdateAvatar } from '@/src/domain/profile/use-profile';
-import type { CertLevel, CertScheme } from '@/src/domain/profile/types';
+import type { CertLevel, CertScheme, Profile } from '@/src/domain/profile/types';
+import type { CareerStats } from '@/src/domain/logbook/types';
+import { careerHoursByScheme } from '@/src/domain/profile/hours-baseline';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
 import { deleteAvatarFile, persistAvatarFile } from '@/src/ui/avatar-storage';
 import { useTheme } from '@/src/ui/theme/theme-provider';
@@ -28,6 +30,7 @@ import {
   IconCamera,
   IconChain,
   IconChevron,
+  IconClock,
   IconCloudBackup,
   IconExport,
   IconLock,
@@ -58,6 +61,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const profile = useProfile();
   const chainHead = useChainHead();
+  const careerStats = useCareerStats();
   const p = profile.data;
 
   const updateAvatar = useUpdateAvatar();
@@ -269,6 +273,25 @@ export default function ProfileScreen() {
             </Button>
           ) : null}
         </View>
+
+        {p ? (
+          <>
+            <SectionH kicker="CAREER" title="Logged hours" />
+            <View style={{ paddingHorizontal: 20, gap: 8 }}>
+              <CareerHoursCard profile={p} stats={careerStats.data ?? undefined} />
+              <SettingsRow
+                icon={IconClock}
+                title="Starting hours"
+                sub={
+                  p.hours_baseline_declared_at
+                    ? 'Carried-forward paper balance · tap to view'
+                    : 'Carry hours over from your paper logbook'
+                }
+                onPress={() => router.push('/hours-baseline' as never)}
+              />
+            </View>
+          </>
+        ) : null}
 
         <SectionH kicker="APPEARANCE" title="Theme" />
         <View style={{ paddingHorizontal: 20, gap: 8 }}>
@@ -774,6 +797,87 @@ function ChainIntegrityPanel({ chainHead, signedCount, amendedCount }: ChainInte
         </Button>
       </View>
     </Card>
+  );
+}
+
+function CareerHoursCard({
+  profile,
+  stats,
+}: {
+  profile: Profile | undefined;
+  stats: CareerStats | undefined;
+}) {
+  const { tokens } = useTheme();
+  const hours = careerHoursByScheme(profile ?? null, stats ?? null);
+  const showSprat = profile?.sprat_level != null || profile?.primary_scheme === 'sprat';
+  const showIrata = profile?.irata_level != null || profile?.primary_scheme === 'irata';
+
+  return (
+    <Card padding={16}>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        {showSprat ? (
+          <SchemeHoursCell
+            scheme="SPRAT"
+            total={hours.sprat.total}
+            baseline={hours.sprat.baseline}
+            logged={hours.sprat.logged}
+            declared={hours.declared}
+          />
+        ) : null}
+        {showIrata ? (
+          <SchemeHoursCell
+            scheme="IRATA"
+            total={hours.irata.total}
+            baseline={hours.irata.baseline}
+            logged={hours.irata.logged}
+            declared={hours.declared}
+          />
+        ) : null}
+      </View>
+      {hours.declared ? (
+        <Text style={{ ...type.cardSub, color: tokens.textFaint, marginTop: 10 }}>
+          Includes a self-declared baseline carried from a paper logbook.
+        </Text>
+      ) : null}
+    </Card>
+  );
+}
+
+function SchemeHoursCell({
+  scheme,
+  total,
+  baseline,
+  logged,
+  declared,
+}: {
+  scheme: string;
+  total: number;
+  baseline: number;
+  logged: number;
+  declared: boolean;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>{scheme}</Text>
+      <Text
+        style={{
+          fontFamily: 'Manrope_800ExtraBold',
+          fontWeight: '800',
+          fontSize: 24,
+          letterSpacing: -0.6,
+          color: tokens.text,
+        }}
+      >
+        {total.toFixed(1)}
+        <Text style={{ fontSize: 14, color: tokens.textDim }}> h</Text>
+      </Text>
+      <Text style={{ ...type.cardSub, color: tokens.textDim }}>
+        {declared && baseline > 0
+          ? `${baseline.toFixed(0)} carried + ${logged.toFixed(1)} logged`
+          : `${logged.toFixed(1)} logged`}
+      </Text>
+    </View>
   );
 }
 
