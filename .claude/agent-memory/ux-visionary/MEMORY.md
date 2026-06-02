@@ -2,6 +2,8 @@
 - [Project: 2026-05 full-app audit punch list](project_audit_punch_list_2026_05.md) — first post-redesign audit; P0s 1+2 fixed by 2026-05-17, P0s 3+4 still present
 - [Project: 2026-05-17 re-audit](project_audit_2026_05_17.md) — IconBtn sm=28px cross-cuts every TopBar; Retire-gear dead button; QuickLog chips don't preload; sealing 3s setTimeout
 - [Project: 2026-05-20 audit](project_audit_2026_05_20.md) — most prior P0s fixed; NEW uncommitted AppLock unmounts forms on background + TamperGuard RSOD has no escape
+- [Project: 2026-05-28 verifier-portal audit](project_audit_2026_05_28_verify.md) — offline collapses to wrong "Request not found"; hosted submit failure is a dead-end ("refresh" with no button)
+- [Project: 2026-05-28 detail+signing audit](project_detail_signing_reviewed.md) — dead "More" btn on detail header; "N missing" pill is a dead-end (no list/tap); JSON packet share has no error/loading guard
 - [Feedback: don't dismiss safety advisories with one tap](feedback_advisory_dismiss.md) — destructive-risk pattern; long-press acknowledge + audit trail preferred
 - [Feedback: every irreversible write needs Alert.alert confirmation](feedback_destructive_confirmation_audit.md) — banners are signage, not confirmations; gear-fail audit gap
 - [Feedback: Cancel after a commit must never silently leave a draft](feedback_cancel_after_commit.md) — wizard Step 1 auto-commits; Cancel UX must branch on commit state
@@ -10,3 +12,7 @@
 - [Reference: Today screen spec lives in prototype.jsx lines 100-166](reference_today_spec_location.md) — ScreenBrief function; numbered-form metaphor
 - [Reference: data hooks for Today](reference_today_data_hooks.md) — dashboard summary, chain head, gear, profile, entries, career stats
 - [Project: handoff boundaries with UI and SPRAT/IRATA agents](project_agent_handoffs.md) — who owns what on Today
+- [Project: 2026-05-28 create/edit/amend audit](project_audit_2026_05_28_create_edit_amend.md) — edit save() no onError; edit+amend modals swipe-dismiss unguarded; Review has no Back; missing-fields count-only
+- [Project: 2026-05-28 gear audit](project_audit_gear_2026_05_28.md) — silent inspection/retire failure (still-active gear); ≤14d copy vs 30d constant; catalog image no offline onError fallback
+- [Project: 2026-05-28 onboarding+auth audit](project_audit_2026_05_28_onboarding_auth.md) — setup submit silent error dead-end; index isError re-onboards user; OTP no-resend; Field has no invalid state
+- [Project: 2026-05-28 settings/system audit](project_audit_2026_05_28_settings_system.md) — account offline shows "no backups" (swallowed error); share-backup no try/catch; JSON/CSV export ship as text not file; dead chevron; subscription copy over-promise

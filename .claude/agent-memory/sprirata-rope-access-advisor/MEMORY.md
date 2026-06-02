@@ -5,6 +5,8 @@
 - [Compliance-language watch list](compliance-language-watchlist.md) — Specific phrases flagged in user-facing copy and where they live
 - [Hours-bucket ruling](hours-bucket-breakdown.md) — Work / training / assessment / rescue-drill must be distinguishable in exports
 - [Remote signing — verifier information parity](remote-signing-verifier-parity.md) — Remote portal must show what local signer would see
-- [Verifier identity must be reconciled](verifier-identity-must-reconcile.md) — Requested-verifier vs actual-signer ruling
+- [Verifier identity must be reconciled](verifier-identity-must-reconcile.md) — Requested-verifier vs actual-signer ruling (schema RESOLVED; attestation text still open)
+- [Attestation text vs delegated signer](attestation-text-vs-delegated-signer.md) — "I am the requested verifier" is false when a different signer completes the request
 - [Restore-vs-chain-continuity ruling](restore-vs-chain-continuity.md) — Snapshot restore breaks chain continuity; must be surfaced honestly
 - [Signer authority: site vs scheme](signer-authority-site-vs-scheme.md) — Signers don't have to be SPRAT/IRATA certified; site-authorised witness is a third category. No hash bump.
+- [Export PDF/CSV lose v3 + site-signer fields](export-human-readable-loses-v3-and-site-signer.md) — JSON complete; human-readable artifacts drop entry_kind/hazards/rescue_cover + scheme/role/employer. Render gap, P1, no hash bump.
