@@ -289,6 +289,12 @@ export default function ProfileScreen() {
                 }
                 onPress={() => router.push('/hours-baseline' as never)}
               />
+              <SettingsRow
+                icon={IconCamera}
+                title="Legacy logbook archive"
+                sub="Photos of your old paper logbooks (unverified)"
+                onPress={() => router.push('/archives' as never)}
+              />
             </View>
           </>
         ) : null}

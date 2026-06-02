@@ -62,6 +62,9 @@ function ThemedStack() {
       <Stack.Screen name="attachments" options={{ title: 'Attachments', headerShown: false }} />
       <Stack.Screen name="profile-edit" options={{ title: 'Edit profile', headerShown: false }} />
       <Stack.Screen name="hours-baseline" options={{ title: 'Starting hours', headerShown: false }} />
+      <Stack.Screen name="archives/index" options={{ title: 'Legacy logbook', headerShown: false }} />
+      <Stack.Screen name="archives/new" options={{ title: 'Add paper logbook', headerShown: false }} />
+      <Stack.Screen name="archives/[id]" options={{ title: 'Archive', headerShown: false }} />
     </Stack>
   );
 }
