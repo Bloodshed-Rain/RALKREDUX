@@ -1006,7 +1006,7 @@ describe('logbook service', () => {
 
     expect(bundle).toEqual(
       expect.objectContaining({
-        export_schema_version: 2,
+        export_schema_version: 3,
         app_flavor: 'ralb-codex-edition',
         exported_at: expect.any(String),
         profile: expect.objectContaining({

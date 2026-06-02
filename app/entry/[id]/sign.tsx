@@ -12,7 +12,7 @@ import {
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
 import { formatDateRange } from '@/src/domain/date-format';
-import { entryKindLabel, parseHazards } from '@/src/domain/logbook/types';
+import { entryKindLabel, parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import {
   useEntryDetail,
@@ -363,8 +363,18 @@ export default function LocalSignScreen() {
                   <>
                     <Row label="Hours" value={entry.work_hours.toFixed(1)} />
                     <Row label="Kind" value={entryKindLabel(entry.entry_kind)} />
-                    <Row label="Task" value={entry.work_task || '—'} />
-                    <Row label="Access" value={entry.access_method || '—'} />
+                    <Row
+                      label="Task"
+                      value={parseStringList(entry.work_task_list).join(', ') || entry.work_task || '—'}
+                    />
+                    <Row
+                      label="Access"
+                      value={
+                        parseStringList(entry.access_method_list).join(', ') ||
+                        entry.access_method ||
+                        '—'
+                      }
+                    />
                     <Row label="Structure" value={entry.structure_type || '—'} />
                     <Row
                       label="Height"

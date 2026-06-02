@@ -89,7 +89,7 @@ describe('logbook export builders', () => {
         exportedAt: '2026-05-08T12:00:00.000Z',
       }),
     ).toEqual({
-      export_schema_version: 2,
+      export_schema_version: 3,
       exported_at: '2026-05-08T12:00:00.000Z',
       app_flavor: 'ralb-codex-edition',
       profile,

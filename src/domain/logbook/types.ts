@@ -417,7 +417,7 @@ export interface LogbookExportEntry {
 }
 
 export interface LogbookExportBundle {
-  export_schema_version: 2;
+  export_schema_version: 3;
   exported_at: string;
   app_flavor: 'ralb-codex-edition';
   profile: Profile | null;
@@ -433,7 +433,7 @@ export interface LogbookExportBundle {
 }
 
 export interface LogbookExportPacket {
-  export_schema_version: 2;
+  export_schema_version: 3;
   exported_at: string;
   app_flavor: 'ralb-codex-edition';
   profile: Profile | null;

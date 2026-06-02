@@ -13,7 +13,7 @@ import {
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { EntryKind, HeightUnit } from '@/src/domain/logbook/types';
-import { parseHazards } from '@/src/domain/logbook/types';
+import { parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import {
   WORK_TASK_PRESETS,
@@ -73,8 +73,8 @@ function missingFields(input: {
   employer: string;
   site: string;
   client: string;
-  workTask: string;
-  accessMethod: string;
+  workTask: string[];
+  accessMethod: string[];
   structureType: string;
   description: string;
   parsedHours: number;
@@ -85,8 +85,8 @@ function missingFields(input: {
   if (!input.employer.trim()) missing.push('employer');
   if (!input.site.trim()) missing.push('site');
   if (!input.client.trim()) missing.push('client');
-  if (!input.workTask.trim()) missing.push('task');
-  if (!input.accessMethod.trim()) missing.push('access');
+  if (input.workTask.length === 0) missing.push('task');
+  if (input.accessMethod.length === 0) missing.push('access');
   if (!input.structureType.trim()) missing.push('structure');
   if (!input.description.trim()) missing.push('notes');
   if (!Number.isFinite(input.parsedHours) || input.parsedHours <= 0) missing.push('hours');
@@ -116,8 +116,8 @@ export default function EditDraftScreen() {
   const [employer, setEmployer] = React.useState('');
   const [site, setSite] = React.useState('');
   const [client, setClient] = React.useState('');
-  const [workTask, setWorkTask] = React.useState('');
-  const [accessMethod, setAccessMethod] = React.useState('');
+  const [workTask, setWorkTask] = React.useState<string[]>([]);
+  const [accessMethod, setAccessMethod] = React.useState<string[]>([]);
   const [structureType, setStructureType] = React.useState('');
   const [maxHeight, setMaxHeight] = React.useState('');
   const [heightUnit, setHeightUnit] = React.useState<HeightUnit>('ft');
@@ -139,8 +139,20 @@ export default function EditDraftScreen() {
     setEmployer(entry.employer);
     setSite(entry.site);
     setClient(entry.client);
-    setWorkTask(entry.work_task);
-    setAccessMethod(entry.access_method || 'Two-rope access');
+    setWorkTask(
+      parseStringList(entry.work_task_list).length
+        ? parseStringList(entry.work_task_list)
+        : entry.work_task
+          ? [entry.work_task]
+          : [],
+    );
+    setAccessMethod(
+      parseStringList(entry.access_method_list).length
+        ? parseStringList(entry.access_method_list)
+        : entry.access_method
+          ? [entry.access_method]
+          : ['Two-rope access'],
+    );
     setStructureType(entry.structure_type);
     setMaxHeight(entry.max_height === null ? '' : String(entry.max_height));
     setHeightUnit(entry.height_unit);
@@ -172,7 +184,7 @@ export default function EditDraftScreen() {
     entry?.status === 'draft' &&
     !hasPendingRequest &&
     site.trim().length > 0 &&
-    workTask.trim().length > 0 &&
+    workTask.length > 0 &&
     Number.isFinite(parsedHours) &&
     parsedHours > 0;
 
@@ -186,8 +198,10 @@ export default function EditDraftScreen() {
         client,
         description,
         work_hours: parsedHours,
-        work_task: workTask,
-        access_method: accessMethod,
+        work_task: workTask[0] ?? '',
+        access_method: accessMethod[0] ?? '',
+        work_task_list: workTask,
+        access_method_list: accessMethod,
         structure_type: structureType,
         max_height: parsedHeight,
         height_unit: heightUnit,
@@ -315,9 +329,9 @@ export default function EditDraftScreen() {
           <Field label="Site" value={site} onChangeText={setSite} placeholder="Tower / plant / bridge" />
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>TASK</Text>
-            <ClassificationChips
+            <MultiClassificationChips
               label="Work task"
-              value={workTask}
+              values={workTask}
               onChange={setWorkTask}
               presets={WORK_TASK_PRESETS}
               recents={recentWorkTask.data ?? []}
@@ -325,9 +339,9 @@ export default function EditDraftScreen() {
           </View>
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>ACCESS</Text>
-            <ClassificationChips
+            <MultiClassificationChips
               label="Access method"
-              value={accessMethod}
+              values={accessMethod}
               onChange={setAccessMethod}
               presets={ACCESS_METHOD_PRESETS}
               recents={recentAccess.data ?? []}

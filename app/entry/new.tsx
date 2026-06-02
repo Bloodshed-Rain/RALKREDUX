@@ -28,7 +28,7 @@ import {
   STRUCTURE_PRESETS,
   HAZARD_PRESETS,
 } from '@/src/domain/logbook/classification';
-import { parseHazards } from '@/src/domain/logbook/types';
+import { parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import type { CertLevel } from '@/src/domain/profile/types';
 import {
   useAddEntryAttachment,
@@ -98,8 +98,8 @@ interface DraftState {
   employer: string;
   site: string;
   client: string;
-  workTask: string;
-  accessMethod: string;
+  workTask: string[];
+  accessMethod: string[];
   structureType: string;
   maxHeight: string;
   heightUnit: HeightUnit;
@@ -122,8 +122,8 @@ function initialDraft(): DraftState {
     employer: '',
     site: '',
     client: '',
-    workTask: '',
-    accessMethod: 'Two-rope access',
+    workTask: [],
+    accessMethod: ['Two-rope access'],
     structureType: '',
     maxHeight: '',
     heightUnit: 'ft',
@@ -144,7 +144,7 @@ function hasAnyContent(draft: DraftState): boolean {
     draft.employer.trim().length > 0 ||
     draft.site.trim().length > 0 ||
     draft.client.trim().length > 0 ||
-    draft.workTask.trim().length > 0 ||
+    draft.workTask.length > 0 ||
     draft.description.trim().length > 0 ||
     draft.structureType.trim().length > 0 ||
     draft.maxHeight.trim().length > 0
@@ -158,7 +158,7 @@ function step1Ready(draft: DraftState): boolean {
 }
 
 function step2Ready(draft: DraftState): boolean {
-  return draft.workTask.trim().length > 0 && Number(draft.hours) > 0;
+  return draft.workTask.length > 0 && Number(draft.hours) > 0;
 }
 
 // Names the field(s) still blocking Continue so the tech isn't left hunting a
@@ -176,7 +176,7 @@ function missingStepHint(step: 1 | 2 | 3, draft: DraftState): string | null {
   }
   if (step === 2) {
     const need: string[] = [];
-    if (draft.workTask.trim().length === 0) need.push('a work task');
+    if (draft.workTask.length === 0) need.push('a work task');
     if (!(Number(draft.hours) > 0)) need.push('hours worked');
     return need.length ? `Add ${need.join(' and ')} to continue.` : null;
   }
@@ -194,8 +194,10 @@ function buildCreateInput(draft: DraftState): CreateEntryInput {
     client: draft.client.trim(),
     description: draft.description.trim(),
     work_hours: Number(draft.hours) || 0,
-    work_task: draft.workTask.trim(),
-    access_method: draft.accessMethod.trim(),
+    work_task: draft.workTask[0] ?? '',
+    access_method: draft.accessMethod[0] ?? '',
+    work_task_list: draft.workTask,
+    access_method_list: draft.accessMethod,
     structure_type: draft.structureType.trim(),
     max_height: Number.isFinite(maxHeight) ? maxHeight : 0,
     height_unit: draft.heightUnit,
@@ -275,8 +277,16 @@ export default function NewEntryWizard() {
       employer: last.employer,
       site: last.site,
       client: last.client,
-      workTask: last.work_task,
-      accessMethod: last.access_method || 'Two-rope access',
+      workTask: parseStringList(last.work_task_list).length
+        ? parseStringList(last.work_task_list)
+        : last.work_task
+          ? [last.work_task]
+          : [],
+      accessMethod: parseStringList(last.access_method_list).length
+        ? parseStringList(last.access_method_list)
+        : last.access_method
+          ? [last.access_method]
+          : ['Two-rope access'],
       structureType: last.structure_type,
       maxHeight: last.max_height == null ? '' : String(last.max_height),
       heightUnit: last.height_unit,
@@ -721,10 +731,10 @@ function StepWhat({ draft, update }: StepProps) {
     <View style={{ gap: 14 }}>
       <View>
         <SectionKicker>WORK TASK</SectionKicker>
-        <ClassificationChips
+        <MultiClassificationChips
           label="Work task"
-          value={draft.workTask}
-          onChange={(v) => update({ workTask: v })}
+          values={draft.workTask}
+          onChange={(next) => update({ workTask: next })}
           presets={WORK_TASK_PRESETS}
           recents={recentWorkTask.data ?? []}
         />
@@ -743,10 +753,10 @@ function StepWhat({ draft, update }: StepProps) {
 
       <View>
         <SectionKicker>ACCESS METHOD</SectionKicker>
-        <ClassificationChips
+        <MultiClassificationChips
           label="Access method"
-          value={draft.accessMethod}
-          onChange={(v) => update({ accessMethod: v })}
+          values={draft.accessMethod}
+          onChange={(next) => update({ accessMethod: next })}
           presets={ACCESS_METHOD_PRESETS}
           recents={recentAccess.data ?? []}
         />
@@ -995,7 +1005,7 @@ function StepReview({
           {draft.site || 'Untitled site'}
         </Text>
         <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
-          {[draft.client, draft.workTask].filter(Boolean).join(' · ') || '—'}
+          {[draft.client, draft.workTask.join(', ')].filter(Boolean).join(' · ') || '—'}
         </Text>
         <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 14 }} />
         <View style={{ flexDirection: 'row', gap: 14 }}>
@@ -1008,7 +1018,7 @@ function StepReview({
                 : `${draft.maxHeight} ${draft.heightUnit}`
             }
           />
-          <Stat label="Access" value={draft.accessMethod || '—'} />
+          <Stat label="Access" value={draft.accessMethod.join(', ') || '—'} />
         </View>
       </Card>
 

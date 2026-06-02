@@ -21,7 +21,12 @@ import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
 import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/logbook/logbook-service';
-import { entryKindLabel, parseHazards, type LogbookEntry } from '@/src/domain/logbook/types';
+import {
+  entryKindLabel,
+  parseHazards,
+  parseStringList,
+  type LogbookEntry,
+} from '@/src/domain/logbook/types';
 import {
   useAddEntryAttachment,
   useAmendmentsOf,
@@ -329,7 +334,9 @@ export default function EntryDetailScreen() {
                   numberOfLines={2}
                   selectable
                 >
-                  {[entry.client, entry.work_task].filter(Boolean).join(' · ') || '—'}
+                  {[entry.client, parseStringList(entry.work_task_list).join(', ') || entry.work_task]
+                    .filter(Boolean)
+                    .join(' · ') || '—'}
                 </Text>
               </View>
               <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -347,7 +354,12 @@ export default function EntryDetailScreen() {
             <View style={{ flexDirection: 'row', gap: 14 }}>
               <DetailStat label="Hours" value={entry.work_hours.toFixed(1)} />
               <DetailStat label="Height" value={maxHeightLabel} />
-              <DetailStat label="Access" value={entry.access_method || '—'} />
+              <DetailStat
+                label="Access"
+                value={
+                  parseStringList(entry.access_method_list).join(', ') || entry.access_method || '—'
+                }
+              />
             </View>
 
             {isDraft && readiness && !isReady ? (

@@ -7,6 +7,7 @@ import {
   LogbookExportEntry,
   LogbookExportPacket,
   parseHazards,
+  parseStringList,
   SupervisorContact,
 } from './types';
 import { Profile } from '../profile/types';
@@ -216,7 +217,7 @@ export function buildLogbookExportBundle({
   exportedAt = nowIso(),
 }: BuildLogbookExportInput): LogbookExportBundle {
   return {
-    export_schema_version: 2,
+    export_schema_version: 3,
     exported_at: exportedAt,
     app_flavor: 'ralb-codex-edition',
     profile,
@@ -242,7 +243,7 @@ export function buildEntryExportPacket({
   if (!detail.signature) throw new Error('entry_signature_missing');
 
   return {
-    export_schema_version: 2,
+    export_schema_version: 3,
     exported_at: exportedAt,
     app_flavor: 'ralb-codex-edition',
     profile,
@@ -276,8 +277,8 @@ export function buildLogbookCsv(bundle: LogbookExportBundle): string {
       entry.employer,
       entry.site,
       entry.client,
-      entry.work_task,
-      entry.access_method,
+      parseStringList(entry.work_task_list).join('; ') || entry.work_task,
+      parseStringList(entry.access_method_list).join('; ') || entry.access_method,
       entry.structure_type,
       parseHazards(entry.hazards).join('; '),
       entry.rescue_cover,
@@ -341,8 +342,8 @@ function buildLogbookEntrySection(item: LogbookExportEntry, n: number): string {
       ${row('Employer', entry.employer)}
       ${row('Client', entry.client)}
       ${row('Activity', entryKindLabel(entry.entry_kind))}
-      ${row('Work task', entry.work_task)}
-      ${row('Access method', entry.access_method)}
+      ${row('Work task', parseStringList(entry.work_task_list).join(', ') || entry.work_task)}
+      ${row('Access method', parseStringList(entry.access_method_list).join(', ') || entry.access_method)}
       ${row('Structure type', entry.structure_type)}
       ${row(hoursLabel(entry.entry_kind), entry.work_hours.toFixed(1))}
       ${row('Maximum height', !entry.max_height || entry.max_height <= 0 ? null : `${entry.max_height} ${entry.height_unit}`)}
