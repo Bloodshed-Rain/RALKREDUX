@@ -1,6 +1,6 @@
 import { DbClient } from '@/src/db/client';
 import { createId } from '../id';
-import { CreateProfileInput, Profile, UpdateProfileInput } from './types';
+import { CreateProfileInput, HoursBaselineInput, Profile, UpdateProfileInput } from './types';
 
 // Columns the post-onboarding edit flow is allowed to write. Kept explicit so a
 // stray/unknown key in the input can never reach the SQL.
@@ -75,6 +75,63 @@ export function createProfileService(db: DbClient) {
       values.push(existing.id);
 
       await db.run(`UPDATE profiles SET ${sets.join(', ')} WHERE id = ?`, values);
+
+      const updated = await this.getProfile();
+      if (!updated) throw new Error('profile_not_found');
+      return updated;
+    },
+
+    // Declare the self-declared paper-logbook starting balance. Immutable once
+    // set: throws `hours_baseline_already_declared` if a baseline is already on
+    // record (call voidHoursBaseline first to change it). Self-declared imports
+    // never touch a signature, so there is no hash impact.
+    async declareHoursBaseline(input: HoursBaselineInput): Promise<Profile> {
+      const existing = await this.getProfile();
+      if (!existing) throw new Error('profile_not_found');
+      if (existing.hours_baseline_declared_at) {
+        throw new Error('hours_baseline_already_declared');
+      }
+
+      const now = new Date().toISOString();
+      await db.run(
+        `UPDATE profiles
+           SET sprat_hours_baseline = ?,
+               irata_hours_baseline = ?,
+               hours_baseline_date = ?,
+               hours_baseline_declared_at = ?,
+               updated_at = ?
+         WHERE id = ?`,
+        [
+          input.sprat_hours_baseline ?? null,
+          input.irata_hours_baseline ?? null,
+          input.transition_date,
+          now,
+          now,
+          existing.id,
+        ],
+      );
+
+      const updated = await this.getProfile();
+      if (!updated) throw new Error('profile_not_found');
+      return updated;
+    },
+
+    // Clear the starting-hours baseline so it can be re-declared. The only way
+    // to change a locked baseline — preserves the "never silently edited" rule.
+    async voidHoursBaseline(): Promise<Profile> {
+      const existing = await this.getProfile();
+      if (!existing) throw new Error('profile_not_found');
+
+      await db.run(
+        `UPDATE profiles
+           SET sprat_hours_baseline = NULL,
+               irata_hours_baseline = NULL,
+               hours_baseline_date = NULL,
+               hours_baseline_declared_at = NULL,
+               updated_at = ?
+         WHERE id = ?`,
+        [new Date().toISOString(), existing.id],
+      );
 
       const updated = await this.getProfile();
       if (!updated) throw new Error('profile_not_found');

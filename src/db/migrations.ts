@@ -591,6 +591,33 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 16,
+    name: 'profile-hours-baseline',
+    async up(db) {
+      // Starting-hours baseline carried from a paper logbook so a technician
+      // moving to digital doesn't restart at zero. SPRAT and IRATA are tracked
+      // as INDEPENDENT counters (a dual-cert tech's career totals legitimately
+      // differ). Profile-scoped, self-declared, NOT part of any entry
+      // attestation — no ENTRY_HASH_VERSION change. `hours_baseline_declared_at`
+      // doubles as the immutability sentinel: once set, the baseline is locked
+      // (void-and-redeclare only), so a silent edit can't rewrite history.
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+      const names = new Set(columns.map((column) => column.name));
+      if (!names.has('sprat_hours_baseline')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN sprat_hours_baseline REAL;');
+      }
+      if (!names.has('irata_hours_baseline')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN irata_hours_baseline REAL;');
+      }
+      if (!names.has('hours_baseline_date')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN hours_baseline_date TEXT;');
+      }
+      if (!names.has('hours_baseline_declared_at')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN hours_baseline_declared_at TEXT;');
+      }
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the

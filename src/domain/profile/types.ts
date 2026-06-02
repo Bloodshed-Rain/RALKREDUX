@@ -24,8 +24,25 @@ export interface Profile {
   // a new device (the bytes are not in the backup), so always render with a
   // load-error fallback.
   avatar_uri: string | null;
+  // Self-declared starting-hours baseline carried from a paper logbook
+  // (migration 16). Tracked independently per scheme. `hours_baseline_declared_at`
+  // is the immutability sentinel — once set, the baseline is locked and can only
+  // be changed by voiding and re-declaring. Never part of an entry signature.
+  sprat_hours_baseline: number | null;
+  irata_hours_baseline: number | null;
+  hours_baseline_date: string | null;
+  hours_baseline_declared_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// One-shot declaration of the paper-logbook starting balance. SPRAT/IRATA are
+// independent (pass null for a scheme the tech doesn't hold). `transition_date`
+// is the ISO date the paper logbook ended and the digital one began.
+export interface HoursBaselineInput {
+  sprat_hours_baseline?: number | null;
+  irata_hours_baseline?: number | null;
+  transition_date: string;
 }
 
 export interface CreateProfileInput {

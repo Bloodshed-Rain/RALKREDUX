@@ -23,7 +23,21 @@ describe('database migrations', () => {
       { id: 13, name: 'performance-indexes' },
       { id: 14, name: 'timezone-anchoring-and-photos' },
       { id: 15, name: 'profile-avatar' },
+      { id: 16, name: 'profile-hours-baseline' },
     ]);
+  });
+
+  it('adds the starting-hours baseline columns to profiles (migration 16)', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+    expect(columns.map((c) => c.name)).toEqual(
+      expect.arrayContaining([
+        'sprat_hours_baseline',
+        'irata_hours_baseline',
+        'hours_baseline_date',
+        'hours_baseline_declared_at',
+      ]),
+    );
   });
 
   it('adds the optional avatar_uri column to profiles (migration 15)', async () => {

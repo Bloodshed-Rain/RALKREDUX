@@ -1152,12 +1152,16 @@ export function createLogbookService(db: DbClient) {
         signedEntries: number;
         totalHours: number | null;
         signedHours: number | null;
+        spratSignedHours: number | null;
+        iratASignedHours: number | null;
       }>(
         `SELECT
           COUNT(*) AS totalEntries,
           SUM(CASE WHEN status = 'signed' THEN 1 ELSE 0 END) AS signedEntries,
           COALESCE(SUM(work_hours), 0) AS totalHours,
-          COALESCE(SUM(CASE WHEN status = 'signed' THEN work_hours ELSE 0 END), 0) AS signedHours
+          COALESCE(SUM(CASE WHEN status = 'signed' THEN work_hours ELSE 0 END), 0) AS signedHours,
+          COALESCE(SUM(CASE WHEN status = 'signed' AND sprat_level_snapshot IS NOT NULL THEN work_hours ELSE 0 END), 0) AS spratSignedHours,
+          COALESCE(SUM(CASE WHEN status = 'signed' AND irata_level_snapshot IS NOT NULL THEN work_hours ELSE 0 END), 0) AS iratASignedHours
          FROM entries`,
       );
 
@@ -1190,6 +1194,8 @@ export function createLogbookService(db: DbClient) {
         signedEntries: summary?.signedEntries ?? 0,
         totalHours: summary?.totalHours ?? 0,
         signedHours: summary?.signedHours ?? 0,
+        spratSignedHours: summary?.spratSignedHours ?? 0,
+        iratASignedHours: summary?.iratASignedHours ?? 0,
         byTask: await bucket('work_task'),
         byAccessMethod: await bucket('access_method'),
         byStructureType: await bucket('structure_type'),

@@ -921,6 +921,57 @@ describe('logbook service', () => {
     expect(stats.byTask[0]).toEqual({ label: 'Inspection', hours: 9, entries: 1 });
   });
 
+  it('splits signed hours by scheme, counting a dual-cert entry toward both', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+
+    const spratOnly = await service.createDraft(
+      draftInput({
+        date_from: '2026-05-01',
+        work_hours: 7.5,
+        sprat_level_snapshot: 'II',
+        irata_level_snapshot: null,
+      }),
+    );
+    const irataOnly = await service.createDraft(
+      draftInput({
+        date_from: '2026-05-02',
+        work_hours: 5,
+        sprat_level_snapshot: null,
+        irata_level_snapshot: 'III',
+      }),
+    );
+    const dual = await service.createDraft(
+      draftInput({
+        date_from: '2026-05-03',
+        work_hours: 3,
+        sprat_level_snapshot: 'II',
+        irata_level_snapshot: 'II',
+      }),
+    );
+    // An unsigned draft must NOT count toward either scheme.
+    await service.createDraft(
+      draftInput({ date_from: '2026-05-04', work_hours: 99, sprat_level_snapshot: 'II' }),
+    );
+
+    for (const entry of [spratOnly, irataOnly, dual]) {
+      await service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
+        supervisor_cert_number: 'SPRAT-1234',
+        signature_path: 'M 0 0 L 1 1',
+        attestation_accepted: true,
+        signed_at: '2026-05-08T10:00:00.000Z',
+      });
+    }
+
+    const stats = await service.getCareerStats();
+    expect(stats.signedHours).toBe(15.5); // 7.5 + 5 + 3
+    expect(stats.spratSignedHours).toBe(10.5); // 7.5 (sprat-only) + 3 (dual)
+    expect(stats.iratASignedHours).toBe(8); // 5 (irata-only) + 3 (dual)
+  });
+
   it('exports signed audit records with profile context and signature hashes', async () => {
     const db = await createTestClient();
     const profileService = createProfileService(db);

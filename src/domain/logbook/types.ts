@@ -359,6 +359,12 @@ export interface CareerStats {
   signedEntries: number;
   totalHours: number;
   signedHours: number;
+  // Signed hours logged toward each scheme's certification. An entry counts
+  // toward a scheme when its level snapshot for that scheme is set; a dual-cert
+  // entry legitimately counts toward BOTH (so these can sum to more than
+  // signedHours). Add the profile's per-scheme baseline for the career figure.
+  spratSignedHours: number;
+  iratASignedHours: number;
   byTask: CareerStatsBucket[];
   byAccessMethod: CareerStatsBucket[];
   byStructureType: CareerStatsBucket[];

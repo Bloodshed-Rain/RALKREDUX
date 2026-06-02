@@ -100,4 +100,56 @@ describe('profile service', () => {
 
     await expect(service.updateProfile({ full_name: 'X' })).rejects.toThrow('profile_not_found');
   });
+
+  it('declares a starting-hours baseline and locks it (immutable once set)', async () => {
+    const db = await createTestClient();
+    const service = createProfileService(db);
+    await service.createProfile({ full_name: 'Sam Tech', primary_scheme: 'sprat' });
+
+    const declared = await service.declareHoursBaseline({
+      sprat_hours_baseline: 1200,
+      irata_hours_baseline: null,
+      transition_date: '2026-01-01',
+    });
+    expect(declared.sprat_hours_baseline).toBe(1200);
+    expect(declared.irata_hours_baseline).toBeNull();
+    expect(declared.hours_baseline_date).toBe('2026-01-01');
+    expect(declared.hours_baseline_declared_at).not.toBeNull();
+
+    // A second declaration is rejected — the baseline is locked.
+    await expect(
+      service.declareHoursBaseline({ sprat_hours_baseline: 5, transition_date: '2026-02-02' }),
+    ).rejects.toThrow('hours_baseline_already_declared');
+  });
+
+  it('voids a baseline so it can be re-declared', async () => {
+    const db = await createTestClient();
+    const service = createProfileService(db);
+    await service.createProfile({ full_name: 'Sam Tech', primary_scheme: 'irata' });
+
+    await service.declareHoursBaseline({ irata_hours_baseline: 800, transition_date: '2025-06-01' });
+    const voided = await service.voidHoursBaseline();
+    expect(voided.irata_hours_baseline).toBeNull();
+    expect(voided.hours_baseline_date).toBeNull();
+    expect(voided.hours_baseline_declared_at).toBeNull();
+
+    // After voiding, a fresh declaration is allowed again.
+    const re = await service.declareHoursBaseline({
+      irata_hours_baseline: 950,
+      transition_date: '2025-07-01',
+    });
+    expect(re.irata_hours_baseline).toBe(950);
+  });
+
+  it('starts with a null, undeclared baseline', async () => {
+    const db = await createTestClient();
+    const service = createProfileService(db);
+    const created = await service.createProfile({
+      full_name: 'Sam Tech',
+      primary_scheme: 'sprat',
+    });
+    expect(created.sprat_hours_baseline).toBeNull();
+    expect(created.irata_hours_baseline).toBeNull();
+    expect(created.hours_baseline_declared_at).toBeNull();
+  });
 });
