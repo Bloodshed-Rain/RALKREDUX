@@ -618,6 +618,45 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 17,
+    name: 'legacy-logbook-archives',
+    async up(db) {
+      // Legacy paper-logbook archive: user-supplied photos of PRIOR paper
+      // logbook pages, stored as standalone HISTORICAL EVIDENCE. These are
+      // unverified + self-declared — NOT entries, NOT signed, NOT part of any
+      // hash chain — so they live in their own tables with no FK to entries and
+      // never touch ENTRY_HASH_VERSION. They must never be summed into attested
+      // totals or rendered as if they were signed records.
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS logbook_archives (
+          id TEXT PRIMARY KEY,
+          label TEXT NOT NULL,
+          scheme TEXT,
+          date_from TEXT,
+          date_to TEXT,
+          hours_claimed REAL,
+          witness_name TEXT,
+          notes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS archive_photos (
+          id TEXT PRIMARY KEY,
+          archive_id TEXT NOT NULL REFERENCES logbook_archives(id) ON DELETE CASCADE,
+          uri TEXT NOT NULL,
+          mime_type TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        );
+      `);
+      await db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_archive_photos_archive_id ON archive_photos(archive_id);',
+      );
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the
