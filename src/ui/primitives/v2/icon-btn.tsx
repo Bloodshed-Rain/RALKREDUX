@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
-import { scaled } from '@/src/ui/scale';
+import { scaled, scaledIcon } from '@/src/ui/scale';
 import type { IconProps } from '@/src/ui/icons';
 
 export type IconBtnSize = 'sm' | 'md' | 'lg';
@@ -79,7 +79,14 @@ export function IconBtn({
         style,
       ]}
     >
-      <View style={{ width: spec.icon, height: spec.icon }}>
+      <View
+        style={{
+          width: scaledIcon(spec.icon),
+          height: scaledIcon(spec.icon),
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <Icon size={spec.icon} color={color} />
       </View>
     </Pressable>

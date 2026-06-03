@@ -82,7 +82,14 @@ export function Pill({ tone = 'chip', size = 'sm', icon: Icon, children }: PillP
 
   return (
     <View style={containerStyle}>
-      {Icon ? <Icon size={spec.iconSize} color={fg} fill={fg} fillOpacity={0.28} /> : null}
+      {Icon ? (
+        // Bound the icon to the text line-height and center it, so the larger
+        // (scaledIcon) glyph doesn't push the pill's row height or sit off the
+        // text baseline.
+        <View style={{ height: spec.lineHeight, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={spec.iconSize} color={fg} fill={fg} fillOpacity={0.28} />
+        </View>
+      ) : null}
       <Text selectable={false} style={textStyle}>
         {children}
       </Text>
