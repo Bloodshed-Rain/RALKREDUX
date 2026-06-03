@@ -33,8 +33,24 @@ import {
   SupervisorContact,
   UpdateDraftEntryInput,
   canonicalizeHazards,
+  canonicalizeStringList,
   parseHazards,
+  parseStringList,
 } from './types';
+
+// Derive the frozen scalar (= primary) + canonical list for a v5 multi-value
+// classification field (work_task / access_method). When the caller passes a
+// list, index 0 is the primary; otherwise the single scalar becomes a one-item
+// list. Keeps the scalar column — used by entry-readiness and career-stats
+// bucketing — in sync with list[0].
+function deriveClassification(
+  list: readonly string[] | undefined,
+  scalar: string,
+): { primary: string; canonical: string | null } {
+  const canonical = canonicalizeStringList(list ?? [scalar]);
+  const primary = parseStringList(canonical)[0] ?? scalar.trim();
+  return { primary, canonical };
+}
 
 function isoDateToUtcMs(value: string): number {
   return new Date(`${value}T00:00:00.000Z`).getTime();
@@ -190,8 +206,36 @@ export function createLogbookService(db: DbClient) {
       "UPDATE remote_signature_requests SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'",
       [now, request.id],
     );
+    // P1-5: also clear the entry's pending mirror. Without this the draft is
+    // stranded in a false 'pending' — un-editable, un-deletable, and with no
+    // pending request left to cancel.
+    await db.run(
+      'UPDATE entries SET pending_signature_id = NULL, updated_at = ? WHERE id = ? AND pending_signature_id = ?',
+      [now, request.entry_id, request.id],
+    );
 
     return { ...request, status: 'expired', updated_at: now };
+  }
+
+  // P1-5: autonomous sweep. Nothing on the technician side expires a
+  // never-opened request, so a stale 'pending' inflates dashboard counts and
+  // strands its draft forever. Called from the list/summary read paths so the
+  // mirror self-heals on next app use. Clears entry mirrors BEFORE flipping the
+  // requests (the subquery keys on status='pending').
+  async function sweepExpiredRemoteRequests(now: string): Promise<void> {
+    await db.run(
+      `UPDATE entries SET pending_signature_id = NULL, updated_at = ?
+         WHERE pending_signature_id IN (
+           SELECT id FROM remote_signature_requests
+           WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < ?
+         )`,
+      [now, now],
+    );
+    await db.run(
+      `UPDATE remote_signature_requests SET status = 'expired', updated_at = ?
+         WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < ?`,
+      [now, now],
+    );
   }
 
   function remoteAccessInput(input: string | RemoteSignatureAccessInput): RemoteSignatureAccessInput {
@@ -413,6 +457,7 @@ export function createLogbookService(db: DbClient) {
 
   return {
     async listEntries(): Promise<LogbookEntry[]> {
+      await sweepExpiredRemoteRequests(new Date().toISOString());
       return db.getAll<LogbookEntry>(
         'SELECT * FROM entries ORDER BY date_from DESC, created_at DESC',
       );
@@ -553,13 +598,16 @@ export function createLogbookService(db: DbClient) {
       const dateFrom = input.date_from ?? todayLocalIsoDate();
       const dateTo = input.date_to ?? dateFrom;
       if (!isValidIsoDateRange(dateFrom, dateTo)) throw new Error('entry_date_range_invalid');
+      const workTask = deriveClassification(input.work_task_list, input.work_task);
+      const accessMethod = deriveClassification(input.access_method_list, input.access_method);
       await db.run(
         `INSERT INTO entries (
           id, date_from, date_to, employer, site, client, description, work_hours,
-          work_task, access_method, structure_type, max_height, height_unit,
+          work_task, access_method, work_task_list, access_method_list,
+          structure_type, max_height, height_unit,
           sprat_level_snapshot, irata_level_snapshot, timezone_offset, entry_kind, rescue_cover,
           hazards, status, amends_entry_id, pending_signature_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NULL, NULL, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NULL, NULL, ?, ?)`,
         [
           id,
           dateFrom,
@@ -569,8 +617,10 @@ export function createLogbookService(db: DbClient) {
           input.client.trim(),
           input.description.trim(),
           input.work_hours,
-          input.work_task.trim(),
-          input.access_method.trim(),
+          workTask.primary,
+          accessMethod.primary,
+          workTask.canonical,
+          accessMethod.canonical,
           input.structure_type.trim(),
           input.max_height,
           input.height_unit,
@@ -605,10 +655,13 @@ export function createLogbookService(db: DbClient) {
       const dateFrom = input.date_from ?? existing.date_from;
       const dateTo = input.date_to ?? dateFrom;
       if (!isValidIsoDateRange(dateFrom, dateTo)) throw new Error('entry_date_range_invalid');
+      const workTask = deriveClassification(input.work_task_list, input.work_task);
+      const accessMethod = deriveClassification(input.access_method_list, input.access_method);
       const result = await db.run(
         `UPDATE entries
          SET date_from = ?, date_to = ?, employer = ?, site = ?, client = ?,
              description = ?, work_hours = ?, work_task = ?, access_method = ?,
+             work_task_list = ?, access_method_list = ?,
              structure_type = ?, max_height = ?, height_unit = ?,
              sprat_level_snapshot = ?, irata_level_snapshot = ?,
              entry_kind = ?, rescue_cover = ?, hazards = ?, updated_at = ?
@@ -621,8 +674,10 @@ export function createLogbookService(db: DbClient) {
           input.client.trim(),
           input.description.trim(),
           input.work_hours,
-          input.work_task.trim(),
-          input.access_method.trim(),
+          workTask.primary,
+          accessMethod.primary,
+          workTask.canonical,
+          accessMethod.canonical,
           input.structure_type.trim(),
           input.max_height,
           input.height_unit,
@@ -669,6 +724,16 @@ export function createLogbookService(db: DbClient) {
       const original = await getEntryById(input.entry_id);
       if (!original) throw new Error('entry_not_found');
       if (original.status !== 'signed') throw new Error('entry_not_amendable');
+      // P1-2: one active amendment per source. Without this, two amendment
+      // drafts of the same signed entry can both be signed — the first flips
+      // the source to 'amended', the second's source-flip silently no-ops —
+      // leaving two 'signed' rows for one entry and double-counting signed
+      // hours into SPRAT/IRATA progression totals (the chain still verifies).
+      const activeAmendment = await db.get<{ id: string }>(
+        "SELECT id FROM entries WHERE amends_entry_id = ? AND status IN ('draft', 'signed') LIMIT 1",
+        [original.id],
+      );
+      if (activeAmendment) throw new Error('entry_already_amended');
 
       const now = new Date().toISOString();
       const id = createId('entry');
@@ -676,13 +741,16 @@ export function createLogbookService(db: DbClient) {
       const dateTo = input.date_to ?? dateFrom;
       if (!isValidIsoDateRange(dateFrom, dateTo)) throw new Error('entry_date_range_invalid');
 
+      const workTask = deriveClassification(input.work_task_list, input.work_task);
+      const accessMethod = deriveClassification(input.access_method_list, input.access_method);
       await db.run(
         `INSERT INTO entries (
           id, date_from, date_to, employer, site, client, description, work_hours,
-          work_task, access_method, structure_type, max_height, height_unit,
+          work_task, access_method, work_task_list, access_method_list,
+          structure_type, max_height, height_unit,
           sprat_level_snapshot, irata_level_snapshot, timezone_offset, entry_kind, rescue_cover,
           hazards, status, amends_entry_id, pending_signature_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, NULL, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, NULL, ?, ?)`,
         [
           id,
           dateFrom,
@@ -692,8 +760,10 @@ export function createLogbookService(db: DbClient) {
           input.client.trim(),
           input.description.trim(),
           input.work_hours,
-          input.work_task.trim(),
-          input.access_method.trim(),
+          workTask.primary,
+          accessMethod.primary,
+          workTask.canonical,
+          accessMethod.canonical,
           input.structure_type.trim(),
           input.max_height,
           input.height_unit,
@@ -844,12 +914,26 @@ export function createLogbookService(db: DbClient) {
         const signedAt = now;
         const entryHash = await hashEntry(entry);
         const previousChainHash = await getLatestChainHash();
+        // v4 binds the signer envelope into the chain. These values MUST match
+        // exactly what is INSERTed below, or verifyChainHashFor would reject
+        // every fresh signature.
+        const signerAttestation = input.signer_attestation?.trim() || null;
         const chainHash = await hashSignatureChain({
           entryHash,
           signatureId,
           signedAt,
           method: 'local',
           previousChainHash,
+          signer: {
+            name: input.supervisor_name.trim(),
+            scheme: input.supervisor_scheme,
+            certNumber: input.supervisor_cert_number.trim(),
+            role: supervisorRole,
+            employer: supervisorEmployer,
+            signaturePath,
+            attestation: signerAttestation,
+            attestationAcceptedAt: signedAt,
+          },
         });
 
         await db.run(
@@ -870,7 +954,7 @@ export function createLogbookService(db: DbClient) {
             signedAt,
             entryHash,
             ENTRY_HASH_VERSION,
-            input.signer_attestation?.trim() || null,
+            signerAttestation,
             signaturePath,
             signedAt,
             previousChainHash,
@@ -961,6 +1045,8 @@ export function createLogbookService(db: DbClient) {
         // (+skew) so a corrupt/hostile payload can't backdate the attestation.
         const signedAt = clampSigningTime(input.signed_at, request.created_at, now);
         const previousChainHash = await getLatestChainHash();
+        // v4 binds the signer envelope — must match the INSERT below exactly.
+        const signerAttestation = input.signer_attestation?.trim() || null;
         const chainHash = await hashSignatureChain({
           entryHash: request.entry_hash,
           signatureId,
@@ -968,6 +1054,17 @@ export function createLogbookService(db: DbClient) {
           method: 'remote',
           previousChainHash,
           remoteRequestId: request.id,
+          version: request.hash_version,
+          signer: {
+            name: input.supervisor_name.trim(),
+            scheme: input.supervisor_scheme,
+            certNumber: input.supervisor_cert_number.trim(),
+            role: supervisorRole,
+            employer: supervisorEmployer,
+            signaturePath,
+            attestation: signerAttestation,
+            attestationAcceptedAt: signedAt,
+          },
         });
 
         await db.run(
@@ -989,7 +1086,7 @@ export function createLogbookService(db: DbClient) {
             request.entry_hash,
             request.hash_version,
             request.id,
-            input.signer_attestation?.trim() || null,
+            signerAttestation,
             signaturePath,
             signedAt,
             previousChainHash,
@@ -1036,6 +1133,9 @@ export function createLogbookService(db: DbClient) {
     },
 
     async getDashboardSummary(): Promise<DashboardSummary> {
+      // Self-heal stale pending requests so the pending count + the entry
+      // mirrors are accurate before we read them. (P1-5)
+      await sweepExpiredRemoteRequests(new Date().toISOString());
       const row = await db.get<{
         totalEntries: number;
         draftEntries: number;
@@ -1083,12 +1183,16 @@ export function createLogbookService(db: DbClient) {
         signedEntries: number;
         totalHours: number | null;
         signedHours: number | null;
+        spratSignedHours: number | null;
+        iratASignedHours: number | null;
       }>(
         `SELECT
           COUNT(*) AS totalEntries,
           SUM(CASE WHEN status = 'signed' THEN 1 ELSE 0 END) AS signedEntries,
           COALESCE(SUM(work_hours), 0) AS totalHours,
-          COALESCE(SUM(CASE WHEN status = 'signed' THEN work_hours ELSE 0 END), 0) AS signedHours
+          COALESCE(SUM(CASE WHEN status = 'signed' THEN work_hours ELSE 0 END), 0) AS signedHours,
+          COALESCE(SUM(CASE WHEN status = 'signed' AND sprat_level_snapshot IS NOT NULL THEN work_hours ELSE 0 END), 0) AS spratSignedHours,
+          COALESCE(SUM(CASE WHEN status = 'signed' AND irata_level_snapshot IS NOT NULL THEN work_hours ELSE 0 END), 0) AS iratASignedHours
          FROM entries`,
       );
 
@@ -1121,6 +1225,8 @@ export function createLogbookService(db: DbClient) {
         signedEntries: summary?.signedEntries ?? 0,
         totalHours: summary?.totalHours ?? 0,
         signedHours: summary?.signedHours ?? 0,
+        spratSignedHours: summary?.spratSignedHours ?? 0,
+        iratASignedHours: summary?.iratASignedHours ?? 0,
         byTask: await bucket('work_task'),
         byAccessMethod: await bucket('access_method'),
         byStructureType: await bucket('structure_type'),

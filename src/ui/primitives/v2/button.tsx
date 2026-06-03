@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
-import { scaled } from '@/src/ui/scale';
+import { scaled, scaledIcon } from '@/src/ui/scale';
 import type { IconProps } from '@/src/ui/icons';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
@@ -18,6 +18,9 @@ export interface ButtonProps {
   children: React.ReactNode;
   onPress?: () => void;
   full?: boolean;
+  // Flex to fill an equal share of a row container. Use on side-by-side buttons
+  // so they split the width instead of hugging content and packing left.
+  grow?: boolean;
   disabled?: boolean;
   accessibilityLabel?: string;
   style?: ViewStyle;
@@ -49,12 +52,17 @@ export function Button({
   children,
   onPress,
   full,
+  grow,
   disabled,
   accessibilityLabel,
   style,
 }: ButtonProps) {
   const { theme, tokens } = useTheme();
   const spec = SIZES[size];
+  // The icon paints at scaledIcon(spec.iconSize) (ICON_SCALE applied inside
+  // Icon/CustomIcon). Size the wrapper box to that rendered dimension and center
+  // it, so the glyph sits centered in the row instead of overflowing top-left.
+  const iconBox = scaledIcon(spec.iconSize);
   const isHeliotype = theme.key === 'heliotype';
 
   // Variant colors.
@@ -119,6 +127,7 @@ export function Button({
     justifyContent: 'center',
     gap: 8,
     alignSelf: full ? 'stretch' : 'flex-start',
+    ...(grow ? { flexGrow: 1, flexBasis: 0 } : null),
     backgroundColor: bg,
     borderWidth,
     borderColor,
@@ -147,7 +156,7 @@ export function Button({
       ]}
     >
       {Icon ? (
-        <View style={{ width: spec.iconSize, height: spec.iconSize }}>
+        <View style={{ width: iconBox, height: iconBox, alignItems: 'center', justifyContent: 'center' }}>
           <Icon size={spec.iconSize} color={fg} fill={fg} fillOpacity={0.28} />
         </View>
       ) : null}
@@ -155,7 +164,7 @@ export function Button({
         {children}
       </Text>
       {IconRight ? (
-        <View style={{ width: spec.iconSize, height: spec.iconSize }}>
+        <View style={{ width: iconBox, height: iconBox, alignItems: 'center', justifyContent: 'center' }}>
           <IconRight size={spec.iconSize} color={fg} fill={fg} fillOpacity={0.28} />
         </View>
       ) : null}

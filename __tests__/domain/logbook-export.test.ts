@@ -89,7 +89,7 @@ describe('logbook export builders', () => {
         exportedAt: '2026-05-08T12:00:00.000Z',
       }),
     ).toEqual({
-      export_schema_version: 2,
+      export_schema_version: 3,
       exported_at: '2026-05-08T12:00:00.000Z',
       app_flavor: 'ralb-codex-edition',
       profile,
@@ -121,8 +121,8 @@ describe('logbook export builders', () => {
     });
 
     expect(buildLogbookCsv(bundle).split('\n')).toEqual([
-      'status,entry_kind,date_from,date_to,employer,site,client,work_task,access_method,structure_type,hazards,rescue_cover,work_hours,max_height,height_unit,supervisor_name,supervisor_scheme,supervisor_cert_number,supervisor_role,supervisor_employer,signed_at,entry_hash,hash_version,chain_hash,gear,attachment_count,amends_entry_id',
-      'signed,work,05/01/2026,05/01/2026,Northwind Rope,"Tower A, North Face",City Works,Inspection,Two-rope access,Tower,,,8,120,ft,Jordan Lee,sprat,SPRAT-1234,,,05/08/2026,sha256:entry,2,sha256:chain,,0,',
+      'status,entry_kind,date_from,date_to,employer,site,client,work_task,access_method,structure_type,hazards,rescue_cover,work_hours,max_height,height_unit,supervisor_name,supervisor_scheme,supervisor_cert_number,supervisor_role,supervisor_employer,signed_at,signer_attestation,attestation_accepted_at,entry_hash,hash_version,chain_hash,gear,attachment_count,amends_entry_id',
+      'signed,work,05/01/2026,05/01/2026,Northwind Rope,"Tower A, North Face",City Works,Inspection,Two-rope access,Tower,,,8,120,ft,Jordan Lee,sprat,SPRAT-1234,,,05/08/2026,Verified in person.,05/08/2026,sha256:entry,2,sha256:chain,,0,',
     ]);
   });
 
@@ -299,6 +299,12 @@ describe('logbook export builders', () => {
     expect(markup.indexOf('<section class="cover">')).toBeLessThan(markup.indexOf('Record Ledger'));
     expect(markup).toContain('Mina Carter');
     expect(markup).toContain('ralb-cover-weave');
+
+    // The signer's attestation statement is carried into the bulk PDF (P2-1) —
+    // an auditor reading the logbook ledger sees what each supervisor affirmed,
+    // not just that a signature exists.
+    expect(markup).toContain('Attestation');
+    expect(markup).toContain('Verified in person.');
 
     // One section per record, status-labelled, with reviewer fields escaped.
     expect(markup).toContain('No. 1');

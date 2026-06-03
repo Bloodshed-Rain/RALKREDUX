@@ -22,7 +22,59 @@ describe('database migrations', () => {
       { id: 12, name: 'site-signer-role-employer' },
       { id: 13, name: 'performance-indexes' },
       { id: 14, name: 'timezone-anchoring-and-photos' },
+      { id: 15, name: 'profile-avatar' },
+      { id: 16, name: 'profile-hours-baseline' },
+      { id: 17, name: 'legacy-logbook-archives' },
+      { id: 18, name: 'entry-multi-classification' },
     ]);
+  });
+
+  it('adds the v5 multi-value classification columns to entries (migration 18)', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string }>('PRAGMA table_info(entries)');
+    expect(columns.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['work_task_list', 'access_method_list']),
+    );
+  });
+
+  it('creates the legacy logbook archive tables (migration 17)', async () => {
+    const db = await createTestClient();
+    const archiveColumns = await db.getAll<{ name: string }>('PRAGMA table_info(logbook_archives)');
+    expect(archiveColumns.map((c) => c.name)).toEqual(
+      expect.arrayContaining([
+        'id',
+        'label',
+        'scheme',
+        'date_from',
+        'date_to',
+        'hours_claimed',
+        'witness_name',
+        'notes',
+      ]),
+    );
+    const photoColumns = await db.getAll<{ name: string }>('PRAGMA table_info(archive_photos)');
+    expect(photoColumns.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['id', 'archive_id', 'uri', 'mime_type', 'sort_order']),
+    );
+  });
+
+  it('adds the starting-hours baseline columns to profiles (migration 16)', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+    expect(columns.map((c) => c.name)).toEqual(
+      expect.arrayContaining([
+        'sprat_hours_baseline',
+        'irata_hours_baseline',
+        'hours_baseline_date',
+        'hours_baseline_declared_at',
+      ]),
+    );
+  });
+
+  it('adds the optional avatar_uri column to profiles (migration 15)', async () => {
+    const db = await createTestClient();
+    const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+    expect(columns.map((c) => c.name)).toEqual(expect.arrayContaining(['avatar_uri']));
   });
 
   it('adds timezone anchoring and the entry photos table (migration 14)', async () => {

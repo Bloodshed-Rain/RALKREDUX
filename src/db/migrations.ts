@@ -574,6 +574,127 @@ const migrations: Migration[] = [
       await db.exec('CREATE INDEX IF NOT EXISTS idx_entry_photos_entry_id ON entry_photos(entry_id);');
     },
   },
+  {
+    id: 15,
+    name: 'profile-avatar',
+    async up(db) {
+      // Optional local avatar. Stores a file URI pointing at expo-file-system's
+      // documentDirectory (not a blob) — cosmetic local identity only, so it is
+      // NOT part of any entry attestation and does not touch ENTRY_HASH_VERSION.
+      // The file is device-local: it rides along in backups as a string but the
+      // bytes do not, so consumers must tolerate a dangling URI (see the Image
+      // onError → initials fallback on the Profile tab).
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+      const names = new Set(columns.map((column) => column.name));
+      if (!names.has('avatar_uri')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN avatar_uri TEXT;');
+      }
+    },
+  },
+  {
+    id: 16,
+    name: 'profile-hours-baseline',
+    async up(db) {
+      // Starting-hours baseline carried from a paper logbook so a technician
+      // moving to digital doesn't restart at zero. SPRAT and IRATA are tracked
+      // as INDEPENDENT counters (a dual-cert tech's career totals legitimately
+      // differ). Profile-scoped, self-declared, NOT part of any entry
+      // attestation — no ENTRY_HASH_VERSION change. `hours_baseline_declared_at`
+      // doubles as the immutability sentinel: once set, the baseline is locked
+      // (void-and-redeclare only), so a silent edit can't rewrite history.
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(profiles)');
+      const names = new Set(columns.map((column) => column.name));
+      if (!names.has('sprat_hours_baseline')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN sprat_hours_baseline REAL;');
+      }
+      if (!names.has('irata_hours_baseline')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN irata_hours_baseline REAL;');
+      }
+      if (!names.has('hours_baseline_date')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN hours_baseline_date TEXT;');
+      }
+      if (!names.has('hours_baseline_declared_at')) {
+        await db.exec('ALTER TABLE profiles ADD COLUMN hours_baseline_declared_at TEXT;');
+      }
+    },
+  },
+  {
+    id: 17,
+    name: 'legacy-logbook-archives',
+    async up(db) {
+      // Legacy paper-logbook archive: user-supplied photos of PRIOR paper
+      // logbook pages, stored as standalone HISTORICAL EVIDENCE. These are
+      // unverified + self-declared — NOT entries, NOT signed, NOT part of any
+      // hash chain — so they live in their own tables with no FK to entries and
+      // never touch ENTRY_HASH_VERSION. They must never be summed into attested
+      // totals or rendered as if they were signed records.
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS logbook_archives (
+          id TEXT PRIMARY KEY,
+          label TEXT NOT NULL,
+          scheme TEXT,
+          date_from TEXT,
+          date_to TEXT,
+          hours_claimed REAL,
+          witness_name TEXT,
+          notes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS archive_photos (
+          id TEXT PRIMARY KEY,
+          archive_id TEXT NOT NULL REFERENCES logbook_archives(id) ON DELETE CASCADE,
+          uri TEXT NOT NULL,
+          mime_type TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        );
+      `);
+      await db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_archive_photos_archive_id ON archive_photos(archive_id);',
+      );
+    },
+  },
+  {
+    id: 18,
+    name: 'entry-multi-classification',
+    async up(db) {
+      // v5: work_task and access_method became attested MULTI-value fields,
+      // stored as canonical JSON-array TEXT (the hazards pattern). The scalar
+      // work_task/access_method columns are kept FROZEN as the primary (index 0)
+      // so pre-v5 signatures keep verifying byte-identically; these lists are
+      // what a v5 signature attests to. See ENTRY_HASH_VERSION=5 in
+      // src/domain/logbook/entry-hash.ts and its Deno mirror in
+      // supabase/functions/_shared/remote-signing.ts.
+      const columns = await db.getAll<{ name: string }>('PRAGMA table_info(entries)');
+      const names = new Set(columns.map((column) => column.name));
+      if (!names.has('work_task_list')) {
+        await db.exec('ALTER TABLE entries ADD COLUMN work_task_list TEXT;');
+      }
+      if (!names.has('access_method_list')) {
+        await db.exec('ALTER TABLE entries ADD COLUMN access_method_list TEXT;');
+      }
+      // Backfill in JS (NOT SQL json_array) so the stored string is byte-identical
+      // to canonicalizeStringList's output even for values with quotes/unicode —
+      // signing a backfilled old draft under v5 must hash deterministically.
+      const rows = await db.getAll<{
+        id: string;
+        work_task: string | null;
+        access_method: string | null;
+      }>('SELECT id, work_task, access_method FROM entries');
+      for (const row of rows) {
+        const workTask = (row.work_task ?? '').trim();
+        const accessMethod = (row.access_method ?? '').trim();
+        await db.run('UPDATE entries SET work_task_list = ?, access_method_list = ? WHERE id = ?', [
+          workTask ? JSON.stringify([workTask]) : null,
+          accessMethod ? JSON.stringify([accessMethod]) : null,
+          row.id,
+        ]);
+      }
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the

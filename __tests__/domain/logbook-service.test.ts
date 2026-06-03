@@ -410,7 +410,7 @@ describe('logbook service', () => {
     expect(summary.signedHours).toBe(6);
   });
 
-  it('lists amendments of a source entry in creation order', async () => {
+  it('lists the active amendment of a source and rejects a second concurrent draft', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);
     const original = await service.createDraft(draftInput({ description: 'Original work.', work_hours: 8 }));
@@ -443,11 +443,16 @@ describe('logbook service', () => {
     };
 
     const first = await service.createAmendmentDraft(amendmentInput);
-    const second = await service.createAmendmentDraft(amendmentInput);
 
     const list = await service.listAmendmentsOf(original.id);
-    expect(list.map((e) => e.id)).toEqual([first.id, second.id]);
+    expect(list.map((e) => e.id)).toEqual([first.id]);
     expect(list.every((e) => e.amends_entry_id === original.id)).toBe(true);
+
+    // P1-2: a second concurrent amendment of the same signed source is rejected
+    // — otherwise both drafts could be signed and double-count the hours.
+    await expect(service.createAmendmentDraft(amendmentInput)).rejects.toThrow(
+      'entry_already_amended',
+    );
 
     // An entry with no amendments should still return an empty array.
     expect(await service.listAmendmentsOf(first.id)).toEqual([]);
@@ -552,6 +557,36 @@ describe('logbook service', () => {
       }),
     );
     expect(detail.entry.pending_signature_id).toBe(detail.remote_request?.id);
+  });
+
+  it('autonomously sweeps an expired remote request and frees the stranded draft (P1-5)', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const entry = await service.createDraft(draftInput({ description: 'Awaiting remote sign.', work_hours: 4 }));
+    const created = await service.createRemoteSignatureRequest({
+      entry_id: entry.id,
+      recipient_name: 'Sam Verifier',
+    });
+    const requestId = created.remote_request!.id;
+    expect(created.entry.pending_signature_id).toBe(requestId);
+
+    // Push the request past expiry behind the service's back (nothing on the
+    // technician side expires a never-opened request).
+    await db.run('UPDATE remote_signature_requests SET expires_at = ? WHERE id = ?', [
+      '2000-01-01T00:00:00.000Z',
+      requestId,
+    ]);
+
+    // A read path runs the autonomous sweep.
+    const entries = await service.listEntries();
+    const swept = entries.find((e) => e.id === entry.id);
+    expect(swept?.pending_signature_id).toBeNull();
+
+    const req = await db.get<{ status: string }>(
+      'SELECT status FROM remote_signature_requests WHERE id = ?',
+      [requestId],
+    );
+    expect(req?.status).toBe('expired');
   });
 
   it('cancels a pending remote signature request locally without touching entry status', async () => {
@@ -886,6 +921,57 @@ describe('logbook service', () => {
     expect(stats.byTask[0]).toEqual({ label: 'Inspection', hours: 9, entries: 1 });
   });
 
+  it('splits signed hours by scheme, counting a dual-cert entry toward both', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+
+    const spratOnly = await service.createDraft(
+      draftInput({
+        date_from: '2026-05-01',
+        work_hours: 7.5,
+        sprat_level_snapshot: 'II',
+        irata_level_snapshot: null,
+      }),
+    );
+    const irataOnly = await service.createDraft(
+      draftInput({
+        date_from: '2026-05-02',
+        work_hours: 5,
+        sprat_level_snapshot: null,
+        irata_level_snapshot: 'III',
+      }),
+    );
+    const dual = await service.createDraft(
+      draftInput({
+        date_from: '2026-05-03',
+        work_hours: 3,
+        sprat_level_snapshot: 'II',
+        irata_level_snapshot: 'II',
+      }),
+    );
+    // An unsigned draft must NOT count toward either scheme.
+    await service.createDraft(
+      draftInput({ date_from: '2026-05-04', work_hours: 99, sprat_level_snapshot: 'II' }),
+    );
+
+    for (const entry of [spratOnly, irataOnly, dual]) {
+      await service.signEntryLocal({
+        entry_id: entry.id,
+        supervisor_name: 'Jordan Lee',
+        supervisor_scheme: 'sprat',
+        supervisor_cert_number: 'SPRAT-1234',
+        signature_path: 'M 0 0 L 1 1',
+        attestation_accepted: true,
+        signed_at: '2026-05-08T10:00:00.000Z',
+      });
+    }
+
+    const stats = await service.getCareerStats();
+    expect(stats.signedHours).toBe(15.5); // 7.5 + 5 + 3
+    expect(stats.spratSignedHours).toBe(10.5); // 7.5 (sprat-only) + 3 (dual)
+    expect(stats.iratASignedHours).toBe(8); // 5 (irata-only) + 3 (dual)
+  });
+
   it('exports signed audit records with profile context and signature hashes', async () => {
     const db = await createTestClient();
     const profileService = createProfileService(db);
@@ -920,7 +1006,7 @@ describe('logbook service', () => {
 
     expect(bundle).toEqual(
       expect.objectContaining({
-        export_schema_version: 2,
+        export_schema_version: 3,
         app_flavor: 'ralb-codex-edition',
         exported_at: expect.any(String),
         profile: expect.objectContaining({

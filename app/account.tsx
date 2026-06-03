@@ -57,6 +57,12 @@ export default function AccountScreen() {
     } catch {
       haptics.error();
       setSigningOut(false);
+      // A failed/offline revoke must not look like a no-op. The session is still
+      // valid locally (we keep offline access intact on revoke failure), so say so.
+      Alert.alert(
+        'Could not sign out',
+        'We couldn’t reach the server to end your session. You’re still signed in — try again when you have a connection.',
+      );
     }
   }
 

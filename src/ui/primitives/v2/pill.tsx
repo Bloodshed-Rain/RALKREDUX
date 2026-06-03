@@ -51,12 +51,19 @@ export function Pill({ tone = 'chip', size = 'sm', icon: Icon, children }: PillP
   const spec = SIZE_SPEC[size];
   const { bg, fg } = toneColors(tone, tokens);
   const isHeliotype = theme.key === 'heliotype';
+  const isForge = theme.key === 'forge';
 
   // On Heliotype, accent and danger collapse to the same oxblood. Distinguish them
   // by SHAPE rather than color: danger swaps to an outlined ink-on-bone treatment
   // (canvas-fill + oxblood text + 1.5px oxblood ring) while accent stays filled.
   const heliotypeDangerOutline = isHeliotype && tone === 'danger';
-  const effectiveBg = heliotypeDangerOutline ? tokens.bg : bg;
+
+  // Forge keeps a bright ember accent, which fails contrast as text on its pale
+  // accentSoft. Render the accent tone as a FILLED ember chip (ember fill + dark
+  // accentInk) so emphasis pills stay legible and on-brand on Forge only.
+  const forgeAccentFill = isForge && tone === 'accent';
+  const effectiveBg = forgeAccentFill ? tokens.accent : heliotypeDangerOutline ? tokens.bg : bg;
+  const contentColor = forgeAccentFill ? tokens.accentInk : fg;
 
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
@@ -76,13 +83,20 @@ export function Pill({ tone = 'chip', size = 'sm', icon: Icon, children }: PillP
     fontWeight: '600',
     fontSize: spec.fontSize,
     lineHeight: spec.lineHeight,
-    color: fg,
+    color: contentColor,
     letterSpacing: 0.05,
   };
 
   return (
     <View style={containerStyle}>
-      {Icon ? <Icon size={spec.iconSize} color={fg} fill={fg} fillOpacity={0.28} /> : null}
+      {Icon ? (
+        // Bound the icon to the text line-height and center it, so the larger
+        // (scaledIcon) glyph doesn't push the pill's row height or sit off the
+        // text baseline.
+        <View style={{ height: spec.lineHeight, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={spec.iconSize} color={contentColor} fill={contentColor} fillOpacity={0.28} />
+        </View>
+      ) : null}
       <Text selectable={false} style={textStyle}>
         {children}
       </Text>

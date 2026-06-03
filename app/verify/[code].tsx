@@ -27,9 +27,10 @@ import {
 import { formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import {
   describeClosedRemoteRequest,
+  nextVerifierStep,
   RemoteRequestClosedReason,
 } from '@/src/domain/logbook/remote-signing-status';
-import { EntryDetail, entryKindLabel, parseHazards } from '@/src/domain/logbook/types';
+import { EntryDetail, entryKindLabel, parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
   useRemoteSignatureRequestDetail,
@@ -56,10 +57,16 @@ import { haptics } from '@/src/ui/haptics';
 // The signer may be the requested verifier, OR a delegate ("Different signer"
 // path). Forcing "I am the requested verifier" on a delegate persists a false
 // claim into the audit record, so the attestation branches on who is signing.
+//
+// Scope claim: the portal shows the entry's work DETAILS only — not the gear
+// register or photo/evidence attachments (these are not on RemoteSignatureRequestDetail).
+// The wording is deliberately scoped to "the work details shown in this request" so a
+// remote signer never affirms reviewing a full work record they could not see. If that
+// payload is later widened to carry gear + attachments, revisit this. See docs/hosted-remote-signing.md.
 const ATTESTATION_VERIFIER =
-  'I am the requested verifier, I reviewed this remote request and work record, and I authorize this signature.';
+  'I am the requested verifier. I reviewed the work details shown in this request, and I authorize this signature.';
 const ATTESTATION_DELEGATE =
-  'I reviewed this remote request and work record, and I authorize this signature on my own authority as named.';
+  'I reviewed the work details shown in this request, and I authorize this signature on my own authority as named.';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -528,8 +535,8 @@ export default function RemoteVerifyScreen() {
                 <>
                   <Row label="Hours" value={entry.work_hours.toFixed(1)} />
                   <Row label="Kind" value={entryKindLabel(entry.entry_kind)} />
-                  <Row label="Task" value={entry.work_task || '—'} />
-                  <Row label="Access" value={entry.access_method || '—'} />
+                  <Row label="Task" value={parseStringList(entry.work_task_list).join(', ') || entry.work_task || '—'} />
+                  <Row label="Access" value={parseStringList(entry.access_method_list).join(', ') || entry.access_method || '—'} />
                   <Row label="Structure" value={entry.structure_type || '—'} />
                   <Row
                     label="Height"
@@ -779,7 +786,8 @@ export default function RemoteVerifyScreen() {
                 ? 'Retry submit'
                 : canSign
                   ? 'Submit remote signature'
-                  : 'Finish verification'}
+                  : nextVerifierStep({ hasName, certReady, siteFieldsReady, hasSignature, attestationAccepted }) ??
+                    'Finish verification'}
           </Button>
         ) : (
           <Button

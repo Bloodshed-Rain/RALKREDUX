@@ -23,7 +23,12 @@ import {
   buildLogbookExportBundle,
   buildLogbookPdfHtml,
 } from '@/src/domain/logbook/export';
-import { useChainHead, useEntries, useExportLogbook } from '@/src/domain/logbook/use-logbook';
+import {
+  useChainHead,
+  useEntries,
+  useExportLogbook,
+  useVerifyFullChain,
+} from '@/src/domain/logbook/use-logbook';
 import { isValidIsoDateRange } from '@/src/domain/date-utils';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
@@ -91,6 +96,7 @@ export default function ExportScreen() {
   const insets = useSafeAreaInsets();
   const entriesQ = useEntries();
   const chainHeadQ = useChainHead();
+  const verifyChainQ = useVerifyFullChain();
   const exportLogbook = useExportLogbook();
 
   const [range, setRange] = React.useState<Range>('all');
@@ -186,6 +192,25 @@ export default function ExportScreen() {
   }
 
   const chainHash = chainHeadQ.data ?? null;
+  // The "Chain valid" trust pill must reflect a REAL verification, not merely
+  // the presence of a head hash (useChainHead is a plain SELECT). useVerifyFullChain
+  // re-hashes every signed entry + its chain links; gate the pill/subline on its
+  // result, mirroring the entry-detail Verified pill — a tampered chain must not
+  // show an auditor a green tick on this surface.
+  // Distinguish a positively-detected broken chain (data.valid === false) from an
+  // inconclusive verification (query error). Both fail away from green, but a
+  // tampered chain deserves a stronger signal than "couldn't verify". The 'valid'
+  // state is gated again on chainHash in PreviewCard so an empty/all-draft logbook
+  // (verifyFullChain returns valid:true for 0 signed entries) doesn't show a green
+  // tick over a chain that attests to nothing.
+  const chainState: 'checking' | 'valid' | 'broken' | 'error' =
+    verifyChainQ.data?.valid === true
+      ? 'valid'
+      : verifyChainQ.data?.valid === false
+        ? 'broken'
+        : verifyChainQ.isError
+          ? 'error'
+          : 'checking';
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
@@ -207,6 +232,7 @@ export default function ExportScreen() {
             entryCount={previewCount}
             signedHours={preview.signedHours}
             chainHash={chainHash}
+            chainState={chainState}
           />
         </View>
 
@@ -311,14 +337,16 @@ export default function ExportScreen() {
             full
             size="lg"
             icon={IconExport}
-            onPress={runExport}
-            disabled={pending || previewCount === 0 || !customRangeValid}
+            onPress={entriesQ.isError ? () => entriesQ.refetch() : runExport}
+            disabled={pending || (!entriesQ.isError && (previewCount === 0 || !customRangeValid))}
           >
             {pending
               ? 'Building export…'
-              : previewCount === 0
-                ? 'Nothing to export'
-                : `Export ${previewCount} ${previewCount === 1 ? 'entry' : 'entries'}`}
+              : entriesQ.isError
+                ? "Couldn't load entries — Retry"
+                : previewCount === 0
+                  ? 'Nothing to export'
+                  : `Export ${previewCount} ${previewCount === 1 ? 'entry' : 'entries'}`}
           </Button>
         </View>
       </ScrollView>
@@ -330,9 +358,10 @@ interface PreviewCardProps {
   entryCount: number;
   signedHours: number;
   chainHash: string | null;
+  chainState: 'checking' | 'valid' | 'broken' | 'error';
 }
 
-function PreviewCard({ entryCount, signedHours, chainHash }: PreviewCardProps) {
+function PreviewCard({ entryCount, signedHours, chainHash, chainState }: PreviewCardProps) {
   const { tokens } = useTheme();
 
   const kickerStyle: TextStyle = {
@@ -402,11 +431,30 @@ function PreviewCard({ entryCount, signedHours, chainHash }: PreviewCardProps) {
           {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
         </Text>
         <Text style={subStyle}>
-          {signedHours.toFixed(1)} signed hrs · chain verifiable
+          {signedHours.toFixed(1)} signed hrs ·{' '}
+          {chainState === 'valid' && chainHash
+            ? 'chain verified'
+            : chainState === 'valid'
+              ? 'nothing signed yet'
+              : chainState === 'broken'
+                ? 'chain integrity failed'
+                : chainState === 'error'
+                  ? 'could not verify chain'
+                  : 'verifying chain…'}
         </Text>
         <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 14 }} />
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          <Pill tone="ok" icon={IconVerified}>Chain valid</Pill>
+          {chainState === 'valid' && chainHash ? (
+            <Pill tone="ok" icon={IconVerified}>Chain valid</Pill>
+          ) : chainState === 'valid' ? (
+            <Pill tone="chip">No signed entries</Pill>
+          ) : chainState === 'broken' ? (
+            <Pill tone="danger">Chain integrity failed</Pill>
+          ) : chainState === 'error' ? (
+            <Pill tone="warn">Couldn’t verify chain</Pill>
+          ) : (
+            <Pill tone="chip">Checking…</Pill>
+          )}
           <Pill tone="chip" icon={IconLock}>Hash v{ENTRY_HASH_VERSION}</Pill>
           <Pill tone="chip" icon={IconChain}>
             {entryCount} {entryCount === 1 ? 'link' : 'links'}
@@ -455,7 +503,7 @@ function FormatTile({ label, sub, active, onPress }: FormatTileProps) {
     fontWeight: '600',
     fontSize: 14,
     letterSpacing: 0.8,
-    color: active ? tokens.accent : tokens.text,
+    color: active ? tokens.text : tokens.textDim,
   };
   const subStyle: TextStyle = {
     ...type.cardSub,

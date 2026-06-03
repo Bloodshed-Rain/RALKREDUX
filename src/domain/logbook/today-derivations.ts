@@ -218,6 +218,75 @@ export function buildAdvisories(input: {
   return list.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
 }
 
+export type OpenWorkTone = 'danger' | 'warn';
+
+export interface OpenWorkItem {
+  id: 'gear-overdue' | 'awaiting-signature' | 'open-drafts' | 'gear-due-soon';
+  label: string;
+  hint: string;
+  tone: OpenWorkTone;
+  route: string;
+}
+
+// The Today "Open work" worklist: only the categories that actually have open
+// items, severity-ordered (overdue gear is the DO-NOT-DEPLOY danger, then the
+// warn items). An empty array means the screen should show its "all caught up"
+// state instead of a row of zeros. UI-free (the screen maps id -> icon).
+export function buildOpenWork(counts: {
+  openDrafts: number;
+  awaitingSignature: number;
+  overdueGear: number;
+  dueSoonGear: number;
+}): OpenWorkItem[] {
+  const items: OpenWorkItem[] = [];
+
+  if (counts.overdueGear > 0) {
+    items.push({
+      id: 'gear-overdue',
+      label: counts.overdueGear === 1 ? '1 gear item overdue' : `${counts.overdueGear} gear items overdue`,
+      hint: 'Past inspection — do not deploy',
+      tone: 'danger',
+      route: '/gear',
+    });
+  }
+
+  if (counts.awaitingSignature > 0) {
+    items.push({
+      id: 'awaiting-signature',
+      label:
+        counts.awaitingSignature === 1
+          ? '1 entry awaiting signature'
+          : `${counts.awaitingSignature} entries awaiting signature`,
+      hint: 'Sent for remote signature',
+      tone: 'warn',
+      route: '/records?filter=pending',
+    });
+  }
+
+  if (counts.openDrafts > 0) {
+    items.push({
+      id: 'open-drafts',
+      label: counts.openDrafts === 1 ? '1 draft to finish' : `${counts.openDrafts} drafts to finish`,
+      hint: 'Unsigned — finish or sign',
+      tone: 'warn',
+      route: '/records?filter=drafts',
+    });
+  }
+
+  if (counts.dueSoonGear > 0) {
+    items.push({
+      id: 'gear-due-soon',
+      label:
+        counts.dueSoonGear === 1 ? '1 gear item due soon' : `${counts.dueSoonGear} gear items due soon`,
+      hint: 'Inspection coming up',
+      tone: 'warn',
+      route: '/gear',
+    });
+  }
+
+  return items;
+}
+
 export function buildActions(input: {
   summary: DashboardSummary | undefined;
   overdueGearItems: number;

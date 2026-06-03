@@ -32,7 +32,7 @@ Create OAuth client IDs and an OAuth consent screen:
 |---|---|---|
 | **Web application** | Supabase Google provider Client ID + Secret; SDK `webClientId` | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` |
 | **iOS** (bundle `com.ropeaccess.logbook`) | native iOS sign-in | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + reversed form → `EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME` (`com.googleusercontent.apps.…`) |
-| **Android** (package `com.ropeaccess.logbook.codex` + signing SHA-1) | native Android sign-in | no code value; SHA-1 from `eas credentials` |
+| **Android** (package `com.ropeaccess.logbook.codex` + signing SHA-1) | native Android sign-in — **required** or sign-in fails on-device with `DEVELOPER_ERROR` (see §6) | no code value; idToken mints against the **Web** client. SHA-1 from `eas credentials` |
 
 ## 3. Apple Developer
 
@@ -57,6 +57,20 @@ EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME=   # com.googleusercontent.apps.<reversed iOS 
 eas build --profile development --platform ios       # or android
 ```
 Then verify: Apple (iOS), Google (iOS + Android), and email OTP (check inbox for the 6-digit code → enter → signed in).
+
+## 6. Android Google sign-in — verified setup & `DEVELOPER_ERROR`
+
+Android identifies the app by **package name + signing-key SHA-1**, not a client ID (unlike iOS). If no **Android OAuth client** in the Google Cloud project (`665912221058`) matches, `GoogleSignin.signIn()` fails *on-device* with `DEVELOPER_ERROR` — Google's auth server returns *"This android application is not registered to use OAuth2.0…"* (visible in `adb logcat`, tag `Auth`/`GetTokenResponseHandler`). The token never mints, so **nothing reaches Supabase** and the auth logs stay silent — that silence is the tell that the failure is on-device, not an audience rejection.
+
+Two things Android needs that iOS didn't:
+1. **Android OAuth client** — Console-only (no public API to create OAuth client IDs): APIs & Services → Credentials → Create → OAuth client ID → **Android**, package `com.ropeaccess.logbook.codex`, SHA-1 of the installed build's signing key. No secret, no `.env`/code change.
+2. **Supabase → Auth → Providers → Google → Authorized Client IDs** must include the **Web** client ID — on Android the idToken's `aud` is the Web client (iOS uses the iOS client). List both iOS + Web, comma-separated, or Android gets past the device and is rejected with `bad_id_token`.
+
+**Verified SHA-1 for the current EAS-managed keystore** (signs every `eas build` dev/preview/internal APK — confirmed against installed preview build #8, 2026-06-01; full Google→Supabase chain verified working on Android):
+```
+02:D6:27:66:69:69:E6:CB:77:84:FA:FB:20:98:44:D8:35:62:07:3B
+```
+Re-derive only if the EAS keystore is ever regenerated: `eas credentials -p android` (interactive), or extract from any build APK's signing block. **Play Store:** shipping an AAB triggers Google Play re-signing with a *different* key — add **that** SHA-1 (Play Console → App integrity → App signing key) as a second Android-client fingerprint when you go to production.
 
 ---
 

@@ -15,6 +15,10 @@ export interface DatePickerSheetProps {
   minDate?: string | null; // ISO
   maxDate?: string | null; // ISO
   clearable?: boolean;
+  // Which view the calendar opens on. Default 'day'. Use 'year' for fields like
+  // cert expiry, where the year is what matters and the year grid's forward
+  // navigation (past the current 12-year page) is otherwise easy to miss.
+  initialView?: 'day' | 'month' | 'year';
 }
 
 // Normalizes the library's DateType (Date | string | dayjs) to a JS Date.
@@ -32,6 +36,7 @@ export function DatePickerSheet({
   minDate,
   maxDate,
   clearable = false,
+  initialView = 'day',
 }: DatePickerSheetProps) {
   const { tokens } = useTheme();
   const defaultStyles = useDefaultStyles();
@@ -59,6 +64,7 @@ export function DatePickerSheet({
     <InfoSheet visible={visible} onClose={onClose} title={title} kicker="PICK A DATE">
       <DateTimePicker
         mode="single"
+        initialView={initialView}
         date={isoToLocalDate(draftIso) ?? undefined}
         onChange={({ date }) => setDraftIso(date ? calendarDateToIso(toDate(date)) : null)}
         minDate={isoToLocalDate(minDate) ?? undefined}

@@ -119,6 +119,9 @@ export function useDeleteDraftEntry() {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
       queryClient.invalidateQueries({ queryKey: ['careerStats'] });
+      // Deleting a draft cascade-deletes its attachments — refresh the
+      // cross-entry Attachments index so they don't linger there. (P3-3)
+      queryClient.invalidateQueries({ queryKey: ['attachmentsAll'] });
       queryClient.removeQueries({ queryKey: ['entryDetail', id] });
     },
   });
@@ -176,6 +179,9 @@ export function useSignEntryLocal() {
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['chainHead'] });
+      // A new signature extends the chain → re-run the full-chain verification
+      // the audit-export screen's "Chain valid" pill is gated on.
+      queryClient.invalidateQueries({ queryKey: ['verifyFullChain'] });
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
@@ -225,6 +231,9 @@ export function useCompleteRemoteSignatureRequest() {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['remoteSignatureRequest', input.request_code] });
       queryClient.invalidateQueries({ queryKey: ['chainHead'] });
+      // A new signature extends the chain → re-run the full-chain verification
+      // the audit-export screen's "Chain valid" pill is gated on.
+      queryClient.invalidateQueries({ queryKey: ['verifyFullChain'] });
       if (detail.entry.amends_entry_id) {
         queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.amends_entry_id] });
       }
@@ -264,6 +273,8 @@ export function useAddEntryAttachment() {
       createLogbookService(getClient()).addEntryAttachment(input),
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      // Keep the cross-entry Attachments index fresh after a new attachment. (P3-3)
+      queryClient.invalidateQueries({ queryKey: ['attachmentsAll'] });
     },
   });
 }
@@ -314,7 +325,10 @@ export function useVerifyFullChain() {
   return useQuery({
     queryKey: ['verifyFullChain'],
     queryFn: () => createLogbookService(getClient()).verifyFullChain(),
-    staleTime: Infinity, // Only run once per mount/invalidate
+    // Re-runs only when invalidated (the chain-extending sign / remote-complete
+    // mutations invalidate ['verifyFullChain']) or on a cold remount after gcTime —
+    // full-chain re-hashing is too costly to run on every render.
+    staleTime: Infinity,
   });
 }
 

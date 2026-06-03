@@ -11,4 +11,8 @@ On the remote verifier portal, the requested verifier's name (from the technicia
 
 **How to apply:** When reviewing the verifier portal flow or signature schema changes, ensure: (1) the requested-verifier identity is locked / read-only on the portal, and (2) there's a separate `actual_signer_name` (and ideally `actual_signer_cert_number` + scheme/level) on the signature record that captures who actually completed it. If they match, fine — record both anyway. If they don't, the audit packet must show both with a "delegated signature" annotation.
 
+**RESOLVED in code (verified 2026-05-28):** The schema-level concern is now satisfied. `RemoteSignatureRequest.recipient_name` (who was asked) and `EntrySignature.supervisor_name` (who signed) are separate persisted columns. The portal renders a "SENT TO" reconcile row and a "Different signer" warn pill when the typed name diverges (`app/verify/[code].tsx` ~497-534). The name field staying editable is acceptable per this ruling *because* both names are preserved and the divergence is annotated. Do NOT re-flag the editable field as a defect.
+
+**STILL OPEN — new sub-issue:** The fixed `ATTESTATION_TEXT` hard-codes "I am the requested verifier." When a delegated signer uses the "Different signer" path, the app forces them to attest a statement that is literally false. The attestation copy must branch (or soften to "I am authorized to verify this work") when signer != requested recipient. See [[attestation-text-vs-delegated-signer]].
+
 Related: this is in the v3 batch — see [[hash-version-bump-candidates]].

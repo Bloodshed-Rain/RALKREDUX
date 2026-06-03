@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, View, Animated, Easing, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
+import { scaledIcon } from '@/src/ui/scale';
 import { IconCheck, IconSync, IconOffline } from '@/src/ui/icons';
 
 export type SyncChipState = 'synced' | 'syncing' | 'queued' | 'offline';
@@ -116,7 +117,12 @@ export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
 
   const body = (
     <View style={containerStyle}>
-      <Animated.View style={[{ width: 14, height: 14 }, shouldSpin ? { transform: [{ rotate: spin }] } : null]}>
+      <Animated.View
+        style={[
+          { width: scaledIcon(14), height: scaledIcon(14), alignItems: 'center', justifyContent: 'center' },
+          shouldSpin ? { transform: [{ rotate: spin }] } : null,
+        ]}
+      >
         <s.Icon size={14} color={s.fg} fill={s.fg} />
       </Animated.View>
       <Text selectable={false} style={labelStyle}>

@@ -168,8 +168,9 @@ export function createGearService(db: DbClient) {
       const now = new Date().toISOString();
       const inspectedOn = input.inspected_on ?? todayLocalIsoDate();
       const inspectionId = createId('inspection');
-      const nextDue = input.result === 'fail' ? null : input.next_inspection_due?.trim() || null;
-      const retiredAt = input.result === 'fail' ? inspectedOn : null;
+      const isFail = input.result === 'fail';
+      const submittedNextDue = isFail ? null : input.next_inspection_due?.trim() || null;
+      const retiredAt = isFail ? inspectedOn : null;
 
       await db.exec('BEGIN');
       try {
@@ -189,9 +190,21 @@ export function createGearService(db: DbClient) {
             now,
           ],
         );
+        // Only the LATEST inspection (by inspected_on, created_at tiebreak —
+        // the same ordering getLatestInspection uses) owns the live deadline.
+        // A backdated inspection recorded after a newer one must not clobber
+        // gear_items.next_inspection_due with a stale date. A failure always
+        // retires and clears the deadline regardless of inspection date.
+        const latest = await db.get<{ id: string }>(
+          `SELECT id FROM gear_inspections WHERE gear_id = ?
+           ORDER BY inspected_on DESC, created_at DESC LIMIT 1`,
+          [item.id],
+        );
+        const isLatest = latest?.id === inspectionId;
+        const nextDueToWrite = isFail ? null : isLatest ? submittedNextDue : item.next_inspection_due;
         await db.run(
           'UPDATE gear_items SET next_inspection_due = ?, retired_at = ?, updated_at = ? WHERE id = ?',
-          [nextDue, retiredAt, now, item.id],
+          [nextDueToWrite, retiredAt, now, item.id],
         );
         await db.exec('COMMIT');
       } catch (error) {

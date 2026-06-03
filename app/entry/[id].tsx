@@ -1,6 +1,7 @@
 import React from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
+import { persistAttachmentFile } from '@/src/ui/attachment-storage';
 import * as Linking from 'expo-linking';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -20,7 +21,12 @@ import { useGearItems } from '@/src/domain/gear/use-gear';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import { buildEntryExportFileName, buildEntryPdfHtml } from '@/src/domain/logbook/export';
 import { buildRemoteSigningToken, buildRemoteSigningUrl } from '@/src/domain/logbook/logbook-service';
-import { entryKindLabel, parseHazards, type LogbookEntry } from '@/src/domain/logbook/types';
+import {
+  entryKindLabel,
+  parseHazards,
+  parseStringList,
+  type LogbookEntry,
+} from '@/src/domain/logbook/types';
 import {
   useAddEntryAttachment,
   useAmendmentsOf,
@@ -113,8 +119,38 @@ export default function EntryDetailScreen() {
 
   if (detail.isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: tokens.bg, padding: 20 }}>
-        <Text style={{ ...type.body, color: tokens.textDim }}>Loading entry…</Text>
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar
+          title="Entry"
+          leading={
+            <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.replace('/records')} />
+          }
+        />
+        <View style={{ padding: 20 }}>
+          <Text style={{ ...type.body, color: tokens.textDim }}>Loading entry…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (detail.isError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar
+          title="Entry"
+          leading={
+            <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.replace('/records')} />
+          }
+        />
+        <View style={{ padding: 20, gap: 16 }}>
+          <Text style={{ ...type.heroCardTitle, color: tokens.text }}>Couldn&apos;t load this entry</Text>
+          <Text style={{ ...type.body, color: tokens.textDim }}>
+            Something went wrong reading the record. Check your connection and try again.
+          </Text>
+          <Button variant="primary" onPress={() => detail.refetch()}>
+            Retry
+          </Button>
+        </View>
       </View>
     );
   }
@@ -248,10 +284,13 @@ export default function EntryDetailScreen() {
     if (!entryId || !entry || entry.status !== 'draft') return;
     const photo = await captureOrPickPhoto();
     if (!photo) return;
+    // Persist the picker's transient cache URI to durable storage before it's
+    // recorded — a signed entry locks, so a dangling pointer can't be repaired.
+    const uri = await persistAttachmentFile(photo.uri);
     addAttachment.mutate({
       entry_id: entryId,
       label: photo.fileName || 'Evidence photo',
-      uri: photo.uri,
+      uri,
       mime_type: photo.mimeType ?? 'image/jpeg',
     });
   }
@@ -325,7 +364,9 @@ export default function EntryDetailScreen() {
                   numberOfLines={2}
                   selectable
                 >
-                  {[entry.client, entry.work_task].filter(Boolean).join(' · ') || '—'}
+                  {[entry.client, parseStringList(entry.work_task_list).join(', ') || entry.work_task]
+                    .filter(Boolean)
+                    .join(' · ') || '—'}
                 </Text>
               </View>
               <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -343,7 +384,12 @@ export default function EntryDetailScreen() {
             <View style={{ flexDirection: 'row', gap: 14 }}>
               <DetailStat label="Hours" value={entry.work_hours.toFixed(1)} />
               <DetailStat label="Height" value={maxHeightLabel} />
-              <DetailStat label="Access" value={entry.access_method || '—'} />
+              <DetailStat
+                label="Access"
+                value={
+                  parseStringList(entry.access_method_list).join(', ') || entry.access_method || '—'
+                }
+              />
             </View>
 
             {isDraft && readiness && !isReady ? (
@@ -913,17 +959,17 @@ function SignatureBlock({
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Button
           variant="primary"
-          full
+          grow
           disabled={isDraft && !isReady}
-          onPress={() => router.push(`/entry/${entryId}/sign` as never)}
+          onPress={() => router.push(`/entry/${entryId}/sign?from=detail` as never)}
         >
           Sign now
         </Button>
         <Button
           variant="outline"
-          full
+          grow
           disabled={isDraft && !isReady}
-          onPress={() => router.push(`/entry/${entryId}/request-signature` as never)}
+          onPress={() => router.push(`/entry/${entryId}/request-signature?from=detail` as never)}
         >
           Request remote
         </Button>
@@ -962,7 +1008,7 @@ function FooterActions({
         <Button
           variant="primary"
           full
-          onPress={() => router.push(`/entry/${entryId}/edit` as never)}
+          onPress={() => router.push(`/entry/${entryId}/edit?from=detail` as never)}
         >
           {isReady ? 'Edit draft' : 'Finish draft'}
         </Button>
@@ -976,7 +1022,7 @@ function FooterActions({
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button
             variant="primary"
-            full
+            grow
             onPress={onSharePdf}
             disabled={pdfPending || exportPending}
           >
@@ -984,7 +1030,7 @@ function FooterActions({
           </Button>
           <Button
             variant="secondary"
-            full
+            grow
             onPress={onShareJson}
             disabled={pdfPending || exportPending}
           >

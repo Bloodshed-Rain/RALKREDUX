@@ -3,19 +3,17 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
-  FlatList,
+  SectionList,
   Text,
   View,
-  type TextStyle,
-  type ViewStyle,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { GearCategory, GearItemDetail, GearStatus } from '@/src/domain/gear/types';
+import type { GearCategory, GearItemDetail } from '@/src/domain/gear/types';
 import { useCreateGearItem, useGearItems, useGearSummary } from '@/src/domain/gear/use-gear';
 import { DUE_SOON_DAYS } from '@/src/domain/gear/gear-service';
+import { groupGearByStatus } from '@/src/domain/gear/gear-derivations';
 import { consumeGearCatalogPick } from '@/src/storage/gear-catalog-pick';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
@@ -25,12 +23,12 @@ import {
   ChipSelect,
   DateField,
   Field,
-  GearCard,
+  GearRow,
   IconBtn,
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { GEAR_ICON, IconChevron, IconPlus, IconWarn } from '@/src/ui/icons';
+import { IconPlus } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
 type CategoryFilter = 'all' | GearCategory;
@@ -94,9 +92,30 @@ function computeCycle(detail: GearItemDetail, today: Date): CycleInfo {
   return { days: dueDays, progress: Math.max(0, Math.min(1, elapsed / cycle)) };
 }
 
-function statusToCardStatus(status: GearStatus): 'ok' | 'due_soon' | 'overdue' | 'unscheduled' | 'retired' {
-  if (status === 'current') return 'ok';
-  return status;
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function shortDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  return `${MONTH_ABBR[Number(m[2]) - 1]} ${Number(m[3])}`;
+}
+
+function lastResultLabel(insp: GearItemDetail['latest_inspection']): string | null {
+  if (!insp) return null;
+  const word = insp.result === 'pass' ? 'Passed' : insp.result === 'fail' ? 'Failed' : 'Concerns';
+  const when = shortDate(insp.inspected_on);
+  return when ? `${word} ${when}` : word;
+}
+
+// Identity + last-result line for a gear row, e.g. "Petzl · A12 · Passed Apr 3".
+function gearRowSub(detail: GearItemDetail): string {
+  const parts = [
+    detail.item.manufacturer,
+    detail.item.serial_number,
+    lastResultLabel(detail.latest_inspection),
+  ].filter((p): p is string => !!p && p.length > 0);
+  return parts.length > 0 ? parts.join(' · ') : detail.item.category;
 }
 
 export default function GearScreen() {
@@ -142,11 +161,11 @@ export default function GearScreen() {
   const allItems = gearItems.data ?? [];
   const filteredItems =
     filter === 'all' ? allItems : allItems.filter(({ item }) => item.category === filter);
+  const sections = groupGearByStatus(filteredItems);
 
   const overdueItems = allItems.filter(({ status }) => status === 'overdue');
   const dueSoonItems = allItems.filter(({ status }) => status === 'due_soon');
   const totalActive = summary.data?.activeItems ?? 0;
-  const deadlinesItems = [...overdueItems, ...dueSoonItems].slice(0, 3);
 
   async function addGearItem() {
     if (newName.trim().length === 0) return;
@@ -198,14 +217,22 @@ export default function GearScreen() {
         }
       />
 
-      <FlatList
+      <SectionList
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 132 + insets.bottom }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        data={filteredItems}
+        stickySectionHeadersEnabled={false}
+        sections={sections}
         keyExtractor={(detail) => detail.item.id}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        renderSectionHeader={({ section }) => (
+          <SectionH
+            kicker={section.label}
+            title={`${section.data.length} ${section.data.length === 1 ? 'item' : 'items'}`}
+          />
+        )}
+        renderSectionFooter={() => <View style={{ height: 16 }} />}
         ListHeaderComponent={
           <>
             {showAdd ? (
@@ -279,52 +306,7 @@ export default function GearScreen() {
               </View>
             ) : null}
 
-            {deadlinesItems.length > 0 ? (
-              <View style={{ paddingHorizontal: 20, paddingTop: showAdd ? 0 : 4, paddingBottom: 14 }}>
-                <Card padding={14}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginBottom: 10,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        backgroundColor: overdueItems.length > 0 ? tokens.dangerSoft : tokens.warnSoft,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <IconWarn
-                        size={21}
-                        color={overdueItems.length > 0 ? tokens.danger : tokens.warn}
-                        fill={overdueItems.length > 0 ? tokens.danger : tokens.warn}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
-                        INSPECTION DEADLINES
-                      </Text>
-                      <Text style={{ ...type.cardTitle, color: tokens.text, marginTop: 2 }}>
-                        {`${overdueItems.length} overdue · ${dueSoonItems.length} due ≤${DUE_SOON_DAYS}d`}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={{ gap: 6 }}>
-                    {deadlinesItems.map((detail) => (
-                      <DeadlineRow key={detail.item.id} detail={detail} today={today} />
-                    ))}
-                  </View>
-                </Card>
-              </View>
-            ) : null}
-
-            <View style={{ paddingHorizontal: 20, paddingTop: (showAdd || deadlinesItems.length > 0) ? 0 : 14 }}>
+            <View style={{ paddingHorizontal: 20, paddingTop: showAdd ? 0 : 14 }}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -338,29 +320,43 @@ export default function GearScreen() {
               </ScrollView>
             </View>
 
-            <SectionH
-              kicker="ALL GEAR"
-              title={filter === 'all' ? `${allItems.length} items` : `${filteredItems.length} ${CATEGORY_FILTERS.find((c) => c.value === filter)?.label.toLowerCase() ?? ''}`}
-            />
-            <View style={{ height: 10 }} />
+            <View style={{ height: 4 }} />
           </>
         }
         ListEmptyComponent={
           <View style={{ paddingHorizontal: 20 }}>
             <Card padding={20}>
-              <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
-                No gear in this category
-              </Text>
-              <Text
-                style={{
-                  ...type.cardSub,
-                  color: tokens.textDim,
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
-                Tap the + in the top bar to add an item.
-              </Text>
+              {gearItems.isLoading ? (
+                <Text style={{ ...type.cardTitle, color: tokens.textDim, textAlign: 'center' }}>
+                  Loading gear…
+                </Text>
+              ) : gearItems.isError ? (
+                <>
+                  <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
+                    Couldn&apos;t load gear
+                  </Text>
+                  <Text
+                    style={{ ...type.cardSub, color: tokens.textDim, textAlign: 'center', marginTop: 4 }}
+                  >
+                    Check your connection and try again.
+                  </Text>
+                  <View style={{ height: 12 }} />
+                  <Button variant="primary" full onPress={() => gearItems.refetch()}>
+                    Retry
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
+                    No gear in this category
+                  </Text>
+                  <Text
+                    style={{ ...type.cardSub, color: tokens.textDim, textAlign: 'center', marginTop: 4 }}
+                  >
+                    Tap the + in the top bar to add an item.
+                  </Text>
+                </>
+              )}
             </Card>
           </View>
         }
@@ -368,14 +364,11 @@ export default function GearScreen() {
           const cycle = computeCycle(detail, today);
           return (
             <View style={{ paddingHorizontal: 20 }}>
-              <GearCard
-                category={detail.item.category}
+              <GearRow
                 name={detail.item.name}
-                manufacturer={detail.item.manufacturer}
-                serialNumber={detail.item.serial_number}
+                sub={gearRowSub(detail)}
                 days={cycle.days}
-                progress={cycle.progress}
-                status={statusToCardStatus(detail.status)}
+                status={detail.status}
                 onPress={() => router.push(`/gear/${detail.item.id}` as never)}
               />
             </View>
@@ -386,75 +379,3 @@ export default function GearScreen() {
   );
 }
 
-function DeadlineRow({ detail, today }: { detail: GearItemDetail; today: Date }) {
-  const { tokens } = useTheme();
-  const cycle = computeCycle(detail, today);
-  const Icon = GEAR_ICON[detail.item.category];
-  const overdue = detail.status === 'overdue';
-  const bg = overdue ? tokens.dangerSoft : tokens.warnSoft;
-  const fg = overdue ? tokens.danger : tokens.warn;
-  const days = cycle.days;
-
-  const captionText =
-    days == null
-      ? 'No date'
-      : days < 0
-        ? `${Math.abs(days)}d overdue`
-        : days === 0
-          ? 'Due today'
-          : `${days}d to go`;
-
-  const rowStyle: ViewStyle = {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: bg,
-  };
-
-  const titleStyle: TextStyle = {
-    ...type.cardTitle,
-    color: tokens.text,
-  };
-
-  const captionStyle: TextStyle = {
-    ...type.monoSm,
-    // warn/danger over their own *Soft fill fails AA on the light palettes;
-    // render the caption in readable ink and let the colored icon carry the
-    // urgency signal.
-    color: tokens.text,
-    letterSpacing: 0.5,
-  };
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${detail.item.name}, ${captionText}`}
-      onPress={() => router.push(`/gear/${detail.item.id}` as never)}
-      style={({ pressed }) => [rowStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
-    >
-      <View
-        style={{
-          width: 30,
-          height: 30,
-          borderRadius: 8,
-          backgroundColor: tokens.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon size={21} color={fg} fill={fg} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={titleStyle} numberOfLines={1}>
-          {detail.item.name}
-        </Text>
-        <Text style={captionStyle} numberOfLines={1}>
-          {captionText}
-        </Text>
-      </View>
-      <IconChevron size={17} color={fg} />
-    </Pressable>
-  );
-}

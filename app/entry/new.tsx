@@ -13,6 +13,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
+import { persistAttachmentFile } from '@/src/ui/attachment-storage';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type {
   CreateEntryInput,
@@ -27,7 +28,7 @@ import {
   STRUCTURE_PRESETS,
   HAZARD_PRESETS,
 } from '@/src/domain/logbook/classification';
-import { parseHazards } from '@/src/domain/logbook/types';
+import { parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import type { CertLevel } from '@/src/domain/profile/types';
 import {
   useAddEntryAttachment,
@@ -50,6 +51,7 @@ import {
   Button,
   Card,
   ChipSelect,
+  type ChipOption,
   ClassificationChips,
   DateField,
   Field,
@@ -58,7 +60,19 @@ import {
   Pill,
   type PhotoStripItem,
 } from '@/src/ui/primitives/v2';
-import { GEAR_ICON, IconClose, IconSign, IconWarn } from '@/src/ui/icons';
+import {
+  GEAR_ICON,
+  IconClimber,
+  IconClose,
+  IconDraft,
+  IconExport,
+  IconInspect,
+  IconRescue,
+  IconSign,
+  IconTraining,
+  IconWarn,
+  type IconProps,
+} from '@/src/ui/icons';
 import {
   DEFAULT_TERMINAL_ACTION,
   PrefKeys,
@@ -69,11 +83,11 @@ import {
 import { haptics } from '@/src/ui/haptics';
 import type { GearCategory } from '@/src/domain/gear/types';
 
-const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
-  { value: 'work', label: 'Work' },
-  { value: 'training', label: 'Training' },
-  { value: 'assessment', label: 'Assessment' },
-  { value: 'rescue_drill', label: 'Rescue drill' },
+const ENTRY_KIND_OPTIONS: Array<ChipOption<EntryKind>> = [
+  { value: 'work', label: 'Work', icon: IconClimber },
+  { value: 'training', label: 'Training', icon: IconTraining },
+  { value: 'assessment', label: 'Assessment', icon: IconInspect },
+  { value: 'rescue_drill', label: 'Rescue drill', icon: IconRescue },
 ];
 const HEIGHT_UNIT_OPTIONS = [
   { value: 'ft' as HeightUnit, label: 'ft' },
@@ -87,8 +101,8 @@ interface DraftState {
   employer: string;
   site: string;
   client: string;
-  workTask: string;
-  accessMethod: string;
+  workTask: string[];
+  accessMethod: string[];
   structureType: string;
   maxHeight: string;
   heightUnit: HeightUnit;
@@ -111,8 +125,8 @@ function initialDraft(): DraftState {
     employer: '',
     site: '',
     client: '',
-    workTask: '',
-    accessMethod: 'Two-rope access',
+    workTask: [],
+    accessMethod: ['Two-rope access'],
     structureType: '',
     maxHeight: '',
     heightUnit: 'ft',
@@ -133,7 +147,7 @@ function hasAnyContent(draft: DraftState): boolean {
     draft.employer.trim().length > 0 ||
     draft.site.trim().length > 0 ||
     draft.client.trim().length > 0 ||
-    draft.workTask.trim().length > 0 ||
+    draft.workTask.length > 0 ||
     draft.description.trim().length > 0 ||
     draft.structureType.trim().length > 0 ||
     draft.maxHeight.trim().length > 0
@@ -147,7 +161,7 @@ function step1Ready(draft: DraftState): boolean {
 }
 
 function step2Ready(draft: DraftState): boolean {
-  return draft.workTask.trim().length > 0 && Number(draft.hours) > 0;
+  return draft.workTask.length > 0 && Number(draft.hours) > 0;
 }
 
 // Names the field(s) still blocking Continue so the tech isn't left hunting a
@@ -165,7 +179,7 @@ function missingStepHint(step: 1 | 2 | 3, draft: DraftState): string | null {
   }
   if (step === 2) {
     const need: string[] = [];
-    if (draft.workTask.trim().length === 0) need.push('a work task');
+    if (draft.workTask.length === 0) need.push('a work task');
     if (!(Number(draft.hours) > 0)) need.push('hours worked');
     return need.length ? `Add ${need.join(' and ')} to continue.` : null;
   }
@@ -183,8 +197,10 @@ function buildCreateInput(draft: DraftState): CreateEntryInput {
     client: draft.client.trim(),
     description: draft.description.trim(),
     work_hours: Number(draft.hours) || 0,
-    work_task: draft.workTask.trim(),
-    access_method: draft.accessMethod.trim(),
+    work_task: draft.workTask[0] ?? '',
+    access_method: draft.accessMethod[0] ?? '',
+    work_task_list: draft.workTask,
+    access_method_list: draft.accessMethod,
     structure_type: draft.structureType.trim(),
     max_height: Number.isFinite(maxHeight) ? maxHeight : 0,
     height_unit: draft.heightUnit,
@@ -264,8 +280,16 @@ export default function NewEntryWizard() {
       employer: last.employer,
       site: last.site,
       client: last.client,
-      workTask: last.work_task,
-      accessMethod: last.access_method || 'Two-rope access',
+      workTask: parseStringList(last.work_task_list).length
+        ? parseStringList(last.work_task_list)
+        : last.work_task
+          ? [last.work_task]
+          : [],
+      accessMethod: parseStringList(last.access_method_list).length
+        ? parseStringList(last.access_method_list)
+        : last.access_method
+          ? [last.access_method]
+          : ['Two-rope access'],
       structureType: last.structure_type,
       maxHeight: last.max_height == null ? '' : String(last.max_height),
       heightUnit: last.height_unit,
@@ -464,10 +488,10 @@ export default function NewEntryWizard() {
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {step < 3 ? (
             <>
-              <Button variant="ghost" full onPress={handleBack}>
+              <Button variant="ghost" grow onPress={handleBack}>
                 {step === 1 ? 'Cancel' : 'Back'}
               </Button>
-              <Button variant="primary" full onPress={handleContinue} disabled={!canContinue}>
+              <Button variant="primary" grow onPress={handleContinue} disabled={!canContinue}>
                 Continue
               </Button>
             </>
@@ -646,7 +670,7 @@ function StepWhere({
             value={draft.dateTo || null}
             onChange={(iso) => update({ dateTo: iso ?? '' })}
             minDate={draft.dateFrom || null}
-            helper={isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom) ? undefined : 'Invalid range'}
+            error={isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom) ? undefined : 'Invalid range'}
           />
         </View>
       </View>
@@ -689,10 +713,13 @@ function StepWhat({ draft, update }: StepProps) {
     if (!draft.entryId || addAttachment.isPending) return;
     const photo = await captureOrPickPhoto();
     if (!photo) return;
+    // Persist the picker's transient cache URI to durable storage before it's
+    // recorded — a signed entry locks, so a dangling pointer can't be repaired.
+    const uri = await persistAttachmentFile(photo.uri);
     addAttachment.mutate({
       entry_id: draft.entryId,
       label: photo.fileName || 'Evidence photo',
-      uri: photo.uri,
+      uri,
       mime_type: photo.mimeType ?? 'image/jpeg',
     });
   }
@@ -707,10 +734,10 @@ function StepWhat({ draft, update }: StepProps) {
     <View style={{ gap: 14 }}>
       <View>
         <SectionKicker>WORK TASK</SectionKicker>
-        <ClassificationChips
+        <MultiClassificationChips
           label="Work task"
-          value={draft.workTask}
-          onChange={(v) => update({ workTask: v })}
+          values={draft.workTask}
+          onChange={(next) => update({ workTask: next })}
           presets={WORK_TASK_PRESETS}
           recents={recentWorkTask.data ?? []}
         />
@@ -729,10 +756,10 @@ function StepWhat({ draft, update }: StepProps) {
 
       <View>
         <SectionKicker>ACCESS METHOD</SectionKicker>
-        <ClassificationChips
+        <MultiClassificationChips
           label="Access method"
-          value={draft.accessMethod}
-          onChange={(v) => update({ accessMethod: v })}
+          values={draft.accessMethod}
+          onChange={(next) => update({ accessMethod: next })}
           presets={ACCESS_METHOD_PRESETS}
           recents={recentAccess.data ?? []}
         />
@@ -774,6 +801,7 @@ function StepWhat({ draft, update }: StepProps) {
                     <Pressable
                       key={opt.value}
                       accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
                       onPress={() => update({ heightUnit: opt.value })}
                       hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                       style={{
@@ -872,13 +900,13 @@ function StepWhat({ draft, update }: StepProps) {
                 >
                   <Icon
                     size={26}
-                    color={active ? tokens.accent : tokens.text}
+                    color={tokens.text}
                     fill={tokens.accent}
                   />
                   <Text
                     style={{
                       ...type.cardSub,
-                      color: active ? tokens.accent : tokens.textDim,
+                      color: active ? tokens.text : tokens.textDim,
                       textAlign: 'center',
                     }}
                     numberOfLines={1}
@@ -916,6 +944,7 @@ interface ChoiceConfig {
   key: 'sign' | 'request' | 'draft';
   label: string;
   hint: string;
+  icon: React.ComponentType<IconProps>;
   primary?: boolean;
 }
 
@@ -949,16 +978,19 @@ function StepReview({
       key: 'sign',
       label: 'Sign in person',
       hint: 'Hand the phone to a supervisor now to seal the entry.',
+      icon: IconSign,
     },
     request: {
       key: 'request',
       label: 'Request remote signature',
       hint: 'Send a verifier link to a supervisor off-site.',
+      icon: IconExport,
     },
     draft: {
       key: 'draft',
       label: 'Save as draft',
       hint: 'Park the entry. Sign or send for signature later.',
+      icon: IconDraft,
     },
   };
   const ordered = orderActions(defaultTerminalAction).map((k) => ({
@@ -980,7 +1012,7 @@ function StepReview({
           {draft.site || 'Untitled site'}
         </Text>
         <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
-          {[draft.client, draft.workTask].filter(Boolean).join(' · ') || '—'}
+          {[draft.client, draft.workTask.join(', ')].filter(Boolean).join(' · ') || '—'}
         </Text>
         <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 14 }} />
         <View style={{ flexDirection: 'row', gap: 14 }}>
@@ -993,7 +1025,7 @@ function StepReview({
                 : `${draft.maxHeight} ${draft.heightUnit}`
             }
           />
-          <Stat label="Access" value={draft.accessMethod || '—'} />
+          <Stat label="Access" value={draft.accessMethod.join(', ') || '—'} />
         </View>
       </Card>
 
@@ -1003,6 +1035,7 @@ function StepReview({
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ selected: draft.selectedSupervisorId == null }}
               onPress={() => update({ selectedSupervisorId: null })}
               style={({ pressed }) => [
                 supervisorChipStyle(tokens, draft.selectedSupervisorId == null),
@@ -1024,6 +1057,7 @@ function StepReview({
                 <Pressable
                   key={s.id}
                   accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   onPress={() => update({ selectedSupervisorId: s.id })}
                   style={({ pressed }) => [
                     supervisorChipStyle(tokens, active),
@@ -1046,6 +1080,7 @@ function StepReview({
             key={choice.key}
             label={choice.label}
             hint={choice.hint}
+            icon={choice.icon}
             emphasis={choice.primary}
             disabled={busy != null && busy !== choice.key}
             loading={busy === choice.key}
@@ -1064,7 +1099,7 @@ function StepReview({
         }}
       >
         <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
-        <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+        <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
           Once an entry is signed, it can't be edited. Amendments are new entries that point back
           to the original. Pick "Save as draft" if you're not sure yet.
         </Text>
@@ -1089,6 +1124,7 @@ function supervisorChipStyle(tokens: ReturnType<typeof useTheme>['tokens'], acti
 function ChoiceRow({
   label,
   hint,
+  icon: Icon,
   emphasis,
   disabled,
   loading,
@@ -1096,6 +1132,7 @@ function ChoiceRow({
 }: {
   label: string;
   hint: string;
+  icon: React.ComponentType<IconProps>;
   emphasis?: boolean;
   disabled?: boolean;
   loading?: boolean;
@@ -1133,7 +1170,7 @@ function ChoiceRow({
           justifyContent: 'center',
         }}
       >
-        <IconSign
+        <Icon
           size={24}
           color={emphasis ? tokens.accentInk : tokens.text}
           fill={emphasis ? tokens.accentInk : tokens.accent}

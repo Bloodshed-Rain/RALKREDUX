@@ -13,7 +13,7 @@ import {
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { EntryKind, HeightUnit, LogbookEntry } from '@/src/domain/logbook/types';
-import { parseHazards } from '@/src/domain/logbook/types';
+import { parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import {
   WORK_TASK_PRESETS,
   ACCESS_METHOD_PRESETS,
@@ -27,6 +27,7 @@ import {
   Button,
   Card,
   ChipSelect,
+  type ChipOption,
   ClassificationChips,
   Field,
   IconBtn,
@@ -35,14 +36,21 @@ import {
   SectionH,
   TopBar,
 } from '@/src/ui/primitives/v2';
-import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
+import {
+  IconArrowLeft,
+  IconClimber,
+  IconInspect,
+  IconRescue,
+  IconTraining,
+  IconWarn,
+} from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
-const ENTRY_KIND_OPTIONS: Array<{ value: EntryKind; label: string }> = [
-  { value: 'work', label: 'Work' },
-  { value: 'training', label: 'Training' },
-  { value: 'assessment', label: 'Assessment' },
-  { value: 'rescue_drill', label: 'Rescue drill' },
+const ENTRY_KIND_OPTIONS: Array<ChipOption<EntryKind>> = [
+  { value: 'work', label: 'Work', icon: IconClimber },
+  { value: 'training', label: 'Training', icon: IconTraining },
+  { value: 'assessment', label: 'Assessment', icon: IconInspect },
+  { value: 'rescue_drill', label: 'Rescue drill', icon: IconRescue },
 ];
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -67,8 +75,8 @@ export default function AmendEntryScreen() {
   const [employer, setEmployer] = React.useState('');
   const [site, setSite] = React.useState('');
   const [client, setClient] = React.useState('');
-  const [workTask, setWorkTask] = React.useState('');
-  const [accessMethod, setAccessMethod] = React.useState('');
+  const [workTask, setWorkTask] = React.useState<string[]>([]);
+  const [accessMethod, setAccessMethod] = React.useState<string[]>([]);
   const [structureType, setStructureType] = React.useState('');
   const [maxHeight, setMaxHeight] = React.useState('');
   const [heightUnit, setHeightUnit] = React.useState<HeightUnit>('ft');
@@ -88,8 +96,20 @@ export default function AmendEntryScreen() {
     setEmployer(entry.employer);
     setSite(entry.site);
     setClient(entry.client);
-    setWorkTask(entry.work_task);
-    setAccessMethod(entry.access_method);
+    setWorkTask(
+      parseStringList(entry.work_task_list).length
+        ? parseStringList(entry.work_task_list)
+        : entry.work_task
+          ? [entry.work_task]
+          : [],
+    );
+    setAccessMethod(
+      parseStringList(entry.access_method_list).length
+        ? parseStringList(entry.access_method_list)
+        : entry.access_method
+          ? [entry.access_method]
+          : [],
+    );
     setStructureType(entry.structure_type);
     setMaxHeight(entry.max_height === null ? '' : String(entry.max_height));
     setHeightUnit(entry.height_unit);
@@ -106,8 +126,8 @@ export default function AmendEntryScreen() {
     employer: employer.trim().length === 0,
     site: site.trim().length === 0,
     client: client.trim().length === 0,
-    task: workTask.trim().length === 0,
-    access: accessMethod.trim().length === 0,
+    task: workTask.length === 0,
+    access: accessMethod.length === 0,
     structure: structureType.trim().length === 0,
     notes: description.trim().length === 0,
     hours: !Number.isFinite(parsedHours) || parsedHours <= 0,
@@ -127,8 +147,10 @@ export default function AmendEntryScreen() {
         client,
         description,
         work_hours: parsedHours,
-        work_task: workTask,
-        access_method: accessMethod,
+        work_task: workTask[0] ?? '',
+        access_method: accessMethod[0] ?? '',
+        work_task_list: workTask,
+        access_method_list: accessMethod,
         structure_type: structureType,
         max_height: parsedHeight,
         height_unit: heightUnit,
@@ -316,9 +338,9 @@ export default function AmendEntryScreen() {
         <View style={{ paddingHorizontal: 20, gap: 12 }}>
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>TASK</Text>
-            <ClassificationChips
+            <MultiClassificationChips
               label="Work task"
-              value={workTask}
+              values={workTask}
               onChange={setWorkTask}
               presets={WORK_TASK_PRESETS}
               recents={recentWorkTask.data ?? []}
@@ -326,9 +348,9 @@ export default function AmendEntryScreen() {
           </View>
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>ACCESS</Text>
-            <ClassificationChips
+            <MultiClassificationChips
               label="Access method"
-              value={accessMethod}
+              values={accessMethod}
               onChange={setAccessMethod}
               presets={ACCESS_METHOD_PRESETS}
               recents={recentAccess.data ?? []}
@@ -518,8 +540,8 @@ function computeAmendmentChanges(
     employer: string;
     site: string;
     client: string;
-    workTask: string;
-    accessMethod: string;
+    workTask: string[];
+    accessMethod: string[];
     structureType: string;
     maxHeight: string;
     heightUnit: HeightUnit;
@@ -536,8 +558,18 @@ function computeAmendmentChanges(
     ['employer', 'Employer', source.employer, current.employer],
     ['site', 'Site', source.site, current.site],
     ['client', 'Client', source.client, current.client],
-    ['workTask', 'Task', source.work_task, current.workTask],
-    ['accessMethod', 'Access', source.access_method, current.accessMethod],
+    [
+      'workTask',
+      'Task',
+      parseStringList(source.work_task_list).join(', ') || source.work_task,
+      current.workTask.join(', '),
+    ],
+    [
+      'accessMethod',
+      'Access',
+      parseStringList(source.access_method_list).join(', ') || source.access_method,
+      current.accessMethod.join(', '),
+    ],
     ['structureType', 'Structure', source.structure_type, current.structureType],
     ['description', 'Notes', source.description, current.description],
     ['rescueCover', 'Rescue', source.rescue_cover ?? '', current.rescueCover],

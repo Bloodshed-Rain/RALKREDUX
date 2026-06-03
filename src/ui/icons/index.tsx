@@ -1,13 +1,61 @@
-// Bespoke 38-icon duotone set ported from `design_handoff_ralkredux_v2/src/icons.jsx`.
-// Each icon: 24×24 viewBox, two layers — a low-opacity duotone fill layer and a
-// full-opacity ink shape layer. Colors default to the active theme's
-// `tokens.text` (ink) and `tokens.accent` (duotone fill), with both overridable
-// per-instance.
+// Icon facade for the app. Most public IconX components render the generated
+// currentColor SVGs in `src/ui/icons/custom`; the remaining fallbacks keep the
+// original 24x24 duotone shapes where the custom set has no exact equivalent.
 
 import React from 'react';
-import { Svg, G, Path, Rect, Circle } from 'react-native-svg';
+import { Svg, SvgXml, G, Path, Rect, Circle } from 'react-native-svg';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { scaledIcon } from '@/src/ui/scale';
 import type { GearCategory } from '@/src/domain/gear/types';
+
+import anchorXml from '@/src/ui/icons/custom/anchor';
+import ascenderXml from '@/src/ui/icons/custom/ascender';
+import bellXml from '@/src/ui/icons/custom/bell';
+import brokenChainXml from '@/src/ui/icons/custom/brokenChain';
+import cameraXml from '@/src/ui/icons/custom/camera';
+import carabinerXml from '@/src/ui/icons/custom/carabiner';
+import cloudXml from '@/src/ui/icons/custom/cloud';
+import cloudAltXml from '@/src/ui/icons/custom/cloudAlt';
+import cloudBackupXml from '@/src/ui/icons/custom/cloudBackup';
+import draftXml from '@/src/ui/icons/custom/draft';
+import editXml from '@/src/ui/icons/custom/edit';
+import harnessXml from '@/src/ui/icons/custom/harness';
+import helmetXml from '@/src/ui/icons/custom/helmet';
+import inboxXml from '@/src/ui/icons/custom/inbox';
+import inspectXml from '@/src/ui/icons/custom/inspect';
+import lanyardXml from '@/src/ui/icons/custom/lanyard';
+import lifeRingXml from '@/src/ui/icons/custom/lifeRing';
+import lockXml from '@/src/ui/icons/custom/lock';
+import moreXml from '@/src/ui/icons/custom/more';
+import paintRollerXml from '@/src/ui/icons/custom/paintRoller';
+import paintRollerAltXml from '@/src/ui/icons/custom/paintRollerAlt';
+import pendingXml from '@/src/ui/icons/custom/pending';
+import plusXml from '@/src/ui/icons/custom/plus';
+import ropeXml from '@/src/ui/icons/custom/rope';
+import pulleyXml from '@/src/ui/icons/custom/pulley';
+import pulleyHaulXml from '@/src/ui/icons/custom/pulleyHaul';
+import profileXml from '@/src/ui/icons/custom/profile';
+import recordsXml from '@/src/ui/icons/custom/records';
+import riggingPlateXml from '@/src/ui/icons/custom/riggingPlate';
+import searchXml from '@/src/ui/icons/custom/search';
+import settingsXml from '@/src/ui/icons/custom/settings';
+import shareXml from '@/src/ui/icons/custom/share';
+import signDocumentXml from '@/src/ui/icons/custom/signDocument';
+import signatureXml from '@/src/ui/icons/custom/signature';
+import slingXml from '@/src/ui/icons/custom/sling';
+import squeegeeXml from '@/src/ui/icons/custom/squeegee';
+import todayXml from '@/src/ui/icons/custom/today';
+import trainingXml from '@/src/ui/icons/custom/training';
+import trashXml from '@/src/ui/icons/custom/trash';
+import warnXml from '@/src/ui/icons/custom/warn';
+import weldingTorchXml from '@/src/ui/icons/custom/weldingTorch';
+import arrowLeftXml from '@/src/ui/icons/custom/arrowLeft';
+import boltXml from '@/src/ui/icons/custom/bolt';
+import checkXml from '@/src/ui/icons/custom/check';
+import closeXml from '@/src/ui/icons/custom/close';
+import heightXml from '@/src/ui/icons/custom/height';
+import stampXml from '@/src/ui/icons/custom/stamp';
+import syncXml from '@/src/ui/icons/custom/sync';
 
 export interface IconProps {
   size?: number;
@@ -25,8 +73,9 @@ function Icon({ size = 24, color, fill, fillOpacity = 0.28, duotone, shape }: Ic
   const { tokens } = useTheme();
   const ink = color ?? tokens.text;
   const tint = fill ?? tokens.accent;
+  const px = scaledIcon(size);
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={px} height={px} viewBox="0 0 24 24" fill="none">
       {duotone ? (
         <G fill={tint} opacity={fillOpacity}>
           {duotone}
@@ -37,147 +86,56 @@ function Icon({ size = 24, color, fill, fillOpacity = 0.28, duotone, shape }: Ic
   );
 }
 
+// Renders a generated currentColor SVG from `src/ui/icons/custom/`.
+function CustomIcon({ xml, size = 24, color, fill }: IconProps & { xml: string }) {
+  const { tokens } = useTheme();
+  const ink = color ?? fill ?? tokens.text;
+  const px = scaledIcon(size);
+  return <SvgXml xml={xml} width={px} height={px} color={ink} />;
+}
+
 // ─── Navigation ────────────────────────────────────────────────────────────
 
 export function IconBrand(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={
-        <Path d="M12 3a5 5 0 0 1 5 5v8a5 5 0 0 1-10 0V8a5 5 0 0 1 5-5Zm0 2.4A2.6 2.6 0 0 0 9.4 8v8a2.6 2.6 0 0 0 5.2 0V8A2.6 2.6 0 0 0 12 5.4Z" />
-      }
-      shape={
-        <>
-          <Path d="M12 3a5 5 0 0 1 5 5v.8a.9.9 0 1 1-1.8 0V8a3.2 3.2 0 0 0-6.4 0v8a3.2 3.2 0 0 0 6.4 0v-.8a.9.9 0 1 1 1.8 0v.8a5 5 0 0 1-10 0V8a5 5 0 0 1 5-5Z" />
-          <Rect x={11.1} y={10} width={1.8} height={4} rx={0.9} />
-        </>
-      }
-    />
-  );
+  // App mark: the rope-access climber silhouette (same custom art as the Profile
+  // icon). Replaces the legacy duotone carabiner-style mark so the brand renders
+  // single-tone and theme-aware like the rest of the icon set. Every call site
+  // passes its own `color`, which CustomIcon honors.
+  return <CustomIcon {...p} xml={profileXml} />;
 }
 
 export function IconToday(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={
-        <Path d="M3 16h18a1 1 0 0 1 0 2H3a1 1 0 0 1 0-2Zm9-11a5 5 0 0 1 5 5v.5H7V10a5 5 0 0 1 5-5Z" />
-      }
-      shape={
-        <Path d="M3 19.4a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm2.6-3.4a6.4 6.4 0 1 1 12.8 0 .9.9 0 0 1-.9.9H6.5a.9.9 0 0 1-.9-.9Zm6.4-5a.9.9 0 0 1-.9-.9V8.4a.9.9 0 1 1 1.8 0v1.7a.9.9 0 0 1-.9.9ZM6 14a.9.9 0 0 1-.9-.9.9.9 0 0 1 .26-.64l1.2-1.2a.9.9 0 0 1 1.28 1.28l-1.2 1.2a.9.9 0 0 1-.64.26Zm12 0a.9.9 0 0 1-.64-.26l-1.2-1.2a.9.9 0 0 1 1.28-1.28l1.2 1.2A.9.9 0 0 1 18 14Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={todayXml} />;
 }
 
 export function IconRecords(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Rect x={6} y={3} width={13} height={16} rx={2} />}
-      shape={
-        <>
-          <Path d="M8 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8.4a2 2 0 0 0-.6-1.4l-3.4-3.4A2 2 0 0 0 13.6 3H8Zm.4 1.8h5v3.4a1.6 1.6 0 0 0 1.6 1.6h2.6V19a.4.4 0 0 1-.4.4H8.4a.4.4 0 0 1-.4-.4V5.2a.4.4 0 0 1 .4-.4Zm6.6.4 2.8 2.8h-2.4a.4.4 0 0 1-.4-.4V5.2Z" />
-          <Rect x={9.4} y={12} width={6} height={1.2} rx={0.6} />
-          <Rect x={9.4} y={14.6} width={4.4} height={1.2} rx={0.6} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={recordsXml} />;
 }
 
 export function IconNew(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Circle cx={12} cy={12} r={9} />}
-      shape={
-        <>
-          <Path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 1.8a7.2 7.2 0 1 1 0 14.4 7.2 7.2 0 0 1 0-14.4Z" />
-          <Rect x={11.1} y={7.8} width={1.8} height={8.4} rx={0.9} />
-          <Rect x={7.8} y={11.1} width={8.4} height={1.8} rx={0.9} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={plusXml} />;
 }
 
 export function IconGear(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M9 4h2a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Z" />}
-      shape={
-        <>
-          <Path d="M10 3a5 5 0 0 0-5 5v8a5 5 0 0 0 10 0v-.4a.9.9 0 1 0-1.8 0v.4a3.2 3.2 0 0 1-6.4 0V8A3.2 3.2 0 0 1 10 4.8h.8a.9.9 0 1 0 0-1.8H10Z" />
-          <Path d="M15.3 4.5a.9.9 0 0 0-.6 1.6l1.4 1.2H14a.9.9 0 1 0 0 1.8h2.1l-1.4 1.2a.9.9 0 1 0 1.16 1.4l3-2.5a.9.9 0 0 0 0-1.4l-3-2.5a.9.9 0 0 0-.56-.2Z" />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={carabinerXml} />;
 }
 
 export function IconProfile(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={
-        <>
-          <Circle cx={12} cy={8.5} r={4} />
-          <Path d="M4 20a8 8 0 0 1 16 0v.2a.8.8 0 0 1-.8.8H4.8a.8.8 0 0 1-.8-.8V20Z" />
-        </>
-      }
-      shape={
-        <>
-          <Path d="M12 3.4a4.6 4.6 0 1 0 0 9.2 4.6 4.6 0 0 0 0-9.2Zm0 1.8a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6Z" />
-          <Path d="M12 13.6c-4.6 0-8.4 3.5-8.4 7.8a.9.9 0 0 0 .9.9h14.9a.9.9 0 0 0 .9-.9c0-4.3-3.7-7.8-8.4-7.8Zm0 1.8c3.4 0 6.2 2.4 6.6 5.4H5.4c.4-3 3.2-5.4 6.6-5.4Z" />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={profileXml} />;
 }
 
 // ─── Actions ───────────────────────────────────────────────────────────────
 
 export function IconSync(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Circle cx={12} cy={12} r={8} />}
-      shape={
-        <Path d="M12 4a8 8 0 0 1 7.1 4.4.9.9 0 1 1-1.6.8A6.2 6.2 0 0 0 12 5.8a6.2 6.2 0 0 0-5.4 3.1H8.2a.9.9 0 1 1 0 1.8H4.8a.9.9 0 0 1-.9-.9V6.4a.9.9 0 1 1 1.8 0v1.4A8 8 0 0 1 12 4Zm7.2 7.9a.9.9 0 0 1 .9.9v3.4a.9.9 0 0 1-.9.9h-3.4a.9.9 0 0 1 0-1.8h1.6A6.2 6.2 0 0 1 12 18.2a6.2 6.2 0 0 1-5.5-3.2.9.9 0 0 1 1.6-.84A4.4 4.4 0 0 0 12 16.4a4.4 4.4 0 0 0 3.9-2.4h-.7a.9.9 0 1 1 0-1.2h4Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={syncXml} />;
 }
 
 export function IconSign(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M14 5l5 5L9 20l-6 1 1-6 10-10Z" />}
-      shape={
-        <Path d="M15.7 3.6a2 2 0 0 1 2.8 0l1.9 1.9a2 2 0 0 1 0 2.8L9.3 19.4a1 1 0 0 1-.5.27l-5.5 1.1a1 1 0 0 1-1.18-1.18l1.1-5.5A1 1 0 0 1 3.5 13.6L14.6 2.5l1.1 1.1Zm-.5 2.5L4.7 16.6l-.66 3.3 3.3-.66 10.5-10.5-2.64-2.64Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={signDocumentXml} />;
 }
 
 export function IconStamp(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={
-        <>
-          <Rect x={3} y={17} width={18} height={4} rx={1} />
-          <Circle cx={12} cy={9} r={5} />
-        </>
-      }
-      shape={
-        <Path d="M12 3a6 6 0 0 0-3.4 10.95l-.6 1.05H4.5A1.5 1.5 0 0 0 3 16.5v2A1.5 1.5 0 0 0 4.5 20h15a1.5 1.5 0 0 0 1.5-1.5v-2a1.5 1.5 0 0 0-1.5-1.5h-3.5l-.6-1.05A6 6 0 0 0 12 3Zm0 1.8a4.2 4.2 0 1 1 0 8.4 4.2 4.2 0 0 1 0-8.4Zm-3.4 11h6.8l.6 1H7.96Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={stampXml} />;
 }
 
 export function IconChain(p: IconProps) {
@@ -195,63 +153,23 @@ export function IconChain(p: IconProps) {
 }
 
 export function IconExport(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M4 14h16v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5Z" />}
-      shape={
-        <Path d="M12 3a.9.9 0 0 1 .9.9v8.13l2.16-2.16a.9.9 0 1 1 1.28 1.28l-3.7 3.7a.9.9 0 0 1-1.28 0l-3.7-3.7a.9.9 0 1 1 1.28-1.28L11.1 12V3.9A.9.9 0 0 1 12 3Zm-8 11.6a.9.9 0 0 1 .9.9v3.1a.4.4 0 0 0 .4.4h13.4a.4.4 0 0 0 .4-.4v-3.1a.9.9 0 1 1 1.8 0v3.1A2.2 2.2 0 0 1 18.7 21H5.3A2.2 2.2 0 0 1 3.1 18.6v-3.1A.9.9 0 0 1 4 14.6Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={shareXml} />;
 }
 
 export function IconBolt(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />}
-      shape={
-        <Path d="M13.7 1.6a.9.9 0 0 0-.96.34l-9 12a.9.9 0 0 0 .72 1.44h4.96l-.86 6.88a.9.9 0 0 0 1.62.62l9-12a.9.9 0 0 0-.72-1.44h-4.96l.86-6.88a.9.9 0 0 0-.66-.96Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={boltXml} />;
 }
 
 export function IconPlus(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      shape={
-        <>
-          <Rect x={11.1} y={4} width={1.8} height={16} rx={0.9} />
-          <Rect x={4} y={11.1} width={16} height={1.8} rx={0.9} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={plusXml} />;
 }
 
 export function IconCheck(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      shape={
-        <Path d="M20.7 6.3a.9.9 0 0 1 0 1.28l-11 11a.9.9 0 0 1-1.28 0l-5-5a.9.9 0 1 1 1.28-1.28l4.36 4.36L19.42 6.3a.9.9 0 0 1 1.28 0Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={checkXml} />;
 }
 
 export function IconClose(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      shape={
-        <Path d="M5.7 5.7a.9.9 0 0 1 1.28 0L12 10.72l5.02-5.02a.9.9 0 1 1 1.28 1.28L13.28 12l5.02 5.02a.9.9 0 1 1-1.28 1.28L12 13.28l-5.02 5.02a.9.9 0 1 1-1.28-1.28L10.72 12 5.7 6.98a.9.9 0 0 1 0-1.28Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={closeXml} />;
 }
 
 export function IconChevron(p: IconProps) {
@@ -266,68 +184,23 @@ export function IconChevron(p: IconProps) {
 }
 
 export function IconArrowLeft(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      shape={
-        <Path d="M14.7 4.94a.9.9 0 0 1 0 1.28L9.02 11.9l5.68 5.68a.9.9 0 1 1-1.28 1.28l-6.32-6.32a.9.9 0 0 1 0-1.28l6.32-6.32a.9.9 0 0 1 1.28 0Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={arrowLeftXml} />;
 }
 
 export function IconMore(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      shape={
-        <>
-          <Circle cx={6} cy={12} r={1.7} />
-          <Circle cx={12} cy={12} r={1.7} />
-          <Circle cx={18} cy={12} r={1.7} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={moreXml} />;
 }
 
 export function IconSearch(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Circle cx={11} cy={11} r={6} />}
-      shape={
-        <Path d="M11 4.6a6.4 6.4 0 1 0 4.05 11.36l3.99 4a.9.9 0 1 0 1.28-1.28l-4-4A6.4 6.4 0 0 0 11 4.6Zm0 1.8a4.6 4.6 0 1 1 0 9.2 4.6 4.6 0 0 1 0-9.2Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={searchXml} />;
 }
 
 export function IconFilter(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M4 5h16l-6 8v6l-4-2v-4L4 5Z" />}
-      shape={
-        <Path d="M3.5 4.1a.9.9 0 0 0-.74 1.41l5.84 7.78v5.6a.9.9 0 0 0 1.3.8l4-2a.9.9 0 0 0 .5-.8v-3.6L20.24 5.51A.9.9 0 0 0 19.5 4.1H3.5Zm1.78 1.8h13.44l-4.85 6.47a.9.9 0 0 0-.18.54v3.36l-2.2 1.1v-4.46a.9.9 0 0 0-.18-.54L5.28 5.9Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={settingsXml} />;
 }
 
 export function IconCamera(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Rect x={3} y={7} width={18} height={13} rx={2} />}
-      shape={
-        <>
-          <Path d="M9.3 4a1.5 1.5 0 0 0-1.3.74L7.3 6H4.5A2.5 2.5 0 0 0 2 8.5v9A2.5 2.5 0 0 0 4.5 20h15a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 19.5 6h-2.8l-.7-1.26A1.5 1.5 0 0 0 14.7 4H9.3Zm.14 1.8h5.12l.7 1.26a1.5 1.5 0 0 0 1.3.74h3.04a.7.7 0 0 1 .7.7v9a.7.7 0 0 1-.7.7h-15a.7.7 0 0 1-.7-.7v-9a.7.7 0 0 1 .7-.7H7.54a1.5 1.5 0 0 0 1.3-.74L9.44 5.8Z" />
-          <Circle cx={12} cy={13} r={3.4} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={cameraXml} />;
 }
 
 // ─── Status ────────────────────────────────────────────────────────────────
@@ -345,175 +218,75 @@ export function IconVerified(p: IconProps) {
 }
 
 export function IconDraft(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Rect x={4} y={14} width={16} height={6} rx={1} />}
-      shape={
-        <Path d="M5 3a.9.9 0 0 0-.9.9v9.4a.9.9 0 1 0 1.8 0V5.7l4 4.8a.9.9 0 0 0 1.4 0l4-4.8v3.6a.9.9 0 1 0 1.8 0V3.9a.9.9 0 0 0-1.6-.6L11.4 8.6 6.6 3.3A.9.9 0 0 0 5 3Zm-1 13a.9.9 0 0 0-.9.9V20a.9.9 0 0 0 .9.9h16a.9.9 0 0 0 .9-.9v-3.1a.9.9 0 0 0-.9-.9H4Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={draftXml} />;
 }
 
 export function IconPending(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Circle cx={12} cy={12} r={9} />}
-      shape={
-        <Path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 1.8a7.2 7.2 0 1 1 0 14.4 7.2 7.2 0 0 1 0-14.4Zm-.9 2.6a.9.9 0 0 1 1.8 0v4.18l2.8 1.62a.9.9 0 1 1-.9 1.56l-3.24-1.88a.9.9 0 0 1-.46-.78V7.4Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={pendingXml} />;
 }
 
 export function IconVoid(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Circle cx={12} cy={12} r={9} />}
-      shape={
-        <Path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 1.8a7.2 7.2 0 1 1 0 14.4 7.2 7.2 0 0 1 0-14.4ZM8.04 8.04a.9.9 0 0 1 1.28 0L12 10.72l2.68-2.68a.9.9 0 1 1 1.28 1.28L13.28 12l2.68 2.68a.9.9 0 1 1-1.28 1.28L12 13.28 9.32 15.96a.9.9 0 1 1-1.28-1.28L10.72 12 8.04 9.32a.9.9 0 0 1 0-1.28Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={brokenChainXml} />;
 }
 
 export function IconWarn(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M12 3 22 20H2L12 3Z" />}
-      shape={
-        <>
-          <Path d="M12 2.1a.9.9 0 0 0-.78.45l-10 17A.9.9 0 0 0 2 21h20a.9.9 0 0 0 .78-1.35l-10-17A.9.9 0 0 0 12 2.1Zm0 2.69 8.43 14.41H3.57L12 4.79Z" />
-          <Rect x={11.1} y={9} width={1.8} height={5.6} rx={0.9} />
-          <Circle cx={12} cy={16.8} r={1} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={warnXml} />;
 }
 
 export function IconLock(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Rect x={4} y={10} width={16} height={11} rx={2} />}
-      shape={
-        <>
-          <Path d="M12 2.5A4.5 4.5 0 0 0 7.5 7v3h-.6A2.4 2.4 0 0 0 4.5 12.4v6.7A2.4 2.4 0 0 0 6.9 21.5h10.2a2.4 2.4 0 0 0 2.4-2.4v-6.7a2.4 2.4 0 0 0-2.4-2.4h-.6V7A4.5 4.5 0 0 0 12 2.5Zm0 1.8A2.7 2.7 0 0 1 14.7 7v3H9.3V7A2.7 2.7 0 0 1 12 4.3Z" />
-          <Circle cx={12} cy={15.5} r={1.4} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={lockXml} />;
 }
 
 export function IconBell(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M6 17a13 13 0 0 0 12 0L17 14V9a5 5 0 0 0-10 0v5l-1 3Z" />}
-      shape={
-        <Path d="M12 2.5a6.4 6.4 0 0 0-6.4 6.4v3.8l-1.42 2.84A.9.9 0 0 0 5 17h3.5a3.5 3.5 0 0 0 7 0H19a.9.9 0 0 0 .82-1.46L18.4 12.7V8.9A6.4 6.4 0 0 0 12 2.5Zm0 1.8a4.6 4.6 0 0 1 4.6 4.6v3.96a.9.9 0 0 0 .1.4l.7 1.34H6.6l.7-1.34a.9.9 0 0 0 .1-.4V8.9A4.6 4.6 0 0 1 12 4.3Zm-1.6 12.7h3.2a1.7 1.7 0 0 1-3.2 0Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={bellXml} />;
 }
 
 // ─── Gear ──────────────────────────────────────────────────────────────────
 
 export function IconHarness(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M8 5l4 4 4-4v3l-2 3v6l-2 1-2-1v-6l-2-3V5Z" />}
-      shape={
-        <Path d="M6.6 3.6a.9.9 0 0 0-.9.9v3a.9.9 0 0 0 .15.5L8.1 11.2v6.3a.9.9 0 0 0 .47.79l3 1.6a.9.9 0 0 0 .86 0l3-1.6a.9.9 0 0 0 .47-.79v-6.3l2.25-3.2a.9.9 0 0 0 .15-.5v-3a.9.9 0 0 0-1.54-.64L12 8.06 7.24 3.36a.9.9 0 0 0-.64-.26Zm.9 2.2 3.66 3.6L7.5 7.05V5.8Zm9 0v1.25l-3.66 2.35L16.5 5.8ZM10 11.6h4v5.36l-2 1.06-2-1.06V11.6Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={harnessXml} />;
 }
 
 export function IconHelmet(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M4 16a8 8 0 0 1 16 0v1H4v-1Z" />}
-      shape={
-        <>
-          <Path d="M12 4.5a8.5 8.5 0 0 0-8.5 8.5v3a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-3A8.5 8.5 0 0 0 12 4.5Zm0 1.8a6.7 6.7 0 0 1 6.7 6.7v2.7H5.3v-2.7A6.7 6.7 0 0 1 12 6.3Zm-.9 0v2.4a.9.9 0 1 0 1.8 0V6.3a.9.9 0 1 0-1.8 0Z" />
-          <Rect x={3} y={17.6} width={18} height={1.8} rx={0.9} />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={helmetXml} />;
 }
 
 export function IconRope(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Path d="M6 3c2 2 2 4 0 6s-2 4 0 6 2 4 0 6" />}
-      shape={
-        <>
-          <Path d="M6 2.6a.9.9 0 0 0-.64.26.9.9 0 0 0 0 1.28c.74.74 1.06 1.32 1.06 1.86 0 .54-.32 1.12-1.06 1.86s-1.36 1.5-1.36 2.94 1 2.2 1.36 2.94 1.06 1.32 1.06 1.86c0 .54-.32 1.12-1.06 1.86s-1.36 1.5-1.36 2.94c0 .54.4 1.04 1.06 1.78a.9.9 0 1 0 1.28-1.28c-.74-.74-1.06-1.32-1.06-1.86 0-.54.32-1.12 1.06-1.86s1.36-1.5 1.36-2.94c0-1.44-.62-2.2-1.36-2.94s-1.06-1.32-1.06-1.86c0-.54.32-1.12 1.06-1.86s1.36-1.5 1.36-2.94c0-1.44-.62-2.2-1.36-2.94A.9.9 0 0 0 6 2.6Z" />
-          <Path d="M14 2.6a.9.9 0 0 0-.64 1.54c.74.74 1.06 1.32 1.06 1.86 0 .54-.32 1.12-1.06 1.86s-1.36 1.5-1.36 2.94c0 1.44.62 2.2 1.36 2.94s1.06 1.32 1.06 1.86c0 .54-.32 1.12-1.06 1.86s-1.36 1.5-1.36 2.94c0 .54.4 1.04 1.06 1.78a.9.9 0 0 0 1.28-1.28c-.74-.74-1.06-1.32-1.06-1.86 0-.54.32-1.12 1.06-1.86s1.36-1.5 1.36-2.94-.62-2.2-1.36-2.94-1.06-1.32-1.06-1.86c0-.54.32-1.12 1.06-1.86s1.36-1.5 1.36-2.94c0-1.44-.62-2.2-1.36-2.94A.9.9 0 0 0 14 2.6Z" />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={ropeXml} />;
 }
 
 export function IconCarabiner(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Rect x={6} y={3} width={12} height={18} rx={6} />}
-      shape={
-        <>
-          <Path d="M12 2.6A6.4 6.4 0 0 0 5.6 9v6A6.4 6.4 0 0 0 12 21.4 6.4 6.4 0 0 0 18.4 15V9A6.4 6.4 0 0 0 12 2.6Zm0 1.8A4.6 4.6 0 0 1 16.6 9v6a4.6 4.6 0 1 1-9.2 0V9A4.6 4.6 0 0 1 12 4.4Z" />
-          <Path d="M11.1 8a.9.9 0 0 1 1.8 0v.8h1.4a.9.9 0 1 1 0 1.8h-1.4v4.6a.9.9 0 1 1-1.8 0V10.6H9.7a.9.9 0 1 1 0-1.8h1.4V8Z" />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={carabinerXml} />;
 }
 
 export function IconDescender(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={
-        <>
-          <Circle cx={9} cy={12} r={5} />
-          <Circle cx={16} cy={12} r={3} />
-        </>
-      }
-      shape={
-        <>
-          <Path d="M9 6.6a5.4 5.4 0 1 0 0 10.8 5.4 5.4 0 0 0 0-10.8Zm0 1.8a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2Z" />
-          <Path d="M16 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm0 1.8a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2Z" />
-        </>
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={riggingPlateXml} />;
+}
+
+export function IconAscender(p: IconProps) {
+  return <CustomIcon {...p} xml={ascenderXml} />;
+}
+
+export function IconLanyard(p: IconProps) {
+  return <CustomIcon {...p} xml={lanyardXml} />;
+}
+
+export function IconSling(p: IconProps) {
+  return <CustomIcon {...p} xml={slingXml} />;
+}
+
+export function IconPulley(p: IconProps) {
+  return <CustomIcon {...p} xml={pulleyXml} />;
+}
+
+export function IconPulleyHaul(p: IconProps) {
+  return <CustomIcon {...p} xml={pulleyHaulXml} />;
 }
 
 // ─── Form ──────────────────────────────────────────────────────────────────
 
 export function IconClock(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Circle cx={12} cy={12} r={9} />}
-      shape={
-        <Path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 1.8a7.2 7.2 0 1 1 0 14.4 7.2 7.2 0 0 1 0-14.4Zm-.9 2.6a.9.9 0 0 1 1.8 0v4.18l2.8 1.62a.9.9 0 1 1-.9 1.56l-3.24-1.88a.9.9 0 0 1-.46-.78V7.4Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={pendingXml} />;
 }
 
 export function IconCalendar(p: IconProps) {
@@ -529,15 +302,7 @@ export function IconCalendar(p: IconProps) {
 }
 
 export function IconHeight(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={<Rect x={9} y={3} width={6} height={18} rx={1} />}
-      shape={
-        <Path d="M8 2.6a.9.9 0 0 0-.9.9v17a.9.9 0 0 0 1.8 0V20.4h6.2v.1a.9.9 0 1 0 1.8 0v-17a.9.9 0 0 0-1.8 0V3.6H8.9v-.1a.9.9 0 0 0-.9-.9Zm.9 2.8h6.2v1.2H12a.9.9 0 1 0 0 1.8h3.1v1.2H12a.9.9 0 1 0 0 1.8h3.1v1.2H12a.9.9 0 1 0 0 1.8h3.1v1.2H12a.9.9 0 1 0 0 1.8h3.1v1.2H8.9V5.4Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={heightXml} />;
 }
 
 export function IconLocation(p: IconProps) {
@@ -582,35 +347,104 @@ export function IconOffline(p: IconProps) {
 // ─── Misc ──────────────────────────────────────────────────────────────────
 
 export function IconSettings(p: IconProps) {
-  return (
-    <Icon
-      {...p}
-      duotone={
-        <Path d="M12 4l2 1h2l1 2 1.7 1.3-.5 1.7L19 12l-.3 2-1.7 1.3L16 17h-2l-2 1-2-1H8l-1-1.7L5.3 14 4 12l1.3-2L5 8.3 6.7 7 8 5h2l2-1Z" />
-      }
-      shape={
-        <Path d="M12 2.1a1 1 0 0 0-.45.1l-1.7.85h-1.4a1 1 0 0 0-.84.45l-.85 1.27-1.27.85a1 1 0 0 0-.45.84v1.4l-.85 1.7a1 1 0 0 0 0 .9l.85 1.7v1.4a1 1 0 0 0 .45.84l1.27.85.85 1.27a1 1 0 0 0 .84.45h1.4l1.7.85a1 1 0 0 0 .9 0l1.7-.85h1.4a1 1 0 0 0 .84-.45l.85-1.27 1.27-.85a1 1 0 0 0 .45-.84v-1.4l.85-1.7a1 1 0 0 0 0-.9l-.85-1.7v-1.4a1 1 0 0 0-.45-.84l-1.27-.85-.85-1.27a1 1 0 0 0-.84-.45h-1.4l-1.7-.85a1 1 0 0 0-.45-.1Zm0 6.7a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Z" />
-      }
-    />
-  );
+  return <CustomIcon {...p} xml={settingsXml} />;
+}
+
+export function IconAnchor(p: IconProps) {
+  return <CustomIcon {...p} xml={anchorXml} />;
+}
+
+export function IconBrokenChain(p: IconProps) {
+  return <CustomIcon {...p} xml={brokenChainXml} />;
+}
+
+export function IconCloud(p: IconProps) {
+  return <CustomIcon {...p} xml={cloudXml} />;
+}
+
+export function IconCloudAlt(p: IconProps) {
+  return <CustomIcon {...p} xml={cloudAltXml} />;
+}
+
+export function IconCloudBackup(p: IconProps) {
+  return <CustomIcon {...p} xml={cloudBackupXml} />;
+}
+
+export function IconClimber(p: IconProps) {
+  return <CustomIcon {...p} xml={profileXml} />;
+}
+
+export function IconEdit(p: IconProps) {
+  return <CustomIcon {...p} xml={editXml} />;
+}
+
+export function IconInbox(p: IconProps) {
+  return <CustomIcon {...p} xml={inboxXml} />;
+}
+
+export function IconInspect(p: IconProps) {
+  return <CustomIcon {...p} xml={inspectXml} />;
+}
+
+export function IconLifeRing(p: IconProps) {
+  return <CustomIcon {...p} xml={lifeRingXml} />;
+}
+
+export function IconPaintRoller(p: IconProps) {
+  return <CustomIcon {...p} xml={paintRollerXml} />;
+}
+
+export function IconPaintRollerAlt(p: IconProps) {
+  return <CustomIcon {...p} xml={paintRollerAltXml} />;
+}
+
+export function IconRescue(p: IconProps) {
+  return <CustomIcon {...p} xml={lifeRingXml} />;
+}
+
+export function IconRiggingPlate(p: IconProps) {
+  return <CustomIcon {...p} xml={riggingPlateXml} />;
+}
+
+export function IconSignDocument(p: IconProps) {
+  return <CustomIcon {...p} xml={signDocumentXml} />;
+}
+
+export function IconSignature(p: IconProps) {
+  return <CustomIcon {...p} xml={signatureXml} />;
+}
+
+export function IconSqueegee(p: IconProps) {
+  return <CustomIcon {...p} xml={squeegeeXml} />;
+}
+
+export function IconTraining(p: IconProps) {
+  return <CustomIcon {...p} xml={trainingXml} />;
+}
+
+export function IconTrash(p: IconProps) {
+  return <CustomIcon {...p} xml={trashXml} />;
+}
+
+export function IconWeldingTorch(p: IconProps) {
+  return <CustomIcon {...p} xml={weldingTorchXml} />;
 }
 
 // ─── Gear category mapping ────────────────────────────────────────────────
 
 export type IconComponent = React.ComponentType<IconProps>;
 
-// Maps every `GearCategory` to its icon. Categories without a bespoke icon
-// fall back per the handoff (ascender→carabiner, lanyard/sling→rope,
-// pulley→descender, other→carabiner).
+// Maps every `GearCategory` to its custom icon. `other` intentionally keeps the
+// carabiner as the most neutral rope-access fallback.
 export const GEAR_ICON: Record<GearCategory, IconComponent> = {
   harness: IconHarness,
   helmet: IconHelmet,
   rope: IconRope,
   carabiner: IconCarabiner,
   descender: IconDescender,
-  ascender: IconCarabiner,
-  lanyard: IconRope,
-  sling: IconRope,
-  pulley: IconDescender,
+  ascender: IconAscender,
+  lanyard: IconLanyard,
+  sling: IconSling,
+  pulley: IconPulley,
   other: IconCarabiner,
 };

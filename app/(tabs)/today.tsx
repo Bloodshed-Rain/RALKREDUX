@@ -9,12 +9,14 @@ import {
   useEntries,
 } from '@/src/domain/logbook/use-logbook';
 import { useProfile } from '@/src/domain/profile/use-profile';
+import { buildOpenWork, type OpenWorkItem } from '@/src/domain/logbook/today-derivations';
 import type { LogbookEntry } from '@/src/domain/logbook/types';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
   AnimatedNumber,
   Card,
+  EmptyState,
   EntryRow,
   HashGlyph,
   IconBtn,
@@ -34,6 +36,8 @@ import {
   IconBolt,
   IconBrand,
   IconChain,
+  IconCheck,
+  IconChevron,
   IconDraft,
   IconGear,
   IconSign,
@@ -172,6 +176,7 @@ export default function TodayScreen() {
   const awaitingSignature = summaryData?.pendingSignatureRequests ?? 0;
   const overdueGear = summaryData?.overdueGearItems ?? 0;
   const dueSoonGear = summaryData?.dueSoonGearItems ?? 0;
+  const openWork = buildOpenWork({ openDrafts, awaitingSignature, overdueGear, dueSoonGear });
 
   const chainShort = chainHead.data
     ? `${chainHead.data.slice(0, 8)}…${chainHead.data.slice(-4)}`
@@ -255,13 +260,26 @@ export default function TodayScreen() {
         </View>
 
         <SectionH kicker="ON YOUR PLATE" title="Open work" />
-        <View style={{ paddingHorizontal: 20 }}>
-          <ActionTileGrid
-            openDrafts={openDrafts}
-            awaitingSignature={awaitingSignature}
-            overdueGear={overdueGear}
-            dueSoonGear={dueSoonGear}
-          />
+        <View style={{ paddingHorizontal: 20, gap: 8 }}>
+          {openWork.length === 0 ? (
+            <EmptyState
+              icon={IconCheck}
+              title="You're all caught up"
+              sub="No drafts, signatures, or gear need attention right now."
+              style={{ paddingVertical: 24 }}
+            />
+          ) : (
+            openWork.map((item) => (
+              <OpenWorkRow
+                key={item.id}
+                item={item}
+                onPress={() => {
+                  haptics.selection();
+                  router.push(item.route as never);
+                }}
+              />
+            ))
+          )}
         </View>
 
         <SectionH
@@ -622,125 +640,45 @@ function ChainHeadCard({
 
 // ──────────────────────────────────────────────────────────────────────────
 
-interface ActionTileSpec {
-  count: number;
-  label: string;
-  hint: string;
-  icon: React.ComponentType<IconProps>;
-  tone: 'ok' | 'warn' | 'danger';
-  route: string;
-}
+const OPEN_WORK_ICON: Record<OpenWorkItem['id'], React.ComponentType<IconProps>> = {
+  'gear-overdue': IconWarn,
+  'awaiting-signature': IconSign,
+  'open-drafts': IconDraft,
+  'gear-due-soon': IconGear,
+};
 
-function ActionTileGrid({
-  openDrafts,
-  awaitingSignature,
-  overdueGear,
-  dueSoonGear,
-}: {
-  openDrafts: number;
-  awaitingSignature: number;
-  overdueGear: number;
-  dueSoonGear: number;
-}) {
-  const tiles: ActionTileSpec[] = [
-    {
-      count: openDrafts,
-      label: 'Open drafts',
-      hint: openDrafts === 1 ? '1 to finish' : `${openDrafts} to finish`,
-      icon: IconDraft,
-      tone: 'warn',
-      route: '/records?filter=drafts',
-    },
-    {
-      count: awaitingSignature,
-      label: 'Awaiting signature',
-      hint: awaitingSignature === 1 ? '1 pending' : `${awaitingSignature} pending`,
-      icon: IconSign,
-      tone: 'ok',
-      route: '/records?filter=pending',
-    },
-    {
-      count: overdueGear,
-      label: 'Gear overdue',
-      hint: overdueGear === 1 ? '1 past due' : `${overdueGear} past due`,
-      icon: IconWarn,
-      tone: 'danger',
-      route: '/gear',
-    },
-    {
-      count: dueSoonGear,
-      label: 'Gear due soon',
-      hint: dueSoonGear === 1 ? '1 within 14d' : `${dueSoonGear} within 14d`,
-      icon: IconGear,
-      tone: 'warn',
-      route: '/gear',
-    },
-  ];
-
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-      {tiles.map((t) => (
-        <ActionTile key={t.label} spec={t} />
-      ))}
-    </View>
-  );
-}
-
-function ActionTile({ spec }: { spec: ActionTileSpec }) {
+function OpenWorkRow({ item, onPress }: { item: OpenWorkItem; onPress: () => void }) {
   const { tokens } = useTheme();
-  const toneMap = {
-    ok: { bg: tokens.okSoft, fg: tokens.ok },
-    warn: { bg: tokens.warnSoft, fg: tokens.warn },
-    danger: { bg: tokens.dangerSoft, fg: tokens.danger },
-  };
-  const palette = toneMap[spec.tone];
-  const empty = spec.count === 0;
-
-  const tileStyle: ViewStyle = {
-    width: '47.5%',
-    flexGrow: 1,
-    backgroundColor: tokens.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: tokens.lineSoft,
-    padding: 14,
-    gap: 8,
-  };
-
-  const countStyle: TextStyle = {
-    fontFamily: 'Manrope_800ExtraBold',
-    fontWeight: '800',
-    fontSize: 28,
-    lineHeight: 32,
-    letterSpacing: -0.84,
-    color: empty ? tokens.textFaint : tokens.text,
-  };
+  const Icon = OPEN_WORK_ICON[item.id];
+  const fg = item.tone === 'danger' ? tokens.danger : tokens.warn;
+  const bg = item.tone === 'danger' ? tokens.dangerSoft : tokens.warnSoft;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={spec.label}
-      onPress={() => router.push(spec.route as never)}
-      style={({ pressed }) => [tileStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
-    >
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          backgroundColor: empty ? tokens.surface2 : palette.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <spec.icon size={21} color={empty ? tokens.textFaint : palette.fg} fill={palette.fg} />
+    <Card padding={14} interactive onPress={onPress}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            backgroundColor: bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon size={22} color={fg} fill={fg} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+            {item.label}
+          </Text>
+          <Text style={{ ...type.cardSub, color: tokens.textDim }} numberOfLines={1}>
+            {item.hint}
+          </Text>
+        </View>
+        <IconChevron size={20} color={tokens.textFaint} />
       </View>
-      <Text style={countStyle}>{spec.count}</Text>
-      <View>
-        <Text style={{ ...type.cardTitle, color: tokens.text }}>{spec.label}</Text>
-        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }}>{spec.hint}</Text>
-      </View>
-    </Pressable>
+    </Card>
   );
 }
 

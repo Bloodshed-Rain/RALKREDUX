@@ -12,7 +12,7 @@ import {
   normalizeSpratNumber,
 } from '@/src/domain/cert-number';
 import { formatDateRange } from '@/src/domain/date-format';
-import { entryKindLabel, parseHazards } from '@/src/domain/logbook/types';
+import { entryKindLabel, parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import { getEntryVerificationReadiness } from '@/src/domain/logbook/entry-readiness';
 import {
   useEntryDetail,
@@ -21,6 +21,7 @@ import {
 } from '@/src/domain/logbook/use-logbook';
 import type { CertLevel, CertScheme, SignerScheme } from '@/src/domain/profile/types';
 import { PrefKeys, readPref } from '@/src/storage/local-prefs';
+import { returnToEntryDetail } from '@/src/ui/entry-nav';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -37,7 +38,7 @@ import {
   TopBar,
   type SigPadHandle,
 } from '@/src/ui/primitives/v2';
-import { IconArrowLeft, IconCheck } from '@/src/ui/icons';
+import { IconArrowLeft, IconCheck, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 import { useUnsavedGuard } from '@/src/ui/use-unsaved-guard';
 
@@ -64,12 +65,14 @@ const IRATA_LEVELS: Array<{ value: CertLevel; label: string }> = [
 export default function LocalSignScreen() {
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
-  const { id, supervisor: supervisorParam } = useLocalSearchParams<{
+  const { id, supervisor: supervisorParam, from } = useLocalSearchParams<{
     id?: string | string[];
     supervisor?: string | string[];
+    from?: string | string[];
   }>();
   const entryId = firstParam(id);
   const supervisorIdParam = firstParam(supervisorParam);
+  const navOrigin = firstParam(from);
   const detail = useEntryDetail(entryId);
   const signEntry = useSignEntryLocal();
   const supervisors = useSupervisorContacts();
@@ -124,11 +127,16 @@ export default function LocalSignScreen() {
       clearTimeout(sealNavTimeoutRef.current);
       sealNavTimeoutRef.current = null;
     }
-    // Fall back to the entry (or records) so a missing target can't strand the
-    // user on the sealed-animation screen with no way out.
-    const target =
-      sealNavRouteRef.current ?? (entryId ? `/entry/${entryId}` : '/records');
-    router.replace(target as never);
+    // Return to this entry's detail. When signing was launched from the detail
+    // (origin 'detail'), pop back to the existing instance instead of replacing
+    // — replacing would stack a duplicate detail behind us. The '/records'
+    // fallback covers the defensive case where the entry id is missing so a
+    // missing target can't strand the user on the sealed-animation screen.
+    if (entryId) {
+      returnToEntryDetail(entryId, navOrigin);
+    } else {
+      router.replace((sealNavRouteRef.current ?? '/records') as never);
+    }
   }
 
   const entry = detail.data?.entry;
@@ -322,13 +330,15 @@ export default function LocalSignScreen() {
               style={{
                 marginTop: 12,
                 flexDirection: 'row',
+                alignItems: 'flex-start',
                 gap: 8,
                 padding: 10,
                 borderRadius: 10,
                 backgroundColor: tokens.warnSoft,
               }}
             >
-              <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+              <IconWarn size={18} color={tokens.warn} />
+              <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
                 Finish required fields before signing: {readiness.missingFields.join(', ')}.
               </Text>
             </View>
@@ -355,8 +365,18 @@ export default function LocalSignScreen() {
                   <>
                     <Row label="Hours" value={entry.work_hours.toFixed(1)} />
                     <Row label="Kind" value={entryKindLabel(entry.entry_kind)} />
-                    <Row label="Task" value={entry.work_task || '—'} />
-                    <Row label="Access" value={entry.access_method || '—'} />
+                    <Row
+                      label="Task"
+                      value={parseStringList(entry.work_task_list).join(', ') || entry.work_task || '—'}
+                    />
+                    <Row
+                      label="Access"
+                      value={
+                        parseStringList(entry.access_method_list).join(', ') ||
+                        entry.access_method ||
+                        '—'
+                      }
+                    />
                     <Row label="Structure" value={entry.structure_type || '—'} />
                     <Row
                       label="Height"
@@ -609,7 +629,7 @@ export default function LocalSignScreen() {
         </Button>
         <Button
           variant="primary"
-          full
+          grow
           onPress={submit}
           disabled={!canSign || signEntry.isPending}
         >

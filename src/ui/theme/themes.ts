@@ -194,7 +194,11 @@ export const THEMES: Record<ThemeKey, Theme> = {
       textDim: '#6B5A47',
       textFaint: '#A18E73',
       accent: '#DC5A28',
-      accentInk: '#FBF1DC',
+      // Bright ember kept as Forge's signature (distinct from Heliotype's deep
+      // oxblood). accentInk is DARK ink, not cream, so the label clears WCAG AA
+      // on the mid-tone ember fill (cream was 3.38; #1A0E06 is 4.99) — the
+      // Tungsten dark-ink-on-bright-accent treatment, applied to a light palette.
+      accentInk: '#1A0E06',
       accentSoft: '#F5D9C5',
       ok: '#28583A',
       okSoft: '#C8DCC4',

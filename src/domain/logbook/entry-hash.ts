@@ -5,9 +5,38 @@ import { EntrySignature, LogbookEntry } from './types';
 // entry_kind (work / training / assessment / rescue_drill), rescue_cover,
 // and hazards. All three are part of what a signer attests to, so they
 // must be included in the canonical entry hash.
-export const ENTRY_HASH_VERSION = 3;
+//
+// v4 binds the SIGNER ENVELOPE into the signature-chain hash (not the entry
+// hash): supervisor identity (name/scheme/cert/role/employer), the drawn
+// signature path, and the attestation text + acceptance time. An audit
+// logbook exists to certify *who* attested, so re-attributing a sealed
+// signature must break the chain. The entry-content hash is unchanged from
+// v3 (no new entry fields) — only the chain-hash payload grew — but the
+// shared version constant gates both, so it advanced to 4.
+//
+// v5 makes work_task and access_method attested MULTI-value fields. The scalar
+// columns are frozen as the primary (index 0); the canonical list strings
+// (work_task_list / access_method_list) replace them in the v5 entry payload.
+// The v<5 canonicalization path is left byte-identical, so every pre-v5
+// signature keeps verifying. The hosted Deno mirror in
+// supabase/functions/_shared/remote-signing.ts MUST advance in lockstep.
+export const ENTRY_HASH_VERSION = 5;
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+// The signer fields bound into the chain hash at v4+. Mirrors the columns the
+// signatures row persists; `signerEnvelopeFromSignature` reconstructs it for
+// verification so any post-sign edit to these fields is detected.
+export interface SignerEnvelope {
+  name: string;
+  scheme: string;
+  certNumber: string | null;
+  role: string | null;
+  employer: string | null;
+  signaturePath: string | null;
+  attestation: string | null;
+  attestationAcceptedAt: string | null;
+}
 
 function stableStringify(value: JsonValue): string {
   if (Array.isArray(value)) {
@@ -55,6 +84,15 @@ export function canonicalizeEntry(entry: LogbookEntry, version: number = ENTRY_H
     payload.entry.rescue_cover = entry.rescue_cover;
   }
 
+  // v5: override the frozen scalar work_task / access_method with their canonical
+  // list strings so a v5 signature attests to the full set (and order — index 0
+  // is the primary). Same keys, list-string values; leaving the v<5 path above
+  // untouched is what lets pre-v5 signatures verify byte-identically.
+  if (version >= 5) {
+    payload.entry.work_task = entry.work_task_list;
+    payload.entry.access_method = entry.access_method_list;
+  }
+
   return stableStringify(payload);
 }
 
@@ -69,23 +107,62 @@ export async function hashSignatureChain(input: {
   method: string;
   previousChainHash: string | null;
   remoteRequestId?: string | null;
+  // v4+: the signer envelope. Omitted for v3 and earlier so existing v3
+  // signatures keep hashing byte-identically (and stay valid via the version
+  // short-circuit in verifyChainHashFor).
+  signer?: SignerEnvelope | null;
   version?: number;
 }): Promise<string> {
+  const version = input.version ?? ENTRY_HASH_VERSION;
+  const signature: { [key: string]: JsonValue } = {
+    entry_hash: input.entryHash,
+    id: input.signatureId,
+    method: input.method,
+    remote_request_id: input.remoteRequestId ?? null,
+    signed_at: input.signedAt,
+  };
+
+  if (version >= 4) {
+    const signer = input.signer ?? null;
+    signature.signer = signer
+      ? {
+          attestation: signer.attestation,
+          attestation_accepted_at: signer.attestationAcceptedAt,
+          cert_number: signer.certNumber,
+          employer: signer.employer,
+          name: signer.name,
+          role: signer.role,
+          scheme: signer.scheme,
+          signature_path: signer.signaturePath,
+        }
+      : null;
+  }
+
   return Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     stableStringify({
       schema: 'ralb.logbook.signature-chain',
-      version: input.version ?? ENTRY_HASH_VERSION,
+      version,
       previous_chain_hash: input.previousChainHash,
-      signature: {
-        entry_hash: input.entryHash,
-        id: input.signatureId,
-        method: input.method,
-        remote_request_id: input.remoteRequestId ?? null,
-        signed_at: input.signedAt,
-      },
+      signature,
     }),
   );
+}
+
+// Reconstruct the signer envelope from a persisted signature row so the chain
+// hash can be recomputed for verification. The field mapping MUST match what
+// the sign paths bind at sign time, or every v4 signature would fail to verify.
+export function signerEnvelopeFromSignature(signature: EntrySignature): SignerEnvelope {
+  return {
+    name: signature.supervisor_name,
+    scheme: signature.supervisor_scheme,
+    certNumber: signature.supervisor_cert_number,
+    role: signature.supervisor_role,
+    employer: signature.supervisor_employer,
+    signaturePath: signature.signature_path,
+    attestation: signature.signer_attestation,
+    attestationAcceptedAt: signature.attestation_accepted_at,
+  };
 }
 
 export async function hashRemoteSigningToken(token: string): Promise<string> {
@@ -123,6 +200,8 @@ export async function verifyChainHashFor(input: {
     previousChainHash: signature.previous_chain_hash,
     remoteRequestId: signature.remote_request_id,
     version: signature.hash_version,
+    // v4+ binds these; ignored when hashing under v3 semantics.
+    signer: signerEnvelopeFromSignature(signature),
   });
 
   return recomputedChain === signature.chain_hash;

@@ -25,9 +25,26 @@ const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   quality: 0.75,
 };
 
-export async function captureOrPickPhoto(): Promise<PickedPhoto | null> {
-  const source = await promptSource();
+// Optional copy + cropping overrides so non-evidence flows (e.g. the profile
+// avatar) can reuse the same camera-first picker without the "evidence" framing.
+export interface CapturePhotoOptions {
+  /** Title of the source-choice Alert. Defaults to the evidence framing. */
+  promptTitle?: string;
+  /** Message of the source-choice Alert. */
+  promptMessage?: string;
+  /** Force a square 1:1 crop (avatars). Off by default. */
+  square?: boolean;
+}
+
+export async function captureOrPickPhoto(
+  options: CapturePhotoOptions = {},
+): Promise<PickedPhoto | null> {
+  const source = await promptSource(options.promptTitle, options.promptMessage);
   if (!source) return null;
+
+  const pickerOptions: ImagePicker.ImagePickerOptions = options.square
+    ? { ...PICKER_OPTIONS, allowsEditing: true, aspect: [1, 1] }
+    : PICKER_OPTIONS;
 
   if (source === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -42,8 +59,8 @@ export async function captureOrPickPhoto(): Promise<PickedPhoto | null> {
 
   const result =
     source === 'camera'
-      ? await ImagePicker.launchCameraAsync(PICKER_OPTIONS)
-      : await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
+      ? await ImagePicker.launchCameraAsync(pickerOptions)
+      : await ImagePicker.launchImageLibraryAsync(pickerOptions);
 
   if (result.canceled || !result.assets.length) return null;
   const asset = result.assets[0];
@@ -54,11 +71,14 @@ export async function captureOrPickPhoto(): Promise<PickedPhoto | null> {
   };
 }
 
-function promptSource(): Promise<PhotoSource | null> {
+function promptSource(
+  title = 'Add photo evidence',
+  message = 'Capture now or pick from your library.',
+): Promise<PhotoSource | null> {
   return new Promise((resolve) => {
     Alert.alert(
-      'Add photo evidence',
-      'Capture now or pick from your library.',
+      title,
+      message,
       [
         { text: 'Take photo', onPress: () => resolve('camera') },
         { text: 'From photos', onPress: () => resolve('library') },

@@ -83,6 +83,37 @@ describe('gear service', () => {
     );
   });
 
+  it('does not let a backdated inspection clobber the live next-due date (P2-2)', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const item = await service.createGearItem({ name: 'Rope B', category: 'rope' });
+
+    // The most-recent inspection sets the live deadline.
+    await service.recordInspection({
+      gear_id: item.id,
+      result: 'pass',
+      inspected_on: '2026-05-20',
+      next_inspection_due: '2026-08-20',
+      inspector_name: 'Casey Park',
+    });
+    // A backdated (older) inspection recorded afterwards must NOT move the live
+    // deadline — getLatestInspection orders by inspected_on, so the newer pass
+    // remains authoritative for the gear_items.next_inspection_due field.
+    const detail = await service.recordInspection({
+      gear_id: item.id,
+      result: 'pass',
+      inspected_on: '2026-05-10',
+      next_inspection_due: '2026-08-10',
+      inspector_name: 'Casey Park',
+    });
+
+    expect(detail.item.next_inspection_due).toBe('2026-08-20');
+    expect(detail.latest_inspection?.inspected_on).toBe('2026-05-20');
+
+    const [listed] = await service.listGearItems('2026-05-21');
+    expect(listed.item.next_inspection_due).toBe('2026-08-20');
+  });
+
   it('retires failed gear and blocks later inspections', async () => {
     const db = await createTestClient();
     const service = createGearService(db);
