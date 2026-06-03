@@ -29,7 +29,7 @@ import {
   describeClosedRemoteRequest,
   RemoteRequestClosedReason,
 } from '@/src/domain/logbook/remote-signing-status';
-import { EntryDetail, entryKindLabel, parseHazards } from '@/src/domain/logbook/types';
+import { EntryDetail, entryKindLabel, parseHazards, parseStringList } from '@/src/domain/logbook/types';
 import {
   useCompleteRemoteSignatureRequest,
   useRemoteSignatureRequestDetail,
@@ -534,8 +534,8 @@ export default function RemoteVerifyScreen() {
                 <>
                   <Row label="Hours" value={entry.work_hours.toFixed(1)} />
                   <Row label="Kind" value={entryKindLabel(entry.entry_kind)} />
-                  <Row label="Task" value={entry.work_task || '—'} />
-                  <Row label="Access" value={entry.access_method || '—'} />
+                  <Row label="Task" value={parseStringList(entry.work_task_list).join(', ') || entry.work_task || '—'} />
+                  <Row label="Access" value={parseStringList(entry.access_method_list).join(', ') || entry.access_method || '—'} />
                   <Row label="Structure" value={entry.structure_type || '—'} />
                   <Row
                     label="Height"

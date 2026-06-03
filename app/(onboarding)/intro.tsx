@@ -171,6 +171,8 @@ export default function OnboardingIntroScreen() {
   };
 
   const subStyle: TextStyle = {
+    fontFamily: 'Manrope_500Medium',
+    fontWeight: '500',
     fontSize: 15,
     lineHeight: 22,
     color: tokens.text,

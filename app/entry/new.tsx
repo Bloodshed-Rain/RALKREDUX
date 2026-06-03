@@ -64,11 +64,14 @@ import {
   GEAR_ICON,
   IconClimber,
   IconClose,
+  IconDraft,
+  IconExport,
   IconInspect,
   IconRescue,
   IconSign,
   IconTraining,
   IconWarn,
+  type IconProps,
 } from '@/src/ui/icons';
 import {
   DEFAULT_TERMINAL_ACTION,
@@ -667,7 +670,7 @@ function StepWhere({
             value={draft.dateTo || null}
             onChange={(iso) => update({ dateTo: iso ?? '' })}
             minDate={draft.dateFrom || null}
-            helper={isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom) ? undefined : 'Invalid range'}
+            error={isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom) ? undefined : 'Invalid range'}
           />
         </View>
       </View>
@@ -941,6 +944,7 @@ interface ChoiceConfig {
   key: 'sign' | 'request' | 'draft';
   label: string;
   hint: string;
+  icon: React.ComponentType<IconProps>;
   primary?: boolean;
 }
 
@@ -974,16 +978,19 @@ function StepReview({
       key: 'sign',
       label: 'Sign in person',
       hint: 'Hand the phone to a supervisor now to seal the entry.',
+      icon: IconSign,
     },
     request: {
       key: 'request',
       label: 'Request remote signature',
       hint: 'Send a verifier link to a supervisor off-site.',
+      icon: IconExport,
     },
     draft: {
       key: 'draft',
       label: 'Save as draft',
       hint: 'Park the entry. Sign or send for signature later.',
+      icon: IconDraft,
     },
   };
   const ordered = orderActions(defaultTerminalAction).map((k) => ({
@@ -1073,6 +1080,7 @@ function StepReview({
             key={choice.key}
             label={choice.label}
             hint={choice.hint}
+            icon={choice.icon}
             emphasis={choice.primary}
             disabled={busy != null && busy !== choice.key}
             loading={busy === choice.key}
@@ -1116,6 +1124,7 @@ function supervisorChipStyle(tokens: ReturnType<typeof useTheme>['tokens'], acti
 function ChoiceRow({
   label,
   hint,
+  icon: Icon,
   emphasis,
   disabled,
   loading,
@@ -1123,6 +1132,7 @@ function ChoiceRow({
 }: {
   label: string;
   hint: string;
+  icon: React.ComponentType<IconProps>;
   emphasis?: boolean;
   disabled?: boolean;
   loading?: boolean;
@@ -1160,7 +1170,7 @@ function ChoiceRow({
           justifyContent: 'center',
         }}
       >
-        <IconSign
+        <Icon
           size={24}
           color={emphasis ? tokens.accentInk : tokens.text}
           fill={emphasis ? tokens.accentInk : tokens.accent}

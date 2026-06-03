@@ -11,6 +11,10 @@ export interface DateFieldProps {
   onChange: (iso: string | null) => void;
   placeholder?: string;
   helper?: string;
+  // When set, renders an invalid state: a 1.5px danger border plus this message
+  // in danger text (overrides `helper`). Mirrors Field's `error` so the signal
+  // is not color-only — the thicker border also reads on Heliotype.
+  error?: string;
   minDate?: string | null;
   maxDate?: string | null;
   clearable?: boolean;
@@ -25,6 +29,7 @@ export function DateField({
   onChange,
   placeholder = 'Select date',
   helper,
+  error,
   minDate,
   maxDate,
   clearable = false,
@@ -35,6 +40,7 @@ export function DateField({
   const { theme, tokens } = useTheme();
   const [open, setOpen] = React.useState(false);
   const isHeliotype = theme.key === 'heliotype';
+  const hasError = !!error;
   const display = formatIsoForDisplay(value);
 
   const labelStyle: TextStyle = {
@@ -54,8 +60,8 @@ export function DateField({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderWidth: isHeliotype ? 1.5 : 1,
-    borderColor: isHeliotype ? tokens.line : tokens.lineSoft,
+    borderWidth: hasError || isHeliotype ? 1.5 : 1,
+    borderColor: hasError ? tokens.danger : isHeliotype ? tokens.line : tokens.lineSoft,
   };
 
   const valueStyle: TextStyle = {
@@ -91,7 +97,11 @@ export function DateField({
         <Text style={valueStyle}>{display ?? placeholder}</Text>
         <IconCalendar size={18} color={tokens.textDim} />
       </Pressable>
-      {helper ? <Text style={helperStyle}>{helper}</Text> : null}
+      {error ? (
+        <Text style={[helperStyle, { color: tokens.danger }]}>{error}</Text>
+      ) : helper ? (
+        <Text style={helperStyle}>{helper}</Text>
+      ) : null}
       <DatePickerSheet
         visible={open}
         onClose={() => setOpen(false)}

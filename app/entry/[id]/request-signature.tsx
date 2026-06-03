@@ -40,13 +40,13 @@ function firstParam(value: string | string[] | undefined): string | null {
 export default function RemoteSignatureRequestScreen() {
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
-  const { id, supervisorId, from } = useLocalSearchParams<{
+  const { id, supervisor: supervisorParam, from } = useLocalSearchParams<{
     id?: string | string[];
-    supervisorId?: string | string[];
+    supervisor?: string | string[];
     from?: string | string[];
   }>();
   const entryId = firstParam(id);
-  const supervisorIdParam = firstParam(supervisorId);
+  const supervisorIdParam = firstParam(supervisorParam);
   const navOrigin = firstParam(from);
   const detail = useEntryDetail(entryId);
   const createRequest = useCreateRemoteSignatureRequest();
