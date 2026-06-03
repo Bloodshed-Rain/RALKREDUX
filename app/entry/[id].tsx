@@ -119,8 +119,38 @@ export default function EntryDetailScreen() {
 
   if (detail.isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: tokens.bg, padding: 20 }}>
-        <Text style={{ ...type.body, color: tokens.textDim }}>Loading entry…</Text>
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar
+          title="Entry"
+          leading={
+            <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.replace('/records')} />
+          }
+        />
+        <View style={{ padding: 20 }}>
+          <Text style={{ ...type.body, color: tokens.textDim }}>Loading entry…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (detail.isError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar
+          title="Entry"
+          leading={
+            <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.replace('/records')} />
+          }
+        />
+        <View style={{ padding: 20, gap: 16 }}>
+          <Text style={{ ...type.heroCardTitle, color: tokens.text }}>Couldn&apos;t load this entry</Text>
+          <Text style={{ ...type.body, color: tokens.textDim }}>
+            Something went wrong reading the record. Check your connection and try again.
+          </Text>
+          <Button variant="primary" onPress={() => detail.refetch()}>
+            Retry
+          </Button>
+        </View>
       </View>
     );
   }
@@ -929,7 +959,7 @@ function SignatureBlock({
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Button
           variant="primary"
-          full
+          grow
           disabled={isDraft && !isReady}
           onPress={() => router.push(`/entry/${entryId}/sign?from=detail` as never)}
         >
@@ -937,7 +967,7 @@ function SignatureBlock({
         </Button>
         <Button
           variant="outline"
-          full
+          grow
           disabled={isDraft && !isReady}
           onPress={() => router.push(`/entry/${entryId}/request-signature?from=detail` as never)}
         >
@@ -992,7 +1022,7 @@ function FooterActions({
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button
             variant="primary"
-            full
+            grow
             onPress={onSharePdf}
             disabled={pdfPending || exportPending}
           >
@@ -1000,7 +1030,7 @@ function FooterActions({
           </Button>
           <Button
             variant="secondary"
-            full
+            grow
             onPress={onShareJson}
             disabled={pdfPending || exportPending}
           >

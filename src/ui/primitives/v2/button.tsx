@@ -18,6 +18,9 @@ export interface ButtonProps {
   children: React.ReactNode;
   onPress?: () => void;
   full?: boolean;
+  // Flex to fill an equal share of a row container. Use on side-by-side buttons
+  // so they split the width instead of hugging content and packing left.
+  grow?: boolean;
   disabled?: boolean;
   accessibilityLabel?: string;
   style?: ViewStyle;
@@ -49,6 +52,7 @@ export function Button({
   children,
   onPress,
   full,
+  grow,
   disabled,
   accessibilityLabel,
   style,
@@ -123,6 +127,7 @@ export function Button({
     justifyContent: 'center',
     gap: 8,
     alignSelf: full ? 'stretch' : 'flex-start',
+    ...(grow ? { flexGrow: 1, flexBasis: 0 } : null),
     backgroundColor: bg,
     borderWidth,
     borderColor,

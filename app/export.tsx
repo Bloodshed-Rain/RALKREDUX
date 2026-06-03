@@ -337,14 +337,16 @@ export default function ExportScreen() {
             full
             size="lg"
             icon={IconExport}
-            onPress={runExport}
-            disabled={pending || previewCount === 0 || !customRangeValid}
+            onPress={entriesQ.isError ? () => entriesQ.refetch() : runExport}
+            disabled={pending || (!entriesQ.isError && (previewCount === 0 || !customRangeValid))}
           >
             {pending
               ? 'Building export…'
-              : previewCount === 0
-                ? 'Nothing to export'
-                : `Export ${previewCount} ${previewCount === 1 ? 'entry' : 'entries'}`}
+              : entriesQ.isError
+                ? "Couldn't load entries — Retry"
+                : previewCount === 0
+                  ? 'Nothing to export'
+                  : `Export ${previewCount} ${previewCount === 1 ? 'entry' : 'entries'}`}
           </Button>
         </View>
       </ScrollView>

@@ -348,19 +348,37 @@ export default function GearScreen() {
         ListEmptyComponent={
           <View style={{ paddingHorizontal: 20 }}>
             <Card padding={20}>
-              <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
-                No gear in this category
-              </Text>
-              <Text
-                style={{
-                  ...type.cardSub,
-                  color: tokens.textDim,
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
-                Tap the + in the top bar to add an item.
-              </Text>
+              {gearItems.isLoading ? (
+                <Text style={{ ...type.cardTitle, color: tokens.textDim, textAlign: 'center' }}>
+                  Loading gear…
+                </Text>
+              ) : gearItems.isError ? (
+                <>
+                  <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
+                    Couldn&apos;t load gear
+                  </Text>
+                  <Text
+                    style={{ ...type.cardSub, color: tokens.textDim, textAlign: 'center', marginTop: 4 }}
+                  >
+                    Check your connection and try again.
+                  </Text>
+                  <View style={{ height: 12 }} />
+                  <Button variant="primary" full onPress={() => gearItems.refetch()}>
+                    Retry
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Text style={{ ...type.cardTitle, color: tokens.text, textAlign: 'center' }}>
+                    No gear in this category
+                  </Text>
+                  <Text
+                    style={{ ...type.cardSub, color: tokens.textDim, textAlign: 'center', marginTop: 4 }}
+                  >
+                    Tap the + in the top bar to add an item.
+                  </Text>
+                </>
+              )}
             </Card>
           </View>
         }

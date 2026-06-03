@@ -99,8 +99,38 @@ export default function GearDetailScreen() {
 
   if (detail.isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: tokens.bg, padding: 20 }}>
-        <Text style={{ ...type.body, color: tokens.textDim }}>Loading gear…</Text>
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar
+          title="Gear"
+          leading={
+            <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.replace('/gear')} />
+          }
+        />
+        <View style={{ padding: 20 }}>
+          <Text style={{ ...type.body, color: tokens.textDim }}>Loading gear…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (detail.isError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar
+          title="Gear"
+          leading={
+            <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.replace('/gear')} />
+          }
+        />
+        <View style={{ padding: 20, gap: 16 }}>
+          <Text style={{ ...type.heroCardTitle, color: tokens.text }}>Couldn&apos;t load this gear item</Text>
+          <Text style={{ ...type.body, color: tokens.textDim }}>
+            Something went wrong. Check your connection and try again.
+          </Text>
+          <Button variant="primary" onPress={() => detail.refetch()}>
+            Retry
+          </Button>
+        </View>
       </View>
     );
   }

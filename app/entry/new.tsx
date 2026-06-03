@@ -488,10 +488,10 @@ export default function NewEntryWizard() {
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {step < 3 ? (
             <>
-              <Button variant="ghost" full onPress={handleBack}>
+              <Button variant="ghost" grow onPress={handleBack}>
                 {step === 1 ? 'Cancel' : 'Back'}
               </Button>
-              <Button variant="primary" full onPress={handleContinue} disabled={!canContinue}>
+              <Button variant="primary" grow onPress={handleContinue} disabled={!canContinue}>
                 Continue
               </Button>
             </>

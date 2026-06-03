@@ -27,6 +27,7 @@ import {
 import { formatDateOrDash, formatDateRange } from '@/src/domain/date-format';
 import {
   describeClosedRemoteRequest,
+  nextVerifierStep,
   RemoteRequestClosedReason,
 } from '@/src/domain/logbook/remote-signing-status';
 import { EntryDetail, entryKindLabel, parseHazards, parseStringList } from '@/src/domain/logbook/types';
@@ -785,7 +786,8 @@ export default function RemoteVerifyScreen() {
                 ? 'Retry submit'
                 : canSign
                   ? 'Submit remote signature'
-                  : 'Finish verification'}
+                  : nextVerifierStep({ hasName, certReady, siteFieldsReady, hasSignature, attestationAccepted }) ??
+                    'Finish verification'}
           </Button>
         ) : (
           <Button

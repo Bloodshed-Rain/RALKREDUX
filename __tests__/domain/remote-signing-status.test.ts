@@ -1,4 +1,4 @@
-import { describeClosedRemoteRequest } from '@/src/domain/logbook/remote-signing-status';
+import { describeClosedRemoteRequest, nextVerifierStep } from '@/src/domain/logbook/remote-signing-status';
 import { EntrySignature, LogbookEntry, RemoteSignatureRequest } from '@/src/domain/logbook/types';
 
 const entry: LogbookEntry = {
@@ -112,5 +112,51 @@ describe('describeClosedRemoteRequest', () => {
     expect(
       describeClosedRemoteRequest(request, { ...entry, status: 'signed' }, signature),
     ).toEqual({ kind: 'pre_empted', entry_status: 'signed' });
+  });
+});
+
+describe('nextVerifierStep', () => {
+  const ready = {
+    hasName: true,
+    certReady: true,
+    siteFieldsReady: true,
+    hasSignature: true,
+    attestationAccepted: true,
+  };
+
+  it('returns null when every required step is satisfied', () => {
+    expect(nextVerifierStep(ready)).toBeNull();
+  });
+
+  it('asks for the name first', () => {
+    expect(nextVerifierStep({ ...ready, hasName: false })).toBe('Enter your name');
+  });
+
+  it('asks a scheme verifier for the cert number', () => {
+    expect(nextVerifierStep({ ...ready, certReady: false })).toBe('Add your cert number');
+  });
+
+  it('asks a site signer for role & employer', () => {
+    expect(nextVerifierStep({ ...ready, siteFieldsReady: false })).toBe('Add your role & employer');
+  });
+
+  it('asks for the signature', () => {
+    expect(nextVerifierStep({ ...ready, hasSignature: false })).toBe('Draw your signature');
+  });
+
+  it('asks to confirm the attestation last', () => {
+    expect(nextVerifierStep({ ...ready, attestationAccepted: false })).toBe('Confirm the attestation');
+  });
+
+  it('reports the earliest missing step first', () => {
+    expect(
+      nextVerifierStep({
+        hasName: false,
+        certReady: false,
+        siteFieldsReady: false,
+        hasSignature: false,
+        attestationAccepted: false,
+      }),
+    ).toBe('Enter your name');
   });
 });

@@ -627,7 +627,7 @@ export default function LocalSignScreen() {
         </Button>
         <Button
           variant="primary"
-          full
+          grow
           onPress={submit}
           disabled={!canSign || signEntry.isPending}
         >
