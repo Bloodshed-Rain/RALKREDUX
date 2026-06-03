@@ -44,7 +44,7 @@ Native builds use EAS (`eas.json` defines `development`, `preview`, `production`
 ### Signing model
 
 - An entry is `draft` until signed, then `signed` or `amended` — **never edit a signed entry**. Amendments are new entries that point back via `amends_entry_id`.
-- `entry-hash.ts` defines `ENTRY_HASH_VERSION` (currently `2`) and the canonical entry serialization. **If you add fields to `entries` that affect what a signature attests to, bump `ENTRY_HASH_VERSION` and include the field in `canonicalizeEntry`.** Otherwise old/new signatures hash identical entries differently and audit chains break.
+- `entry-hash.ts` defines `ENTRY_HASH_VERSION` (currently `5`) and the canonical entry serialization. **If you add fields to `entries` that affect what a signature attests to, bump `ENTRY_HASH_VERSION` and include the field in `canonicalizeEntry`.** Otherwise old/new signatures hash identical entries differently and audit chains break. The Deno mirror `supabase/functions/_shared/remote-signing.ts` (`ENTRY_HASH_VERSION` + `canonicalizeEntryPayload`) must move in lockstep, and the live Edge Functions must be **redeployed** alongside the app build that produces the new version — `remote-signing-request` gates with a strict `hash_version !== ENTRY_HASH_VERSION` check, so a backend/app version skew rejects hosted requests with `hash_version_invalid`.
 - Signatures form a hash chain via `previous_chain_hash` / `chain_hash` (`hashSignatureChain`). Don't bypass the chain when inserting signatures.
 - Required-field gating before any sign/request action lives in `entry-readiness.ts` — surface `missingFields` rather than failing silently.
 
