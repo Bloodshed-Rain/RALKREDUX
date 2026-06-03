@@ -38,7 +38,7 @@ import {
   TopBar,
   type SigPadHandle,
 } from '@/src/ui/primitives/v2';
-import { IconArrowLeft, IconCheck } from '@/src/ui/icons';
+import { IconArrowLeft, IconCheck, IconWarn } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 import { useUnsavedGuard } from '@/src/ui/use-unsaved-guard';
 
@@ -330,13 +330,15 @@ export default function LocalSignScreen() {
               style={{
                 marginTop: 12,
                 flexDirection: 'row',
+                alignItems: 'flex-start',
                 gap: 8,
                 padding: 10,
                 borderRadius: 10,
                 backgroundColor: tokens.warnSoft,
               }}
             >
-              <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+              <IconWarn size={18} color={tokens.warn} />
+              <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
                 Finish required fields before signing: {readiness.missingFields.join(', ')}.
               </Text>
             </View>

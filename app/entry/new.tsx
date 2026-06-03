@@ -900,13 +900,13 @@ function StepWhat({ draft, update }: StepProps) {
                 >
                   <Icon
                     size={26}
-                    color={active ? tokens.accent : tokens.text}
+                    color={tokens.text}
                     fill={tokens.accent}
                   />
                   <Text
                     style={{
                       ...type.cardSub,
-                      color: active ? tokens.accent : tokens.textDim,
+                      color: active ? tokens.text : tokens.textDim,
                       textAlign: 'center',
                     }}
                     numberOfLines={1}
@@ -1099,7 +1099,7 @@ function StepReview({
         }}
       >
         <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
-        <Text style={{ ...type.cardSub, color: tokens.warn, flex: 1 }}>
+        <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
           Once an entry is signed, it can't be edited. Amendments are new entries that point back
           to the original. Pick "Save as draft" if you're not sure yet.
         </Text>

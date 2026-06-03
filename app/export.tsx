@@ -503,7 +503,7 @@ function FormatTile({ label, sub, active, onPress }: FormatTileProps) {
     fontWeight: '600',
     fontSize: 14,
     letterSpacing: 0.8,
-    color: active ? tokens.accent : tokens.text,
+    color: active ? tokens.text : tokens.textDim,
   };
   const subStyle: TextStyle = {
     ...type.cardSub,
