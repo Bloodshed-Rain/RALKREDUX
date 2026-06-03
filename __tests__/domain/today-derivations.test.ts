@@ -2,6 +2,7 @@ import {
   applyCertRatio,
   buildActions,
   buildAdvisories,
+  buildOpenWork,
   certTarget,
   computeDayOf365,
   distinctOpDaysLast30,
@@ -292,5 +293,40 @@ describe('buildActions', () => {
   it('returns only the new-record action when nothing else is pending', () => {
     const actions = buildActions({ summary: baseSummary, overdueGearItems: 0, dueSoonGearItems: 0 });
     expect(actions).toHaveLength(1);
+  });
+});
+
+describe('buildOpenWork', () => {
+  it('returns nothing when there is no open work', () => {
+    expect(
+      buildOpenWork({ openDrafts: 0, awaitingSignature: 0, overdueGear: 0, dueSoonGear: 0 }),
+    ).toEqual([]);
+  });
+
+  it('suppresses zero-count categories', () => {
+    const items = buildOpenWork({ openDrafts: 2, awaitingSignature: 0, overdueGear: 0, dueSoonGear: 0 });
+    expect(items.map((i) => i.id)).toEqual(['open-drafts']);
+    expect(items[0].tone).toBe('warn');
+    expect(items[0].route).toBe('/records?filter=drafts');
+  });
+
+  it('orders overdue gear first (danger) ahead of the warn items', () => {
+    const items = buildOpenWork({ openDrafts: 1, awaitingSignature: 1, overdueGear: 1, dueSoonGear: 1 });
+    expect(items.map((i) => i.id)).toEqual([
+      'gear-overdue',
+      'awaiting-signature',
+      'open-drafts',
+      'gear-due-soon',
+    ]);
+    expect(items[0].tone).toBe('danger');
+  });
+
+  it('pluralizes labels by count', () => {
+    expect(
+      buildOpenWork({ openDrafts: 1, awaitingSignature: 0, overdueGear: 0, dueSoonGear: 0 })[0].label,
+    ).toBe('1 draft to finish');
+    expect(
+      buildOpenWork({ openDrafts: 3, awaitingSignature: 0, overdueGear: 0, dueSoonGear: 0 })[0].label,
+    ).toBe('3 drafts to finish');
   });
 });
