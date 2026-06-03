@@ -166,21 +166,21 @@ export default function ExportScreen() {
         }
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(namedUri, {
-            dialogTitle: 'Share RALB audit logbook PDF',
+            dialogTitle: 'Share Rope Access Logbook audit PDF',
             mimeType: 'application/pdf',
             UTI: 'com.adobe.pdf',
           });
         } else {
-          await Share.share({ title: 'RALB audit logbook PDF', message: namedUri });
+          await Share.share({ title: 'Rope Access Logbook audit PDF', message: namedUri });
         }
       } else if (format === 'json') {
         await Share.share({
-          title: 'RALB logbook export',
+          title: 'Rope Access Logbook export',
           message: JSON.stringify(sanitizedBundle, null, 2),
         });
       } else {
         const csv = buildLogbookCsv(sanitizedBundle);
-        await Share.share({ title: 'RALB logbook CSV', message: csv });
+        await Share.share({ title: 'Rope Access Logbook CSV', message: csv });
       }
       haptics.success();
     } catch {

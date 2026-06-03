@@ -24,10 +24,10 @@ function ThemedStack() {
         contentStyle: { backgroundColor: tokens.bg },
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false, title: 'RALB' }} />
+      <Stack.Screen name="index" options={{ headerShown: false, title: 'Rope Access Logbook' }} />
       <Stack.Screen name="(onboarding)/setup" options={{ headerShown: false, title: 'Set up' }} />
       <Stack.Screen name="(onboarding)/intro" options={{ headerShown: false, title: 'Welcome' }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'RALB' }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Rope Access Logbook' }} />
       <Stack.Screen
         name="entry/new"
         options={{ title: 'New entry', presentation: 'modal', headerShown: false }}

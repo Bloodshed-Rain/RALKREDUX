@@ -161,7 +161,7 @@ export default function ProfileScreen() {
       const snapshot = await createBackup.mutateAsync();
       haptics.success();
       await Share.share({
-        title: 'RALB recovery snapshot',
+        title: 'Rope Access Logbook recovery snapshot',
         message: JSON.stringify(snapshot, null, 2),
       });
     } catch (err) {
@@ -185,7 +185,7 @@ export default function ProfileScreen() {
       }
       const parsed = JSON.parse(trimmed) as Partial<BackupSnapshot>;
       if (!parsed || typeof parsed !== 'object' || !parsed.data || !parsed.backup_schema_version) {
-        setRestoreError('That does not look like a RALB recovery snapshot.');
+        setRestoreError('That does not look like a Rope Access Logbook recovery snapshot.');
         return;
       }
       setPreviewSnapshot(parsed as BackupSnapshot);
@@ -1165,7 +1165,7 @@ function ProfileFooter({ chainHash }: { chainHash: string | null }) {
     >
       <IconBrand size={24} color={tokens.textFaint} fill={tokens.accent} fillOpacity={0.18} />
       <Text style={{ ...type.monoSm, color: tokens.textFaint, textTransform: 'uppercase' }}>
-        {`RALB · v1.0 · chain ${head}`}
+        {`Rope Access Logbook · v1.0 · chain ${head}`}
       </Text>
     </View>
   );

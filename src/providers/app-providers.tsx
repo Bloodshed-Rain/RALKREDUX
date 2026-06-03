@@ -128,7 +128,7 @@ function BootSplash({ label, failed, fontsLoaded, onRetry }: BootSplashProps) {
             : { fontSize: 18, fontWeight: '800', color: tokens.text }
         }
       >
-        RALB
+        Rope Access Logbook
       </Text>
       <ActivityIndicator color={tokens.accent} />
       <Text

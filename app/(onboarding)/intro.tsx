@@ -36,7 +36,7 @@ const SLIDES: Slide[] = [
   {
     icon: IconBrand,
     title: 'Your logbook,\nin your pocket.',
-    sub: 'RALB is an offline-first rope-access logbook for SPRAT and IRATA technicians. Log hours, capture signatures, prove your record.',
+    sub: 'Rope Access Logbook is offline-first, built for SPRAT and IRATA technicians. Log hours, capture signatures, prove your record.',
     cta: 'Continue',
   },
   {

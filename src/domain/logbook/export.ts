@@ -171,11 +171,13 @@ function coverWatermarkSealSvg(): string {
       <path id="ralb-cover-seal-arc" d="M 100 100 m -78 0 a 78 78 0 1 1 156 0 a 78 78 0 1 1 -156 0"/>
     </defs>
     <text font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="9" fill="#0e3a40" letter-spacing="5">
-      <textPath href="#ralb-cover-seal-arc">ROPE ACCESS LOGBOOK · CODEX EDITION · ROPE ACCESS LOGBOOK · CODEX EDITION · </textPath>
+      <textPath href="#ralb-cover-seal-arc">ROPE ACCESS LOGBOOK · ROPE ACCESS LOGBOOK · ROPE ACCESS LOGBOOK · </textPath>
     </text>
-    <text x="100" y="110" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="900" font-size="32" fill="#0e3a40" letter-spacing="2">RALB</text>
-    <line x1="55" y1="118" x2="145" y2="118" stroke="#0e3a40" stroke-width="1"/>
-    <text x="100" y="130" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="7" fill="#0e3a40" letter-spacing="2">CODEX EDITION</text>
+    <text text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="900" font-size="15" fill="#0e3a40" letter-spacing="1">
+      <tspan x="100" y="92">ROPE</tspan>
+      <tspan x="100" y="108">ACCESS</tspan>
+      <tspan x="100" y="124">LOGBOOK</tspan>
+    </text>
     <line x1="100" y1="2" x2="100" y2="12" stroke="#0e3a40" stroke-width="1.5"/>
     <line x1="100" y1="2" x2="100" y2="12" stroke="#0e3a40" stroke-width="1.5" transform="rotate(90 100 100)"/>
     <line x1="100" y1="2" x2="100" y2="12" stroke="#0e3a40" stroke-width="1.5" transform="rotate(180 100 100)"/>
@@ -396,7 +398,7 @@ export function buildLogbookPdfHtml(bundle: LogbookExportBundle): string {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>RALB Audit Logbook</title>
+  <title>Rope Access Logbook — Audit Logbook</title>
   <style>
     @page { margin: 32px; }
     * { box-sizing: border-box; }
@@ -434,7 +436,7 @@ export function buildLogbookPdfHtml(bundle: LogbookExportBundle): string {
     <div class="cover-weave">${coverWeaveSvg()}</div>
     <div class="cover-seal">${coverWatermarkSealSvg()}</div>
     <div class="cover-content">
-      <div class="cover-brand">Rope Access Logbook · Codex Edition</div>
+      <div class="cover-brand">Rope Access Logbook</div>
       <div>
         <h1 class="cover-title">Audit Logbook</h1>
         <p class="cover-dateline">${html(spanLabel)}</p>
@@ -482,7 +484,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>RALB Entry Audit Packet</title>
+  <title>Rope Access Logbook — Entry Audit Packet</title>
   <style>
     @page { margin: 32px; }
     * { box-sizing: border-box; }
@@ -521,7 +523,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
     <div class="cover-weave">${coverWeaveSvg()}</div>
     <div class="cover-seal">${coverWatermarkSealSvg()}</div>
     <div class="cover-content">
-      <div class="cover-brand">Rope Access Logbook · Codex Edition</div>
+      <div class="cover-brand">Rope Access Logbook</div>
       <div>
         <h1 class="cover-title">${display(entry.site)}</h1>
         <p class="cover-dateline">${html(dateLabel)} · ${html(coverStatusLabel(entry.status))}</p>
@@ -552,7 +554,7 @@ export function buildEntryPdfHtml(packet: LogbookExportPacket): string {
   <header>
     <p class="status">${html(entry.status)}</p>
     <h1>${display(entry.site)}</h1>
-    <p class="meta">RALB Codex Edition audit packet - exported ${html(formatTimestampDate(packet.exported_at))}</p>
+    <p class="meta">Rope Access Logbook audit packet - exported ${html(formatTimestampDate(packet.exported_at))}</p>
   </header>
 
   <h2>Technician</h2>

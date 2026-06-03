@@ -201,7 +201,7 @@ export default function EntryDetailScreen() {
     try {
       const packet = await exportEntry.mutateAsync(entryId);
       await Share.share({
-        title: 'RALB entry audit packet',
+        title: 'Rope Access Logbook entry audit packet',
         message: JSON.stringify(packet, null, 2),
       });
     } catch (err) {
@@ -229,12 +229,12 @@ export default function EntryDetailScreen() {
       }
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(namedUri, {
-          dialogTitle: 'Share RALB entry PDF',
+          dialogTitle: 'Share Rope Access Logbook entry PDF',
           mimeType: 'application/pdf',
           UTI: 'com.adobe.pdf',
         });
       } else {
-        await Share.share({ title: 'RALB entry PDF', message: namedUri });
+        await Share.share({ title: 'Rope Access Logbook entry PDF', message: namedUri });
       }
     } catch {
       setPdfFailed(true);
@@ -255,9 +255,9 @@ export default function EntryDetailScreen() {
     } finally {
       setHostedSharePending(false);
     }
-    const title = 'RALB remote signature request';
+    const title = 'Rope Access Logbook remote signature request';
     const message = [
-      `Please review and sign this RALB work entry for ${entry.site}.`,
+      `Please review and sign this Rope Access Logbook work entry for ${entry.site}.`,
       `Request code: ${remoteRequest.request_code}`,
       `Expires: ${remoteRequest.expires_at ? formatDate(remoteRequest.expires_at) : 'not set'}`,
     ].join('\n');

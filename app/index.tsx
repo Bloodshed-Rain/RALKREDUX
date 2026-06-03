@@ -4,7 +4,6 @@ import { Redirect } from 'expo-router';
 import { useProfile } from '@/src/domain/profile/use-profile';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
-import { type } from '@/src/ui/theme/type';
 import { IconBrand } from '@/src/ui/icons';
 import { PrefKeys, readPref } from '@/src/storage/local-prefs';
 
@@ -73,14 +72,6 @@ export default function IndexRoute() {
     color: tokens.text,
   };
 
-  const captionStyle: TextStyle = {
-    ...type.monoSm,
-    color: tokens.textDim,
-    letterSpacing: 2.4,
-    textTransform: 'uppercase',
-    marginTop: 4,
-  };
-
   const sweepX = sweep.interpolate({
     inputRange: [0, 1],
     outputRange: [-SWEEP_WIDTH, BAR_WIDTH],
@@ -91,8 +82,7 @@ export default function IndexRoute() {
       <View style={{ alignItems: 'center', gap: 18 }}>
         <IconBrand size={94} color={tokens.text} fill={tokens.accent} />
         <View style={{ alignItems: 'center' }}>
-          <Text style={wordmarkStyle}>RALB</Text>
-          <Text style={captionStyle}>Rope Access Logbook</Text>
+          <Text style={wordmarkStyle}>Rope Access Logbook</Text>
         </View>
         <View
           style={{

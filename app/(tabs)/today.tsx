@@ -201,7 +201,7 @@ export default function TodayScreen() {
           leading={
             <IconBtn
               icon={IconBrand}
-              label="About RALB"
+              label="About Rope Access Logbook"
               size="md"
               onPress={() => setAboutOpen(true)}
             />
@@ -337,7 +337,7 @@ export default function TodayScreen() {
 
 function AboutSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { tokens } = useTheme();
-  const appName = Constants.expoConfig?.name ?? 'RALB Codex Edition';
+  const appName = Constants.expoConfig?.name ?? 'Rope Access Logbook';
   const appVersion = Constants.expoConfig?.version ?? '—';
   const runtime = Constants.expoConfig?.runtimeVersion;
   const runtimeStr =
