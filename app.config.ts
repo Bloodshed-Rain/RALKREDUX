@@ -1,7 +1,7 @@
 import type { ExpoConfig } from 'expo/config';
 
 export default (): ExpoConfig => ({
-  name: 'RALB Codex Edition',
+  name: 'Rope Access Logbook',
   slug: 'ralb-codex-edition',
   version: '0.1.0',
   orientation: 'portrait',

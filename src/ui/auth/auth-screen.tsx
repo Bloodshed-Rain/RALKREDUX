@@ -153,7 +153,7 @@ export function AuthScreen() {
       >
         <View style={{ alignItems: 'center', gap: 12 }}>
           <IconBrand size={68} color={tokens.text} fill={tokens.accent} />
-          <Text style={titleStyle}>RALB</Text>
+          <Text style={titleStyle}>Rope Access Logbook</Text>
           <Text style={subStyle}>
             Sign in to your rope-access logbook. Your records stay on this device; an account
             secures remote signing. First sign-in needs internet — after that the app works

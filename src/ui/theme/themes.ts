@@ -1,4 +1,4 @@
-// RALB Codex Edition — six interchangeable palettes.
+// Rope Access Logbook — six interchangeable palettes.
 // Verbatim from the v2 handoff. Every theme exports the same `ThemeTokens` shape;
 // every primitive consumes `useTheme().tokens` rather than importing a static
 // object, so swapping `setTheme(key)` re-skins the whole app in one render.

@@ -225,7 +225,7 @@ describe('logbook export builders', () => {
     const markup = buildEntryPdfHtml(packet);
 
     expect(buildEntryExportFileName(packet, 'pdf')).toBe('ralb-entry-2026-05-01-tower-a-north.pdf');
-    expect(markup).toContain('RALB Codex Edition audit packet');
+    expect(markup).toContain('Rope Access Logbook audit packet');
     expect(markup).toContain('Tower &lt;A&gt; &amp; &quot;North&quot;');
     expect(markup).toContain('Inspected &lt;anchors&gt; &amp; edge protection.');
     expect(markup).toContain('sha256:entry');

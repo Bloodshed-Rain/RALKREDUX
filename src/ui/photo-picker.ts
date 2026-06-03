@@ -51,7 +51,7 @@ export async function captureOrPickPhoto(
     if (!perm.granted) {
       Alert.alert(
         'Camera permission needed',
-        'Allow RALB to use the camera to take evidence photos, or pick from your library instead.',
+        'Allow Rope Access Logbook to use the camera to take evidence photos, or pick from your library instead.',
       );
       return null;
     }
