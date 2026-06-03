@@ -16,3 +16,5 @@
 - [Project: 2026-05-28 gear audit](project_audit_gear_2026_05_28.md) — silent inspection/retire failure (still-active gear); ≤14d copy vs 30d constant; catalog image no offline onError fallback
 - [Project: 2026-05-28 onboarding+auth audit](project_audit_2026_05_28_onboarding_auth.md) — setup submit silent error dead-end; index isError re-onboards user; OTP no-resend; Field has no invalid state
 - [Project: 2026-05-28 settings/system audit](project_audit_2026_05_28_settings_system.md) — account offline shows "no backups" (swallowed error); share-backup no try/catch; JSON/CSV export ship as text not file; dead chevron; subscription copy over-promise
+- [Project: 2026-06-02 Today "On your plate" review](project_today_on_your_plate_review.md) — buildActions()/buildAdvisories() exist in today-derivations but Today ignores them; entries hook can drive a real worklist; gear "14d" vs "30d" copy mismatch
+- [Project: missing-fields inline-red pattern](project_missing_fields_inline_pattern.md) — gate-vs-input split; only 3 of 5 screens have fields to redden; Heliotype danger==accent; 4 sources of "required" truth
