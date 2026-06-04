@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
+import { Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import { scaled, scaledIcon } from '@/src/ui/scale';
+import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
 import type { IconProps } from '@/src/ui/icons';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
@@ -58,6 +59,7 @@ export function Button({
   style,
 }: ButtonProps) {
   const { theme, tokens } = useTheme();
+  const press = usePressScale();
   const spec = SIZES[size];
   // The icon paints at scaledIcon(spec.iconSize) (ICON_SCALE applied inside
   // Icon/CustomIcon). Size the wrapper box to that rendered dimension and center
@@ -144,16 +146,15 @@ export function Button({
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        containerStyle,
-        pressed && !disabled ? { transform: [{ scale: 0.97 }] } : null,
-      ]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[containerStyle, press.style]}
     >
       {Icon ? (
         <View style={{ width: iconBox, height: iconBox, alignItems: 'center', justifyContent: 'center' }}>
@@ -168,6 +169,6 @@ export function Button({
           <IconRight size={spec.iconSize} color={fg} fill={fg} fillOpacity={0.28} />
         </View>
       ) : null}
-    </Pressable>
+    </AnimatedPressable>
   );
 }

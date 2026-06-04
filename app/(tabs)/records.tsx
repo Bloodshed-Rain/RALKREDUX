@@ -17,6 +17,7 @@ import {
   TopBar,
 } from '@/src/ui/primitives/v2';
 import { IconExport, IconSearch } from '@/src/ui/icons';
+import { Reveal } from '@/src/ui/animation/reveal';
 
 // Once per app session: play a wiggle on the first deletable draft so users
 // discover that draft rows can be swiped. The decision is made in an effect
@@ -358,7 +359,7 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: Recor
           <Pill tone="chip" size="sm">{`${section.data.length}`}</Pill>
         </View>
       )}
-      renderItem={({ item: entry }) => {
+      renderItem={({ item: entry, index }) => {
         const isDraft = entry.status === 'draft';
         const row = (
           <EntryRow
@@ -371,16 +372,22 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: Recor
             onLongPress={isDraft ? () => onDeleteDraft(entry) : undefined}
           />
         );
-        if (!isDraft) {
-          return row;
-        }
-        return (
+        const content = isDraft ? (
           <SwipeableRow
             onDelete={() => onDeleteDraft(entry)}
             hint={entry.id === hintEntryId}
           >
             {row}
           </SwipeableRow>
+        ) : (
+          row
+        );
+        // dedupeKey = entry id so the entrance plays once per row on first
+        // appearance and never re-fires as the virtualized list recycles it.
+        return (
+          <Reveal index={index} dedupeKey={entry.id}>
+            {content}
+          </Reveal>
         );
       }}
     />

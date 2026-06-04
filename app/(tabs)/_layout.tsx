@@ -1,10 +1,14 @@
 import React from 'react';
 import { router, Tabs } from 'expo-router';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Pressable, Text, View, type TextStyle, type ViewStyle } from 'react-native';
+import { Animated, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import type { ThemeTokens } from '@/src/ui/theme/themes';
 import { haptics } from '@/src/ui/haptics';
+import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
+import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
+import { press as pressTokens, easings, durations } from '@/src/ui/animation/motion';
 import {
   IconGear,
   IconPlus,
@@ -22,6 +26,182 @@ const TAB_ICONS: Record<string, TabIcon> = {
   gear: IconGear,
   more: IconProfile,
 };
+
+// A single tab cell. Owns two independent animations: the press scale (shared
+// usePressScale) on the whole cell, and a `focus` value that lifts the icon a
+// hair and grows an accent underline in when this tab becomes active. The
+// underline space is reserved on every tab so switching tabs cross-fades the
+// indicator into place rather than nudging the layout.
+function TabButton({
+  Icon,
+  label,
+  isFocused,
+  tokens,
+  onPress,
+  onLongPress,
+  accessibilityLabel,
+  testID,
+}: {
+  Icon: TabIcon | undefined;
+  label: string;
+  isFocused: boolean;
+  tokens: ThemeTokens;
+  onPress: () => void;
+  onLongPress: () => void;
+  accessibilityLabel?: string;
+  testID?: string;
+}) {
+  const reduced = useReducedMotion();
+  const pressScale = usePressScale(pressTokens.scale.tab);
+  const focus = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+
+  React.useEffect(() => {
+    if (reduced) {
+      focus.setValue(isFocused ? 1 : 0);
+      return;
+    }
+    const anim = Animated.timing(focus, {
+      // Short settle on the house ease-out — same motion family, no lag per tap.
+      toValue: isFocused ? 1 : 0,
+      duration: durations.tabFocus,
+      easing: easings.standard,
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [isFocused, reduced, focus]);
+
+  const color = isFocused ? tokens.text : tokens.textDim;
+  const fill = isFocused ? tokens.accent : tokens.textFaint;
+
+  const labelStyle: TextStyle = {
+    fontFamily: 'Manrope_600SemiBold',
+    fontWeight: '600',
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: 0.2,
+    color,
+    marginTop: 3,
+  };
+
+  // Omit `transform` entirely under reduced motion — never `transform: undefined`
+  // (it can serialize to null and trip Fabric's _validateTransforms).
+  const columnStyle = reduced
+    ? { alignItems: 'center' as const }
+    : {
+        alignItems: 'center' as const,
+        transform: [{ translateY: focus.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }],
+      };
+
+  const indicatorStyle = reduced
+    ? {
+        marginTop: 4,
+        width: 18,
+        height: 2.5,
+        borderRadius: 2,
+        backgroundColor: tokens.accent,
+        opacity: isFocused ? 1 : 0,
+      }
+    : {
+        marginTop: 4,
+        width: 18,
+        height: 2.5,
+        borderRadius: 2,
+        backgroundColor: tokens.accent,
+        opacity: focus,
+        transform: [{ scaleX: focus.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+      };
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="tab"
+      accessibilityState={isFocused ? { selected: true } : {}}
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={pressScale.onPressIn}
+      onPressOut={pressScale.onPressOut}
+      style={[
+        { flex: 1, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 6, borderRadius: 12 },
+        pressScale.style,
+      ]}
+    >
+      <Animated.View style={columnStyle}>
+        {Icon ? <Icon size={26} color={color} fill={fill} /> : null}
+        <Text selectable={false} numberOfLines={1} style={labelStyle}>
+          {label}
+        </Text>
+      </Animated.View>
+      <Animated.View pointerEvents="none" style={indicatorStyle} />
+    </AnimatedPressable>
+  );
+}
+
+// The center "+" action. Press scale + a slight counter-clockwise tip, driven
+// off one gesture value so they move together.
+function FabButton({
+  tokens,
+  isHeliotype,
+  onPress,
+}: {
+  tokens: ThemeTokens;
+  isHeliotype: boolean;
+  onPress: () => void;
+}) {
+  const reduced = useReducedMotion();
+  const pressScale = usePressScale();
+
+  const fabStyle = reduced
+    ? null
+    : {
+        transform: [
+          {
+            scale: pressScale.value.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, pressTokens.scale.fab],
+            }),
+          },
+          {
+            rotate: pressScale.value.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0deg', '-8deg'],
+            }),
+          },
+        ],
+      };
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Create new entry"
+      onPress={onPress}
+      onPressIn={pressScale.onPressIn}
+      onPressOut={pressScale.onPressOut}
+      style={[{ width: 84, alignItems: 'center', justifyContent: 'flex-end' }, fabStyle]}
+    >
+      <View
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: 22,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: tokens.accent,
+          shadowColor: isHeliotype ? '#1A1410' : tokens.accent,
+          shadowOffset: { width: 0, height: isHeliotype ? 3 : 12 },
+          shadowOpacity: isHeliotype ? 1 : 0.45,
+          shadowRadius: isHeliotype ? 0 : 18,
+          elevation: 8,
+          borderWidth: isHeliotype ? 2 : 0,
+          borderColor: isHeliotype ? '#1A1410' : 'transparent',
+        }}
+      >
+        <IconPlus size={31} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
+      </View>
+    </AnimatedPressable>
+  );
+}
 
 function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme, tokens } = useTheme();
@@ -55,49 +235,19 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         if (route.name === 'new') {
           return (
-            <Pressable
+            <FabButton
               key={route.key}
-              accessibilityRole="button"
-              accessibilityLabel="Create new entry"
+              tokens={tokens}
+              isHeliotype={isHeliotype}
               onPress={() => {
                 haptics.selection();
                 router.push('/entry/new');
               }}
-              style={({ pressed }) => [
-                {
-                  width: 84,
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                },
-                pressed ? { transform: [{ scale: 0.94 }, { rotate: '-8deg' }] } : null,
-              ]}
-            >
-              <View
-                style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 22,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: tokens.accent,
-                  shadowColor: isHeliotype ? '#1A1410' : tokens.accent,
-                  shadowOffset: { width: 0, height: isHeliotype ? 3 : 12 },
-                  shadowOpacity: isHeliotype ? 1 : 0.45,
-                  shadowRadius: isHeliotype ? 0 : 18,
-                  elevation: 8,
-                  borderWidth: isHeliotype ? 2 : 0,
-                  borderColor: isHeliotype ? '#1A1410' : 'transparent',
-                }}
-              >
-                <IconPlus size={31} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
-              </View>
-            </Pressable>
+            />
           );
         }
 
         const Icon = TAB_ICONS[route.name];
-        const color = isFocused ? tokens.text : tokens.textDim;
-        const fill = isFocused ? tokens.accent : tokens.textFaint;
 
         const onPress = () => {
           const event = navigation.emit({
@@ -115,41 +265,18 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           navigation.emit({ type: 'tabLongPress', target: route.key });
         };
 
-        const labelStyle: TextStyle = {
-          fontFamily: 'Manrope_600SemiBold',
-          fontWeight: '600',
-          fontSize: 10,
-          lineHeight: 12,
-          letterSpacing: 0.2,
-          color,
-          marginTop: 3,
-        };
-
         return (
-          <Pressable
+          <TabButton
             key={route.key}
-            accessibilityRole="tab"
-            accessibilityState={isFocused ? { selected: true } : {}}
-            accessibilityLabel={options.tabBarAccessibilityLabel}
-            testID={options.tabBarButtonTestID}
+            Icon={Icon}
+            label={typeof label === 'string' ? label : route.name}
+            isFocused={isFocused}
+            tokens={tokens}
             onPress={onPress}
             onLongPress={onLongPress}
-            style={({ pressed }) => [
-              {
-                flex: 1,
-                alignItems: 'center',
-                paddingVertical: 8,
-                paddingHorizontal: 6,
-                borderRadius: 12,
-              },
-              pressed ? { transform: [{ scale: 0.96 }] } : null,
-            ]}
-          >
-            {Icon ? <Icon size={26} color={color} fill={fill} /> : null}
-            <Text selectable={false} numberOfLines={1} style={labelStyle}>
-              {typeof label === 'string' ? label : route.name}
-            </Text>
-          </Pressable>
+            accessibilityLabel={options.tabBarAccessibilityLabel}
+            testID={options.tabBarButtonTestID}
+          />
         );
       })}
     </View>

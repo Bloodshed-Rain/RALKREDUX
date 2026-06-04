@@ -1,6 +1,8 @@
 import React from 'react';
-import { Pressable, View, type ViewStyle } from 'react-native';
+import { View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
+import { press } from '@/src/ui/animation/motion';
 
 export interface CardProps {
   children: React.ReactNode;
@@ -20,6 +22,7 @@ export function Card({
   style,
 }: CardProps) {
   const { theme, tokens } = useTheme();
+  const pressScale = usePressScale(press.scale.card);
   const isHeliotype = theme.key === 'heliotype';
   const borderWidth = isHeliotype ? 1.5 : 1;
   const borderColor = isHeliotype ? tokens.line : tokens.lineSoft;
@@ -35,19 +38,16 @@ export function Card({
 
   if (interactive || onPress) {
     return (
-      <Pressable
+      <AnimatedPressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
-        style={({ pressed }) => [
-          containerStyle,
-          pressed
-            ? { transform: [{ scale: 0.99 }], borderColor: tokens.line }
-            : null,
-        ]}
+        onPressIn={pressScale.onPressIn}
+        onPressOut={pressScale.onPressOut}
+        style={[containerStyle, pressScale.style]}
       >
         {children}
-      </Pressable>
+      </AnimatedPressable>
     );
   }
 
