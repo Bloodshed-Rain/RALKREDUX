@@ -31,6 +31,8 @@ import Constants from 'expo-constants';
 import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import { MIGRATION_COUNT } from '@/src/db/migrations';
 import { NotificationsStubSheet } from '@/src/ui/sheets/notifications-stub-sheet';
+import { Reveal } from '@/src/ui/animation/reveal';
+import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
 import {
   IconBell,
   IconBolt,
@@ -223,111 +225,121 @@ export default function TodayScreen() {
         />
 
         <View style={{ paddingHorizontal: 20, gap: 14 }}>
-          <CareerHero
-            hours={careerHours}
-            weekHours={weekHours}
-            monthHours={monthHours}
-            totalEntries={careerEntries}
-          />
-          <QuickLogCard
-            hasLastEntry={!!lastEntryAny}
-            lastEntrySite={lastEntryAny?.site ?? null}
-            lastEntryTask={lastEntryAny?.work_task ?? null}
-            onSameAsLast={() => {
-              haptics.selection();
-              // Wizard reads ?seed=last and pre-fills site/employer/client/
-              // task/access/structure/height/kind/rescue/hazards from the
-              // most recent entry. Date, hours, and description stay blank.
-              router.push('/entry/new?seed=last' as never);
-            }}
-            onRequestSignature={() => {
-              haptics.selection();
-              // "View pending" — lands the tech on the slice of entries that
-              // are actually awaiting a verifier.
-              router.push('/records?filter=pending' as never);
-            }}
-          />
-          <ChainHeadCard
-            chainShort={chainShort}
-            lastSignedEntry={lastSignedEntry ?? null}
-            onPress={() => {
-              if (lastSignedEntry) {
-                haptics.selection();
-                router.push(`/entry/${lastSignedEntry.id}` as never);
-              }
-            }}
-          />
-        </View>
-
-        <SectionH kicker="ON YOUR PLATE" title="Open work" />
-        <View style={{ paddingHorizontal: 20, gap: 8 }}>
-          {openWork.length === 0 ? (
-            <EmptyState
-              icon={IconCheck}
-              title="You're all caught up"
-              sub="No drafts, signatures, or gear need attention right now."
-              style={{ paddingVertical: 24 }}
+          <Reveal index={0}>
+            <CareerHero
+              hours={careerHours}
+              weekHours={weekHours}
+              monthHours={monthHours}
+              totalEntries={careerEntries}
             />
-          ) : (
-            openWork.map((item) => (
-              <OpenWorkRow
-                key={item.id}
-                item={item}
-                onPress={() => {
+          </Reveal>
+          <Reveal index={1}>
+            <QuickLogCard
+              hasLastEntry={!!lastEntryAny}
+              lastEntrySite={lastEntryAny?.site ?? null}
+              lastEntryTask={lastEntryAny?.work_task ?? null}
+              onSameAsLast={() => {
+                haptics.selection();
+                // Wizard reads ?seed=last and pre-fills site/employer/client/
+                // task/access/structure/height/kind/rescue/hazards from the
+                // most recent entry. Date, hours, and description stay blank.
+                router.push('/entry/new?seed=last' as never);
+              }}
+              onRequestSignature={() => {
+                haptics.selection();
+                // "View pending" — lands the tech on the slice of entries that
+                // are actually awaiting a verifier.
+                router.push('/records?filter=pending' as never);
+              }}
+            />
+          </Reveal>
+          <Reveal index={2}>
+            <ChainHeadCard
+              chainShort={chainShort}
+              lastSignedEntry={lastSignedEntry ?? null}
+              onPress={() => {
+                if (lastSignedEntry) {
                   haptics.selection();
-                  router.push(item.route as never);
-                }}
-              />
-            ))
-          )}
+                  router.push(`/entry/${lastSignedEntry.id}` as never);
+                }
+              }}
+            />
+          </Reveal>
         </View>
 
-        <SectionH
-          kicker="RECENT"
-          title="Last 5 entries"
-          action={
-            recentEntries.length === 5 ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="See all entries"
-                onPress={() => router.push('/records')}
-              >
-                <Text
-                  style={{
-                    ...type.cardSub,
-                    color: tokens.accent,
-                    fontFamily: 'Manrope_600SemiBold',
-                    fontWeight: '600',
-                  }}
-                >
-                  See all
-                </Text>
-              </Pressable>
-            ) : null
-          }
-        />
-        <View style={{ paddingHorizontal: 20, gap: 8 }}>
-          {!entries.data ? null : recentEntries.length === 0 ? (
-            <Card>
-              <Text style={{ ...type.cardTitle, color: tokens.text }}>No entries yet</Text>
-              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
-                Tap the center "+" to log your first job.
-              </Text>
-            </Card>
-          ) : (
-            recentEntries.map((entry) => (
-              <EntryRow
-                key={entry.id}
-                status={rowStatus(entry)}
-                date={entry.date_to}
-                site={entry.site}
-                task={entry.work_task}
-                hours={entry.work_hours}
-                onPress={() => router.push(`/entry/${entry.id}` as never)}
+        <Reveal index={3}>
+          <SectionH kicker="ON YOUR PLATE" title="Open work" />
+          <View style={{ paddingHorizontal: 20, gap: 8 }}>
+            {openWork.length === 0 ? (
+              <EmptyState
+                icon={IconCheck}
+                title="You're all caught up"
+                sub="No drafts, signatures, or gear need attention right now."
+                style={{ paddingVertical: 24 }}
               />
-            ))
-          )}
-        </View>
+            ) : (
+              openWork.map((item) => (
+                <OpenWorkRow
+                  key={item.id}
+                  item={item}
+                  onPress={() => {
+                    haptics.selection();
+                    router.push(item.route as never);
+                  }}
+                />
+              ))
+            )}
+          </View>
+        </Reveal>
+
+        <Reveal index={4}>
+          <SectionH
+            kicker="RECENT"
+            title="Last 5 entries"
+            action={
+              recentEntries.length === 5 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="See all entries"
+                  onPress={() => router.push('/records')}
+                >
+                  <Text
+                    style={{
+                      ...type.cardSub,
+                      color: tokens.accent,
+                      fontFamily: 'Manrope_600SemiBold',
+                      fontWeight: '600',
+                    }}
+                  >
+                    See all
+                  </Text>
+                </Pressable>
+              ) : null
+            }
+          />
+          <View style={{ paddingHorizontal: 20, gap: 8 }}>
+            {!entries.data ? null : recentEntries.length === 0 ? (
+              <Card>
+                <Text style={{ ...type.cardTitle, color: tokens.text }}>No entries yet</Text>
+                <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
+                  Tap the center "+" to log your first job.
+                </Text>
+              </Card>
+            ) : (
+              recentEntries.map((entry) => (
+                <EntryRow
+                  key={entry.id}
+                  status={rowStatus(entry)}
+                  date={entry.date_to}
+                  site={entry.site}
+                  task={entry.work_task}
+                  hours={entry.work_hours}
+                  onPress={() => router.push(`/entry/${entry.id}` as never)}
+                />
+              ))
+            )}
+          </View>
+        </Reveal>
       </PullToRefresh>
       <AboutSheet visible={aboutOpen} onClose={() => setAboutOpen(false)} />
       <NotificationsStubSheet visible={notifOpen} onClose={() => setNotifOpen(false)} />
@@ -555,14 +567,17 @@ function QuickChip({
   disabled?: boolean;
 }) {
   const { tokens } = useTheme();
+  const pressScale = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      onPressIn={pressScale.onPressIn}
+      onPressOut={pressScale.onPressOut}
+      style={[
         {
           paddingVertical: 6,
           paddingHorizontal: 11,
@@ -572,7 +587,7 @@ function QuickChip({
           borderColor: tokens.lineSoft,
           opacity: disabled ? 0.45 : 1,
         },
-        pressed && !disabled ? { transform: [{ scale: 0.97 }] } : null,
+        pressScale.style,
       ]}
     >
       <Text
@@ -586,7 +601,7 @@ function QuickChip({
       >
         {label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

@@ -30,6 +30,7 @@ import {
 } from '@/src/ui/primitives/v2';
 import { IconPlus } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
+import { Reveal } from '@/src/ui/animation/reveal';
 
 type CategoryFilter = 'all' | GearCategory;
 
@@ -360,10 +361,12 @@ export default function GearScreen() {
             </Card>
           </View>
         }
-        renderItem={({ item: detail }) => {
+        renderItem={({ item: detail, index }) => {
           const cycle = computeCycle(detail, today);
+          // dedupeKey = item id so recycling the virtualized row never replays
+          // its entrance. The row's horizontal padding rides on the Reveal.
           return (
-            <View style={{ paddingHorizontal: 20 }}>
+            <Reveal index={index} dedupeKey={detail.item.id} style={{ paddingHorizontal: 20 }}>
               <GearRow
                 name={detail.item.name}
                 sub={gearRowSub(detail)}
@@ -371,7 +374,7 @@ export default function GearScreen() {
                 status={detail.status}
                 onPress={() => router.push(`/gear/${detail.item.id}` as never)}
               />
-            </View>
+            </Reveal>
           );
         }}
       />

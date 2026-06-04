@@ -1,8 +1,10 @@
 import React from 'react';
-import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
+import { Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import { scaled } from '@/src/ui/scale';
+import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
+import { press } from '@/src/ui/animation/motion';
 import { IconChevron } from '@/src/ui/icons';
 import type { GearStatus } from '@/src/domain/gear/types';
 
@@ -30,6 +32,7 @@ const CAPTION: Record<GearStatus, string> = {
 // so it survives Heliotype's accent/danger hue collapse.
 export function GearRow({ name, sub, days, status, onPress }: GearRowProps) {
   const { tokens } = useTheme();
+  const pressScale = usePressScale(press.scale.row);
 
   const railColor =
     status === 'overdue'
@@ -70,11 +73,13 @@ export function GearRow({ name, sub, days, status, onPress }: GearRowProps) {
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${caption.toLowerCase()}${numeral !== '—' ? ` ${numeral} days` : ''}`}
       onPress={onPress}
-      style={({ pressed }) => [containerStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
+      onPressIn={pressScale.onPressIn}
+      onPressOut={pressScale.onPressOut}
+      style={[containerStyle, pressScale.style]}
     >
       <View style={{ width: 44, alignItems: 'center' }}>
         <Text style={numeralStyle}>{numeral}</Text>
@@ -89,6 +94,6 @@ export function GearRow({ name, sub, days, status, onPress }: GearRowProps) {
         </Text>
       </View>
       <IconChevron size={17} color={tokens.textFaint} />
-    </Pressable>
+    </AnimatedPressable>
   );
 }

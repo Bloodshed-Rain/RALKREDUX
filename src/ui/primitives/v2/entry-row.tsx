@@ -1,8 +1,10 @@
 import React from 'react';
-import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
+import { Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import { scaled } from '@/src/ui/scale';
+import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
+import { press } from '@/src/ui/animation/motion';
 import { StatusPill, type EntryStatusKey } from './pill';
 import { IconChevron } from '@/src/ui/icons';
 
@@ -35,6 +37,7 @@ function parseLocalDate(iso: string): { day: number; month: number } | null {
 
 export function EntryRow({ status, date, site, task, hours, onPress, onLongPress, action }: EntryRowProps) {
   const { tokens } = useTheme();
+  const pressScale = usePressScale(press.scale.row);
   const parsed = parseLocalDate(date);
   const statusWord = status.charAt(0).toUpperCase() + status.slice(1);
   const dateWords = parsed ? `${MONTH_ABBR[parsed.month - 1]} ${parsed.day}` : date;
@@ -85,12 +88,14 @@ export function EntryRow({ status, date, site, task, hours, onPress, onLongPress
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={a11yLabel}
       onPress={onPress}
       onLongPress={onLongPress}
-      style={({ pressed }) => [containerStyle, pressed ? { transform: [{ scale: 0.99 }] } : null]}
+      onPressIn={pressScale.onPressIn}
+      onPressOut={pressScale.onPressOut}
+      style={[containerStyle, pressScale.style]}
     >
       <View style={{ width: 44, alignItems: 'center' }}>
         <Text style={dayStyle}>{parsed ? String(parsed.day).padStart(2, '0') : '—'}</Text>
@@ -111,6 +116,6 @@ export function EntryRow({ status, date, site, task, hours, onPress, onLongPress
         {action}
         <IconChevron size={17} color={tokens.textFaint} />
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
