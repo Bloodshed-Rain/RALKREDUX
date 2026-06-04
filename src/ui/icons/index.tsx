@@ -14,6 +14,7 @@ import bellXml from '@/src/ui/icons/custom/bell';
 import brokenChainXml from '@/src/ui/icons/custom/brokenChain';
 import cameraXml from '@/src/ui/icons/custom/camera';
 import carabinerXml from '@/src/ui/icons/custom/carabiner';
+import chainLinkXml from '@/src/ui/icons/custom/chainLink';
 import cloudXml from '@/src/ui/icons/custom/cloud';
 import cloudAltXml from '@/src/ui/icons/custom/cloudAlt';
 import cloudBackupXml from '@/src/ui/icons/custom/cloudBackup';
@@ -356,6 +357,12 @@ export function IconAnchor(p: IconProps) {
 
 export function IconBrokenChain(p: IconProps) {
   return <CustomIcon {...p} xml={brokenChainXml} />;
+}
+
+// Intact, unbroken chain — the audit chain held together. Used as the HEAD
+// marker in the entry chain ladder (the valid tip of the signature chain).
+export function IconChainLink(p: IconProps) {
+  return <CustomIcon {...p} xml={chainLinkXml} />;
 }
 
 export function IconCloud(p: IconProps) {

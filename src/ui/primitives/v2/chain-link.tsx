@@ -3,6 +3,7 @@ import { View, Text, type TextStyle, type ViewStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { HashGlyph } from './hash-glyph';
 import { Pill } from './pill';
+import { IconChainLink } from '@/src/ui/icons';
 
 export interface ChainLinkItem {
   hash: string;
@@ -107,7 +108,7 @@ function ChainLinkRow({ link }: { link: ChainLinkItem }) {
           <Text style={hashStyle} numberOfLines={1}>
             {short}
           </Text>
-          {link.head ? <Pill tone="accent" size="sm">HEAD</Pill> : null}
+          {link.head ? <Pill tone="accent" size="sm" icon={IconChainLink}>HEAD</Pill> : null}
         </View>
         <Text style={labelStyle} numberOfLines={1}>
           {link.label}
