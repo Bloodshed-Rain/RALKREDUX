@@ -20,6 +20,18 @@ dev-client or standalone build for production fidelity (local scheduling also wo
 > Android small-icon/accent-color — re-add later via a custom Android-only plugin alongside a real icon
 > asset. **Do NOT list the `expo-notifications` plugin to "enable" push without also provisioning an APNs
 > key and a push-capable profile, or the iOS build breaks again — and keep `with-no-aps-entitlement`.**
+>
+> **Expected runtime warning (NOT a bug).** Because `expo-notifications` autolinks and calls iOS
+> `registerForRemoteNotifications` at launch, every iOS build logs once:
+> `WARN [expo-notifications] Error encountered while updating server registration with latest device`
+> `push token. [Error: no valid "aps-environment" entitlement string found for application]`. This is the
+> *intended* consequence of the strip above — its presence actually **confirms** the entitlement was
+> removed (were it present, remote registration would succeed silently). Local scheduling
+> (`scheduleNotificationAsync`, DATE/WEEKLY/`null` triggers) never touches APNs, so reminders are
+> unaffected. **Do NOT "fix" it by adding `aps-environment: development`** (the generic web answer) —
+> that reintroduces the push-provisioning requirement and the codesigning failure resolved in `cf3a930`.
+> Same root cause may later surface as a post-upload App Store warning *ITMS-90078: Missing Push
+> Notification Entitlement* — a warning email, not a rejection; address at the store-release tier if at all.
 
 ## Categories (3)
 
@@ -62,7 +74,11 @@ Web preview: `expo export --platform web` bundles cleanly (the `expo-notificatio
 are `.native.js`, excluded on web; every scheduler call is `Platform.OS === 'web'` guarded), so web
 boot is safe. A one-time in-browser render check is still worthwhile but low-risk.
 
-## Device-verification TODO (could not be checked without a build)
+## Device-verification — delivery CONFIRMED 2026-06-05; finer checks still open
+
+✅ **Confirmed 2026-06-05 (dev-client):** a `__DEV__` DATE-trigger test notification fires and is
+delivered to the lock screen — the OS-scheduling path (the part unit tests can't cover) works. The
+items below are the finer checks still owed:
 
 1. **WEEKLY weekday index** — planner uses `getDay()+1` (1=Sunday). Confirm `gear-overdue` fires on the
    due-date's weekday; adjust the mapping if off-by-one.
