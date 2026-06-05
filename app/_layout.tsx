@@ -4,6 +4,7 @@ import { AuthProvider } from '@/src/providers/auth-provider';
 import { AuthGate } from '@/src/providers/auth-gate';
 import { AppLock } from '@/src/providers/app-lock';
 import { TamperGuard } from '@/src/providers/tamper-guard';
+import { NotificationReconciler } from '@/src/notifications/notification-reconciler';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function ThemedStack() {
@@ -59,6 +60,7 @@ function ThemedStack() {
           here keeps the chrome contract in one place from the first frame. */}
       <Stack.Screen name="account" options={{ title: 'Account', headerShown: false }} />
       <Stack.Screen name="security" options={{ title: 'Security', headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications', headerShown: false }} />
       <Stack.Screen name="attachments" options={{ title: 'Attachments', headerShown: false }} />
       <Stack.Screen name="profile-edit" options={{ title: 'Edit profile', headerShown: false }} />
       <Stack.Screen name="hours-baseline" options={{ title: 'Starting hours', headerShown: false }} />
@@ -74,11 +76,13 @@ export default function RootLayout() {
     <AppProviders>
       <AuthProvider>
         <AuthGate>
-          <AppLock>
-            <TamperGuard>
-              <ThemedStack />
-            </TamperGuard>
-          </AppLock>
+          <NotificationReconciler>
+            <AppLock>
+              <TamperGuard>
+                <ThemedStack />
+              </TamperGuard>
+            </AppLock>
+          </NotificationReconciler>
         </AuthGate>
       </AuthProvider>
     </AppProviders>

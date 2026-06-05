@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { getClient } from '@/src/db/initialize';
 import { buildRemoteSigningToken, createLogbookService } from '@/src/domain/logbook/logbook-service';
 import { EntryDetail, RemoteSignatureRequest } from '@/src/domain/logbook/types';
+import { notifyEvent } from '@/src/notifications/notify';
 import { isSupabaseConfigured } from './client';
 import { fetchHostedRemoteSigningRequest, hostedCompletionInputFromDetail } from './remote-signing';
 
@@ -39,7 +40,16 @@ export function useImportHostedRemoteSignatureCompletion() {
     onSuccess: (result, request) => {
       if (!result.imported) return;
 
+      // The verifier signed our entry and it just landed in local SQLite — close the
+      // loop with a native notification. This import only runs in-foreground (poll/Sync),
+      // so it's exactly-once: a re-import of an already-completed request returns
+      // { imported: false } above and won't re-notify.
+      const signer = result.detail.signature?.supervisor_name ?? 'Your verifier';
+      const entryRef = result.detail.entry.site.trim() || 'your entry';
+      notifyEvent('signing', 'Entry signed', `${signer} signed ${entryRef}. It has been added to your logbook.`);
+
       queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['activeRemoteSignatureRequests'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
       queryClient.invalidateQueries({ queryKey: ['careerStats'] });
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });

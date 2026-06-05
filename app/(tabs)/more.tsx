@@ -48,7 +48,6 @@ import {
   type TerminalActionPref,
 } from '@/src/storage/local-prefs';
 import { haptics, setHapticsEnabled } from '@/src/ui/haptics';
-import { NotificationsStubSheet } from '@/src/ui/sheets/notifications-stub-sheet';
 
 const TERMINAL_ACTION_OPTIONS: Array<{ value: TerminalActionPref; label: string }> = [
   { value: 'sign', label: 'Sign now' },
@@ -75,7 +74,6 @@ export default function ProfileScreen() {
 
   const [terminalAction, setTerminalAction] = React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const [hapticsOn, setHapticsOn] = React.useState(true);
-  const [notifSheetOpen, setNotifSheetOpen] = React.useState(false);
   const [chainOpen, setChainOpen] = React.useState(false);
   const [themeOpen, setThemeOpen] = React.useState(false);
   const summary = useDashboardSummary();
@@ -409,7 +407,7 @@ export default function ProfileScreen() {
             icon={IconBell}
             title="Notifications"
             sub="Gear deadlines and remote-signing updates"
-            onPress={() => setNotifSheetOpen(true)}
+            onPress={() => router.push('/notifications' as never)}
           />
           <SettingsRow
             icon={IconCamera}
@@ -421,7 +419,6 @@ export default function ProfileScreen() {
 
         <ProfileFooter chainHash={chainHead.data ?? null} />
       </ScrollView>
-      <NotificationsStubSheet visible={notifSheetOpen} onClose={() => setNotifSheetOpen(false)} />
     </View>
   );
 }

@@ -41,6 +41,17 @@ export default (): ExpoConfig => ({
     'expo-router',
     'expo-sqlite',
     'expo-apple-authentication',
+    // NOTE: the `expo-notifications` config plugin is intentionally NOT listed. Its iOS
+    // mod (withNotificationsIOS) unconditionally adds the `aps-environment` entitlement +
+    // `remote-notification` background mode — both PUSH-only — which makes EAS require an
+    // APNs push key and fails the build with "provisioning profile doesn't include the
+    // aps-environment entitlement". This app uses LOCAL notifications only (no push
+    // server/tokens), which need no entitlement: the native module autolinks and works
+    // without the plugin, and Android POST_NOTIFICATIONS ships in the library's bundled
+    // manifest. Notification channels are created at runtime in
+    // src/notifications/scheduler.ts. Trade-off: the plugin's build-time Android small-icon
+    // + accent-color customization is unavailable; revisit via a custom Android-only plugin
+    // once a monochrome notification icon asset exists. See docs/notifications.md.
     [
       '@react-native-google-signin/google-signin',
       {

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getClient } from '@/src/db/initialize';
 import { createSupabaseBackupPort } from '@/src/cloud/supabase/backup-cloud';
+import { notifyEvent } from '@/src/notifications/notify';
 import { createCloudBackupService } from './cloud-backup-service';
 
 const CLOUD_BACKUPS_KEY = ['cloudBackups'];
@@ -32,8 +33,23 @@ export function useBackupNow() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => buildService().backupNow(),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: CLOUD_BACKUPS_KEY });
+      // A user-initiated backup that fails warrants an immediate heads-up. The
+      // service resolves (never throws) on failure, so detect it here; the
+      // not_configured / not_authenticated reasons are benign local-only no-ops.
+      if (!result.ok && result.reason === 'backup_failed') {
+        notifyEvent(
+          'backup',
+          'Backup didn’t finish',
+          'Your last backup didn’t complete. Your data is still saved on this device. Try backing up again when you have a connection.',
+        );
+      } else if (result.ok) {
+        // A successful manual backup is a known-good cloud copy — clear the auto-backup
+        // failure streak so a later single auto-fail can't fire a false "failed several
+        // times / isn't backed up yet" alert moments after this snapshot uploaded.
+        resetAutoBackupFailureStreak();
+      }
     },
   });
 }
@@ -51,6 +67,14 @@ export function useRestoreFromCloud() {
 }
 
 let autoBackupTimer: ReturnType<typeof setTimeout> | null = null;
+// Auto-backups run unattended, so a single offline blip is noise. Only a *persistent*
+// failure (the tech believes they have a cloud copy but don't) is worth interrupting for.
+let consecutiveAutoBackupFailures = 0;
+
+/** Clear the streak after any known-good cloud copy (e.g. a successful manual backup). */
+export function resetAutoBackupFailureStreak(): void {
+  consecutiveAutoBackupFailures = 0;
+}
 
 /**
  * Fire-and-forget auto-backup, debounced. Called from signing mutations: the
@@ -65,8 +89,25 @@ export function scheduleCloudBackupAfterSigning(): void {
     autoBackupTimer = null;
     void buildService()
       .backupNow()
+      .then((result) => {
+        // backupNow resolves (does not throw) on failure, so inspect the result.
+        if (result.ok) {
+          consecutiveAutoBackupFailures = 0;
+          return;
+        }
+        if (result.reason !== 'backup_failed') return; // benign local-only no-op
+        consecutiveAutoBackupFailures += 1;
+        if (consecutiveAutoBackupFailures >= 3) {
+          consecutiveAutoBackupFailures = 0;
+          notifyEvent(
+            'backup',
+            'Backups not completing',
+            'Automatic backup has failed several times. Your data is safe on this device but isn’t backed up yet. Open Backup to retry.',
+          );
+        }
+      })
       .catch(() => {
-        // Auto-backup is best-effort; failures surface on the manual path.
+        // A genuine throw (not a resolved failure) — best-effort; manual path surfaces it.
       });
   }, AUTO_BACKUP_DEBOUNCE_MS);
 }

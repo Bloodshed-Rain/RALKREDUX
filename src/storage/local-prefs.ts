@@ -25,9 +25,36 @@ export const PrefKeys = {
   authedBefore: 'authed-before',
   // Last email used for OTP sign-in, to prefill the field next time.
   lastAuthEmail: 'last-auth-email',
+  // Per-category local-notification toggles ({ gear, signing, backup }).
+  notificationPrefs: 'notification-prefs',
 } as const;
 
 export type PrefKey = (typeof PrefKeys)[keyof typeof PrefKeys];
+
+// Per-category opt-out for local notifications. The OS permission is the master
+// switch; these let a tech silence one category without revoking permission.
+// Defaults to all-on so granting permission lights everything up.
+export interface NotificationPrefs {
+  gear: boolean;
+  signing: boolean;
+  backup: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  gear: true,
+  signing: true,
+  backup: true,
+};
+
+export function isNotificationPrefs(value: unknown): value is NotificationPrefs {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).gear === 'boolean' &&
+    typeof (value as Record<string, unknown>).signing === 'boolean' &&
+    typeof (value as Record<string, unknown>).backup === 'boolean'
+  );
+}
 
 // Auto-lock idle timeout in minutes before the app re-prompts for unlock.
 // 0 disables auto-lock (only locks on app cold-start when device lock is on).

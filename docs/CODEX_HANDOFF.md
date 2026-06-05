@@ -1,8 +1,17 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-20 (real auth hard-gate + audit bug-fix pass)
+Last updated: 2026-06-04 (native local notifications)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
+
+## READ THIS FIRST — native local notifications, 2026-06-04
+
+Real iOS/Android **local** notifications (`expo-notifications` SDK 54, installed this session) replaced the old in-development stub sheet. OS-scheduled, **no push server / no tokens**, offline. Three categories: gear inspections (30d + 7d lead @ 07:00 local + weekly overdue), remote-signing (expired pre-scheduled / completed event-driven), backup failures (event-driven, gated to persistent). New prefs screen `app/notifications.tsx` (permission row + per-category toggles); the Today + More bells now push to it.
+
+- **Full design + spec:** `docs/notifications.md` (categories table, architecture, and the device-verification TODO list).
+- **Module:** `src/notifications/` — `planner.ts` is PURE + unit-tested (`__tests__/notifications/planner.test.ts`, 17 cases); `scheduler.ts` is the only `expo-notifications` importer; `notify.ts` is a lazy facade (keeps expo-notifications out of node tests); `reconcile-now.ts` is the single reconcile entry; `notification-reconciler.tsx` is mounted between `<AuthGate>` and `<AppLock>`.
+- **Prefs:** `local-prefs.ts` → `notificationPrefs { gear, signing, backup }`. **Service add:** `listActiveRemoteSignatureRequests()` on the logbook service + `useActiveRemoteSignatureRequests()` hook + `['activeRemoteSignatureRequests']` invalidations.
+- **Validated at typecheck + 261/261 jest + web bundle — NOT device-runtime-tested.** Needs an EAS dev-client rebuild. **iOS-build gotcha (resolved):** the `expo-notifications` config plugin is intentionally NOT in `app.config.ts` — its iOS mod adds the push-only `aps-environment` entitlement, which fails the AdHoc build ("provisioning profile doesn't include the aps-environment entitlement") since this app uses local notifications (no push key). Do NOT re-add the plugin without provisioning an APNs key. Device-verify the WEEKLY weekday index, iOS ~64 cap, per-category Android channels, and add a push-free custom icon plugin before store release — see `docs/notifications.md`.
 
 ## READ THIS FIRST — real auth replaces anonymous, hard gate, 2026-05-20
 
