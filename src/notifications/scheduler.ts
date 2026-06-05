@@ -166,3 +166,31 @@ export async function presentNow(category: NotificationCategory, title: string, 
     // best-effort
   }
 }
+
+// DEV-ONLY (call sites gate on __DEV__): schedule a one-off test notification `seconds`
+// from now, so the OS-scheduled delivery path — the part that can't be unit-tested and
+// otherwise only fires at a real 07:00 deadline — can be verified on-device in seconds.
+// Uses the same DATE-trigger shape as real lead reminders. No identifier, so the next
+// reconcile (which only touches gear-/signing-prefixed ids) never cancels it.
+export async function scheduleTestNotification(seconds: number): Promise<void> {
+  if (isWeb) return;
+  try {
+    await ensureSetup();
+    const perm = await getPermission();
+    if (!perm.granted) return;
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Test · scheduled reminder',
+        body: `Scheduled ${seconds}s ago. Seeing this from the lock screen confirms OS scheduling works.`,
+        sound: 'default',
+      },
+      trigger: {
+        type: SchedulableTriggerInputTypes.DATE,
+        date: new Date(Date.now() + seconds * 1000),
+        channelId: CHANNELS.gear.id,
+      },
+    });
+  } catch {
+    // best-effort
+  }
+}

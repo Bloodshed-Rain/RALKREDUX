@@ -9,6 +9,7 @@ import { IconArrowLeft, IconBell, IconVerified, IconWarn } from '@/src/ui/icons'
 import { haptics } from '@/src/ui/haptics';
 import type { NotificationPrefs } from '@/src/storage/local-prefs';
 import { useNotificationPermission, useNotificationPrefs } from '@/src/notifications/use-notifications';
+import { notifyEvent, notifyTestScheduled } from '@/src/notifications/notify';
 
 const CATEGORIES: { key: keyof NotificationPrefs; label: string; sub: string }[] = [
   {
@@ -83,6 +84,38 @@ export default function NotificationsScreen() {
             />
           ))}
         </View>
+
+        {__DEV__ && !isWeb && (
+          <>
+            <SectionH kicker="DEV" title="Test notifications" />
+            <View style={{ paddingHorizontal: 20, gap: 8 }}>
+              <Button
+                variant="secondary"
+                full
+                onPress={() => {
+                  haptics.selection();
+                  notifyEvent('gear', 'Test · now', 'If you see this, notifications work on this device.');
+                }}
+              >
+                Fire a test now
+              </Button>
+              <Button
+                variant="secondary"
+                full
+                onPress={() => {
+                  haptics.selection();
+                  notifyTestScheduled(10);
+                }}
+              >
+                Schedule a test in 10s — then background the app
+              </Button>
+              <Text style={{ ...type.cardSub, color: tokens.textDim, lineHeight: 18 }}>
+                Dev builds only. Needs permission granted above. The 10s test exercises the real
+                OS-scheduled path; lock the phone to see it fire.
+              </Text>
+            </View>
+          </>
+        )}
 
         <SectionH kicker="ABOUT" title="How these work" />
         <View style={{ paddingHorizontal: 20 }}>

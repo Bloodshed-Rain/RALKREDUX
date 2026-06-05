@@ -15,3 +15,11 @@ export function notifyEvent(category: NotificationCategory, title: string, body:
       // best-effort; a missing/failed notifier must not affect the triggering action
     });
 }
+
+// DEV-ONLY test helper (call sites gate on __DEV__). See scheduler.scheduleTestNotification.
+export function notifyTestScheduled(seconds: number): void {
+  if (Platform.OS === 'web') return;
+  void import('./scheduler')
+    .then((m) => m.scheduleTestNotification(seconds))
+    .catch(() => {});
+}
