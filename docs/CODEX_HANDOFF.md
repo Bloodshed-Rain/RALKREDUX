@@ -1,8 +1,28 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-05-20 (real auth hard-gate + audit bug-fix pass)
+Last updated: 2026-06-05 (production-readiness backlog verified closed; road-to-1.0 handoff)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
+
+## READ THIS FIRST — audit-integrity backlog is closed; see road-to-1.0, 2026-06-05
+
+The `production-readiness-audit.md` backlog was re-verified item-by-item against current
+`main` this session: **the entire P1 and P2 tier is implemented and (where jest-reachable)
+tested**, except **P1-1** (signer identity outside the hash envelope), which is deliberately
+left for a supervised session because it needs a coordinated **Edge Function redeploy**
+(`ENTRY_HASH_VERSION` 5→6 lockstep). Most of P3 is done too. `production-readiness-audit.md`
+is now a **stale snapshot** (banner added) — the authoritative "what's left and who can
+unblock it" is **`docs/road-to-1.0.md`**.
+
+What remains to 1.0 is mostly **not code**: P1-1 redeploy, auth credentials + a dev-client
+build, on-device verification, store submission, and the SPRAT/IRATA acceptance workstream.
+A short tail of low-risk P3 polish (P3-2 hours-label, P3-7/8/13/16, P3-1/4) is specced with
+reasons in `road-to-1.0.md` for a future autonomous session.
+
+Shipped this session on branch `production-hardening` (off `main` @ `feada72`, commit
+`8d3d85e`): **P3-10** (attachments screen now surfaces read errors instead of showing an
+empty state) and **P3-11** (`onError` alerts on the six previously-silent attach/detach
+draft mutations). tsc + 244 jest green; UI-only, device-verification owed. Not yet merged.
 
 ## READ THIS FIRST — real auth replaces anonymous, hard gate, 2026-05-20
 
