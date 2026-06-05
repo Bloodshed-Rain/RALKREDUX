@@ -4,15 +4,22 @@ Native iOS/Android **local** notifications via `expo-notifications` (SDK 54). OS
 offline-first, **no push server / no Expo push tokens** — nothing leaves the device. Requires a
 dev-client or standalone build for production fidelity (local scheduling also works in Expo Go).
 
-> **The `expo-notifications` config plugin is intentionally NOT added to `app.config.ts`.** Its iOS
-> mod unconditionally adds the `aps-environment` entitlement + `remote-notification` background mode
-> (both push-only), which makes EAS demand an APNs push key and fails the iOS build with
-> *"provisioning profile doesn't include the aps-environment entitlement."* Local notifications need
-> no entitlement: the native module autolinks without the plugin, Android `POST_NOTIFICATIONS` ships
-> in the library's bundled manifest, and channels are created at runtime in `scheduler.ts`. The only
-> thing lost is the plugin's build-time Android small-icon/accent-color — re-add later via a custom
-> Android-only plugin alongside a real icon asset. **Do not re-add the plugin without provisioning a
-> push key, or the iOS build breaks again.**
+> **iOS `aps-environment` entitlement — stripped by `plugins/with-no-aps-entitlement.js`.** Expo SDK 54
+> **auto-applies every installed package's config plugin** (config-plugin autolinking), so
+> `expo-notifications` runs its `withNotificationsIOS` mod — which *unconditionally* adds the
+> push-only `aps-environment` entitlement — **whether or not it's listed in `app.config.ts`**. Omitting
+> it from `plugins[]` does nothing (an earlier attempt to "avoid" it that way still failed the first
+> iOS build: *"provisioning profile doesn't include the aps-environment entitlement"*). This app uses
+> LOCAL notifications only (no push server / no APNs key), which need no entitlement, so the no-push
+> AdHoc profile doesn't grant it. The fix is a tiny custom config plugin (`./plugins/with-no-aps-entitlement`)
+> that **removes** `aps-environment` again. Ordering is load-bearing and correct: user `plugins[]` register
+> during `getConfig` *before* the autolinked SDK plugins, and entitlement mods run outermost-first chaining
+> inward, so the sequence is *read file → expo-notifications adds aps-environment → this plugin (runs last)
+> removes it*. The native module still autolinks; Android `POST_NOTIFICATIONS` ships in the library's
+> bundled manifest and channels are created at runtime in `scheduler.ts`. Lost: the plugin's build-time
+> Android small-icon/accent-color — re-add later via a custom Android-only plugin alongside a real icon
+> asset. **Do NOT list the `expo-notifications` plugin to "enable" push without also provisioning an APNs
+> key and a push-capable profile, or the iOS build breaks again — and keep `with-no-aps-entitlement`.**
 
 ## Categories (3)
 
