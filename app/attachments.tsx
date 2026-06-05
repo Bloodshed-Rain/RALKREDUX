@@ -4,7 +4,7 @@ import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
-import { Card, EmptyState, IconBtn, TopBar } from '@/src/ui/primitives/v2';
+import { Button, Card, EmptyState, IconBtn, TopBar } from '@/src/ui/primitives/v2';
 import { IconArrowLeft, IconCamera } from '@/src/ui/icons';
 import { useAllAttachments } from '@/src/domain/logbook/use-logbook';
 import type { EntryAttachmentWithEntry } from '@/src/domain/logbook/types';
@@ -68,7 +68,22 @@ export default function AttachmentsScreen() {
         contentContainerStyle={{ paddingBottom: 28 + insets.bottom, gap: 12 }}
         showsVerticalScrollIndicator={false}
       >
-        {groups.length === 0 && all.isFetched ? (
+        {all.isError ? (
+          // A read FAILURE must not masquerade as an empty ledger — surface it
+          // explicitly with a retry, mirroring entry/gear detail. Without this the
+          // "No attachments yet" empty-state below renders over a failed fetch.
+          <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 16 }}>
+            <Text style={{ ...type.heroCardTitle, color: tokens.text }}>
+              Couldn&apos;t load attachments
+            </Text>
+            <Text style={{ ...type.body, color: tokens.textDim }}>
+              Something went wrong reading the evidence index. Check your connection and try again.
+            </Text>
+            <Button variant="primary" onPress={() => all.refetch()}>
+              Retry
+            </Button>
+          </View>
+        ) : groups.length === 0 && all.isFetched ? (
           <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
             <EmptyState
               icon={IconCamera}
