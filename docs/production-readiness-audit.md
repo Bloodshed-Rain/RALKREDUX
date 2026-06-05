@@ -3,7 +3,8 @@
 > ⚠️ **STALE SNAPSHOT (as of 2026-06-05).** This audit was generated against the older
 > `ui-ux-audit-fixes` branch. Almost every item below has since been **fixed on `main`** —
 > the entire P1 and P2 tier is closed except **P1-1** (deliberately deferred; needs an
-> outward-facing Edge redeploy), as is most of P3. Each item was re-verified against current
+> outward-facing Edge redeploy) and **P2-5** (still open — high-risk timezone threading),
+> as is most of P3. Each item was re-verified against current
 > code on 2026-06-05. **Do not treat the open/closed status here as current** — for the
 > authoritative "what's left and who can unblock it," read **`docs/road-to-1.0.md`**. The
 > body below is preserved for provenance (the original finding text and fix rationale).

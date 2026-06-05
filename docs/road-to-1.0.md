@@ -8,12 +8,19 @@
 
 ## Headline
 
-**The audit-integrity backlog is closed.** Every P1 and P2 item from the
+**The audit-integrity backlog is all but closed.** Every P1 and P2 item from the
 production-readiness audit is implemented and (where jest-reachable) regression-tested
 on `main` — verified item-by-item against current code this session, not taken on faith
-from either doc. The one exception is **P1-1** (signer identity outside the hash
-envelope), which is deliberately left for a supervised session because it requires an
-outward-facing Edge Function redeploy (see below).
+from either doc — **except two**:
+
+- **P1-1** (signer identity outside the hash envelope) — deliberately left for a
+  supervised session because it requires an outward-facing Edge Function redeploy.
+- **P2-5** (export timestamps render in the ambient zone, not device-local) — still open;
+  `partial`, because the timezone-capable formatter exists but every `export.ts` call site
+  omits the arg (jest masks it via `TZ=UTC`). High-risk architectural threading — deferred,
+  see below.
+
+Both are detailed in **Deferred code** below.
 
 So the remaining distance to 1.0 is **not** more integrity code. It is dominated by
 things only you (the user) can do — credentials, device verification, a coordinated
@@ -33,7 +40,9 @@ Confirmed present and correct in current `main` code:
 | P1-6 | Offline sign-out poisoned `authedBefore` before revoke | `auth-provider.tsx:87-88` (revoke first) |
 | P2-1 | Bulk PDF/CSV dropped signer attestation | `export.ts:57-58,296-297,357-358` |
 | P2-2 | Backdated inspection clobbered live next-due | `gear-service.ts:193-204` + test `gear-service.test.ts:86` |
+| P2-3 | Restore tests ran with `foreign_keys` OFF | `__tests__/setup.ts:13` enables it + FK restore test `backup-service.test.ts` |
 | P2-4 | Hosted fetch collapsed 5xx/400 into 404-null | `remote-signing.ts:204-205` (404→null, else throw) |
+| P2-6 | AppLock re-lock unmounted subtree, losing escape ack | `app-lock.tsx:106-112` (children mounted; lock is a sibling) |
 | P2-7 | New-entry chips conveyed selection by color only | `new.tsx:804,1038,1060` `accessibilityState` |
 | P3-3 | Attachment writes didn't invalidate `['attachmentsAll']` | `use-logbook.ts:124,277` |
 | P3-5 | `foreign_keys` pragma native-only | `initialize.ts:37` unconditional |

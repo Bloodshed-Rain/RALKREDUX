@@ -8,9 +8,10 @@ This file is the continuity note for future Codex sessions working from `C:\User
 
 The `production-readiness-audit.md` backlog was re-verified item-by-item against current
 `main` this session: **the entire P1 and P2 tier is implemented and (where jest-reachable)
-tested**, except **P1-1** (signer identity outside the hash envelope), which is deliberately
-left for a supervised session because it needs a coordinated **Edge Function redeploy**
-(`ENTRY_HASH_VERSION` 5→6 lockstep). Most of P3 is done too. `production-readiness-audit.md`
+tested, except two** — **P1-1** (signer identity outside the hash envelope; deferred because
+it needs a coordinated **Edge Function redeploy**, `ENTRY_HASH_VERSION` 5→6 lockstep) and
+**P2-5** (export timestamps render in the ambient zone, not device-local; still open —
+high-risk timezone threading). Most of P3 is done too. `production-readiness-audit.md`
 is now a **stale snapshot** (banner added) — the authoritative "what's left and who can
 unblock it" is **`docs/road-to-1.0.md`**.
 
