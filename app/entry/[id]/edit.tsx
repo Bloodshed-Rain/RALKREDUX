@@ -67,7 +67,24 @@ function firstParam(value: string | string[] | undefined): string | null {
 }
 
 
-function missingFields(input: {
+interface RequiredGaps {
+  dateFrom: boolean;
+  dateTo: boolean;
+  employer: boolean;
+  site: boolean;
+  client: boolean;
+  workTask: boolean;
+  accessMethod: boolean;
+  structureType: boolean;
+  description: boolean;
+  hours: boolean;
+  height: boolean;
+}
+
+// Per-field emptiness for the audit-required inputs. Single source of truth for
+// both the "Still needed: …" summary line and the per-field `invalid` highlight
+// passed to each control, so the two can never disagree.
+function requiredGaps(input: {
   dateFrom: string;
   dateTo: string;
   employer: string;
@@ -79,19 +96,36 @@ function missingFields(input: {
   description: string;
   parsedHours: number;
   parsedHeight: number;
-}): string[] {
-  const missing: string[] = [];
-  if (!input.dateFrom.trim() || !input.dateTo.trim()) missing.push('dates');
-  if (!input.employer.trim()) missing.push('employer');
-  if (!input.site.trim()) missing.push('site');
-  if (!input.client.trim()) missing.push('client');
-  if (input.workTask.length === 0) missing.push('task');
-  if (input.accessMethod.length === 0) missing.push('access');
-  if (!input.structureType.trim()) missing.push('structure');
-  if (!input.description.trim()) missing.push('notes');
-  if (!Number.isFinite(input.parsedHours) || input.parsedHours <= 0) missing.push('hours');
-  if (!Number.isFinite(input.parsedHeight) || input.parsedHeight <= 0) missing.push('height');
-  return missing;
+}): RequiredGaps {
+  return {
+    dateFrom: !input.dateFrom.trim(),
+    dateTo: !input.dateTo.trim(),
+    employer: !input.employer.trim(),
+    site: !input.site.trim(),
+    client: !input.client.trim(),
+    workTask: input.workTask.length === 0,
+    accessMethod: input.accessMethod.length === 0,
+    structureType: !input.structureType.trim(),
+    description: !input.description.trim(),
+    hours: !Number.isFinite(input.parsedHours) || input.parsedHours <= 0,
+    height: !Number.isFinite(input.parsedHeight) || input.parsedHeight <= 0,
+  };
+}
+
+// Short labels for the summary line; the two date fields collapse to one token.
+function gapLabels(g: RequiredGaps): string[] {
+  const out: string[] = [];
+  if (g.dateFrom || g.dateTo) out.push('dates');
+  if (g.employer) out.push('employer');
+  if (g.site) out.push('site');
+  if (g.client) out.push('client');
+  if (g.workTask) out.push('task');
+  if (g.accessMethod) out.push('access');
+  if (g.structureType) out.push('structure');
+  if (g.description) out.push('notes');
+  if (g.hours) out.push('hours');
+  if (g.height) out.push('height');
+  return out;
 }
 
 export default function EditDraftScreen() {
@@ -165,7 +199,7 @@ export default function EditDraftScreen() {
 
   const parsedHours = Number(hours);
   const parsedHeight = Number(maxHeight);
-  const missing = missingFields({
+  const gaps = requiredGaps({
     dateFrom,
     dateTo,
     employer,
@@ -178,6 +212,7 @@ export default function EditDraftScreen() {
     parsedHours,
     parsedHeight,
   });
+  const missing = gapLabels(gaps);
   const isAuditReady = missing.length === 0;
   const canSave =
     Boolean(entryId) &&
@@ -326,7 +361,7 @@ export default function EditDraftScreen() {
 
         <SectionH kicker="01 SITE & TASK" title="What and where" />
         <View style={{ paddingHorizontal: 20, gap: 12 }}>
-          <Field label="Site" value={site} onChangeText={setSite} placeholder="Tower / plant / bridge" />
+          <Field label="Site" value={site} onChangeText={setSite} placeholder="Tower / plant / bridge" invalid={gaps.site} />
           <View>
             <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>TASK</Text>
             <MultiClassificationChips
@@ -335,6 +370,7 @@ export default function EditDraftScreen() {
               onChange={setWorkTask}
               presets={WORK_TASK_PRESETS}
               recents={recentWorkTask.data ?? []}
+              invalid={gaps.workTask}
             />
           </View>
           <View>
@@ -345,6 +381,7 @@ export default function EditDraftScreen() {
               onChange={setAccessMethod}
               presets={ACCESS_METHOD_PRESETS}
               recents={recentAccess.data ?? []}
+              invalid={gaps.accessMethod}
             />
           </View>
           <Field
@@ -353,6 +390,7 @@ export default function EditDraftScreen() {
             onChangeText={setHours}
             keyboardType="decimal-pad"
             placeholder="8"
+            invalid={gaps.hours}
           />
         </View>
 
@@ -365,6 +403,7 @@ export default function EditDraftScreen() {
                 value={dateFrom || null}
                 onChange={(iso) => setDateFrom(iso ?? '')}
                 maxDate={dateTo || null}
+                invalid={gaps.dateFrom}
               />
             </View>
             <View style={{ flex: 1 }}>
@@ -373,6 +412,7 @@ export default function EditDraftScreen() {
                 value={dateTo || null}
                 onChange={(iso) => setDateTo(iso ?? '')}
                 minDate={dateFrom || null}
+                invalid={gaps.dateTo}
               />
             </View>
           </View>
@@ -382,6 +422,7 @@ export default function EditDraftScreen() {
             onChangeText={setEmployer}
             placeholder="Company"
             autoCapitalize="words"
+            invalid={gaps.employer}
           />
           <Field
             label="Client"
@@ -389,6 +430,7 @@ export default function EditDraftScreen() {
             onChangeText={setClient}
             placeholder="Customer / contractor"
             autoCapitalize="words"
+            invalid={gaps.client}
           />
         </View>
 
@@ -402,6 +444,7 @@ export default function EditDraftScreen() {
               onChange={setStructureType}
               presets={STRUCTURE_PRESETS}
               recents={recentStructure.data ?? []}
+              invalid={gaps.structureType}
             />
           </View>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-end' }}>
@@ -412,6 +455,7 @@ export default function EditDraftScreen() {
                 onChangeText={(v) => setMaxHeight(v.replace(/[^\d.]/g, ''))}
                 keyboardType="decimal-pad"
                 placeholder="120"
+                invalid={gaps.height}
               />
             </View>
             <UnitToggle value={heightUnit} onChange={setHeightUnit} />
@@ -425,6 +469,7 @@ export default function EditDraftScreen() {
             onChangeText={setDescription}
             multiline
             placeholder="What work was performed on rope?"
+            invalid={gaps.description}
           />
         </View>
 
