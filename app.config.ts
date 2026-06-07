@@ -26,13 +26,13 @@ export default (): ExpoConfig => ({
     predictiveBackGestureEnabled: false,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#CACCC5',
+      backgroundColor: '#1E232A',
     },
   },
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#CACCC5',
+    backgroundColor: '#1E232A',
   },
   web: {
     favicon: './assets/favicon.png',

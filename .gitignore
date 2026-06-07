@@ -13,3 +13,7 @@ supabase/.temp/
 # Claude Code — local user state, not for VCS
 .claude/settings.local.json
 .claude/tmp/
+.claude/scheduled_tasks.lock
+
+# OS / editor junk
+desktop.ini

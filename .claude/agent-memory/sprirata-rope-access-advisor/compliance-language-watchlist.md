@@ -13,6 +13,8 @@ Per `CLAUDE.md` compliance-language rule and the SPRIRATA standing instruction: 
 
 **How to apply:** Grep any new user-facing copy for "IRATA", "SPRAT", "ICOP", "§", "ANSI", "accepted", "certified", "approved" before it ships. Plain-language descriptions of *what the app does* are fine ("amendments are a new entry that points back"); citations and acceptance language are not.
 
+**NDT line (added 2026-06-03):** If NDT-hours tracking ships, the app is NOT an NDT certification record any more than it's "SPRAT-accepted." The rope-access supervisor signature must never be presented as validating NDT experience, and the NDT ledger must be framed as a self-maintained experience log pending the employer/NDT Level III's own verification — NOT as proof of certification eligibility or "requirement met." Add NDT scheme names (SNT-TC-1A, NAS410, ISO 9712, EN 4179, PCN, ASNT) and "Level III", "qualified", "eligible" to the grep watchlist for NDT copy. See [[ndt-hours-ruling]].
+
 Safe phrasing patterns:
 - "Audit-ready" not "audit-accepted"
 - "Built toward audit readiness" not "compliant with"

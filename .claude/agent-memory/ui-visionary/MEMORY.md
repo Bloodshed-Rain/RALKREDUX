@@ -6,5 +6,5 @@
 - [UI_SCALE type-drift mechanism](project_ui_scale_type_drift.md) — how to quantify drift (1.18); gear/[id] hero hand-rolls fontSize:20; spacing has no token scale so don't flag it
 - [warn-on-warnSoft contrast](project_warn_on_warnsoft_contrast.md) — warn fg on warnSoft fails WCAG on the 3 light palettes (mercury worst 2.92); code-certain math
 - [Soft-token foreground contrast](project_soft_token_foreground_contrast.md) — full per-palette tables for warn/accent/ok on their *Soft fills; forge+mercury fail AA (FormatTile accent 2.82/4.20)
-- [CustomIcon theme-blind](project_customicon_theme_blind.md) — in-flight icon rewrite: 9 icons swapped to CustomIcon that ignores color/fill → tab active-state + FAB ink + gear rows lose theming
+- [CustomIcon theme-blind — RESOLVED](project_customicon_theme_blind.md) — icon rewrite shipped (7b77b93): currentColor SVGs + CustomIcon forwards color; theming holds. Don't re-flag.
 - [auth error-banner contrast](project_auth_error_banner_contrast.md) — danger-on-dangerSoft small text fails AA on verdigris/tungsten/mercury (4.09 worst); use tokens.text for body

@@ -34,8 +34,9 @@ Native builds use EAS (`eas.json` defines `development`, `preview`, `production`
 2. `src/domain/<feature>/` — domain services (pure-ish, take a `DbClient`), TypeScript types, and `use-<feature>.ts` React Query hooks. Screens consume hooks; services own invariants.
 3. `src/db/` — `DbClient` interface plus `expo-client.ts` (runtime, expo-sqlite) and a parallel `better-sqlite3` adapter built in `__tests__/setup.ts` for Node-side tests. Every schema change is a numbered migration in `src/db/migrations.ts`.
 4. `src/cloud/supabase/` — hosted remote-signing client. Treat as optional/augmenting; the app must work without `EXPO_PUBLIC_SUPABASE_*` set.
-5. `src/ui/primitives/` + `src/ui/theme/` — shared components and tokens. Use `colors`, `spacing`, `typography` from `tokens.ts`; do not hard-code hex/sizes in screens.
-6. `supabase/` — Edge Functions (Deno) and Postgres migrations. Excluded from the app's `tsconfig.json` — separate type-check via `npm run functions:check`.
+5. `src/storage/` — thin device-local key/value prefs (AsyncStorage-backed: `local-prefs.ts`, `advisory-acks.ts`, `gear-catalog-pick.ts`). Outside the `DbClient`/SQLite source of truth — use only for UI/ephemeral state that doesn't belong in an audit-grade entry.
+6. `src/ui/primitives/v2/` + `src/ui/theme/` — shared components and runtime theming. **Consume `const { tokens } = useTheme()` from `theme/theme-provider.tsx` and `type` from `theme/type.ts`; never hard-code hex/sizes in screens.** Theming is runtime-swappable across six palettes (`themes.ts`, light/dark) — there is no static `tokens.ts`. Primitives are mid-migration: import from `primitives/v2/` and don't mix v1 (`primitives/*`) and v2 in one screen. `src/ui/animation/` (`motion.ts`, `reveal.tsx`, `use-press-scale.ts`) is the intentional shared entrance/press motion layer.
+7. `supabase/` — Edge Functions (Deno) and Postgres migrations. Excluded from the app's `tsconfig.json` — separate type-check via `npm run functions:check`.
 
 ### Local SQLite is canonical
 
