@@ -18,3 +18,5 @@
 - [Project: 2026-05-28 settings/system audit](project_audit_2026_05_28_settings_system.md) — account offline shows "no backups" (swallowed error); share-backup no try/catch; JSON/CSV export ship as text not file; dead chevron; subscription copy over-promise
 - [Project: 2026-06-02 Today "On your plate" review](project_today_on_your_plate_review.md) — buildActions()/buildAdvisories() exist in today-derivations but Today ignores them; entries hook can drive a real worklist; gear "14d" vs "30d" copy mismatch
 - [Project: missing-fields inline-red pattern](project_missing_fields_inline_pattern.md) — gate-vs-input split; only 3 of 5 screens have fields to redden; Heliotype danger==accent; 4 sources of "required" truth
+- [Project: entry-wizard Step 2 collapse](project_entry_wizard_step2_collapse.md) — DetailsDisclosure collapses 5 optional fields; Review card never echoes them; disclosure remounts open-state from detailsSeeded (excludes gear/photos)
+- [Project: entry-wizard 6-page tile redesign](project_entry_wizard_6page_redesign.md) — 3-step→6-page big-tile rewrite (feature/redesign-entry-wizard); tile primitives settled; tileLabelStyle ignores UI_SCALE

@@ -22,6 +22,12 @@ export interface FieldProps {
   // message in danger text (overrides `helper`). Not color-only — the border
   // also thickens so the state reads on the ink-on-paper Heliotype palette.
   error?: string;
+  // Border-only invalid state with no helper message — used to highlight an
+  // empty *required* field without stacking a "Required" line under every blank
+  // (the thicker danger border IS the signal). `error` takes precedence when
+  // both are set. Announced to screen readers via the input's a11y label so the
+  // state is not conveyed by color alone.
+  invalid?: boolean;
   readOnly?: boolean;
   keyboardType?: TextInputProps['keyboardType'];
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -41,6 +47,7 @@ export function Field({
   prefix,
   helper,
   error,
+  invalid,
   readOnly,
   keyboardType,
   autoCapitalize,
@@ -63,9 +70,13 @@ export function Field({
   };
 
   const hasError = !!error;
+  // Both `error` and `invalid` paint the danger border; only `error` adds a
+  // message line. Danger takes precedence over the focus ring so a required gap
+  // stays red while the user is filling it, clearing once it's no longer empty.
+  const showDanger = hasError || !!invalid;
   const rowBaseBorder = isHeliotype ? 1.5 : 1;
-  const focusedBorder = focused || hasError ? 1.5 : rowBaseBorder;
-  const rowBorderColor = hasError
+  const focusedBorder = focused || showDanger ? 1.5 : rowBaseBorder;
+  const rowBorderColor = showDanger
     ? tokens.danger
     : focused
       ? tokens.accent
@@ -119,7 +130,9 @@ export function Field({
       <View style={rowStyle}>
         {prefix ? <View>{prefix}</View> : null}
         <TextInput
-          accessibilityLabel={accessibilityLabel || label || placeholder}
+          accessibilityLabel={`${accessibilityLabel || label || placeholder || ''}${
+            showDanger ? ', required' : ''
+          }`}
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setFocused(true)}

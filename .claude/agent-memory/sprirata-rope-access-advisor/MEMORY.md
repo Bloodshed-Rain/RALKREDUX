@@ -1,4 +1,5 @@
-- [Hash version: shipped at v3, what's pending for v4](hash-version-bump-candidates.md) — entry_kind/hazards/rescue_cover/supervisor_scheme shipped; anchor_method etc. still pending
+- [Hash version: shipped at v5, what's pending next](hash-version-bump-candidates.md) — entry_kind/hazards/rescue_cover/supervisor_scheme + RALKREDUX shipped; anchor_method etc. still pending
+- [NDT hours ruling](ndt-hours-ruling.md) — NDT hours OUTSIDE the signed entry, separate ledger + NDT Level III verifier, NO hash bump, never summed with rope-access hours
 - [Work-task taxonomy + custom entry ruling](work-task-taxonomy-and-custom-entry.md) — work_task vs entry_kind; multi-select needs a PRIMARY + hash bump; "Rescue Standby" belongs in rescue_cover
 - [Access-method two-axis ruling](access-method-two-axis-ruling.md) — access_method = rope technique; do NOT merge MEWP/scaffold/ladder; means_of_access controls hour-countability; hash bump
 - [Starting hours + legacy paper evidence](starting-hours-and-legacy-evidence.md) — per-scheme immutable self-declared baselines (profile, no hash); paper scans are evidence-not-entries, walled appendix in export
