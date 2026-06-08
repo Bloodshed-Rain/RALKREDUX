@@ -695,6 +695,94 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: 19,
+    name: 'ndt-ledger',
+    async up(db) {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS ndt_inspections (
+          id TEXT PRIMARY KEY,
+          date_from TEXT NOT NULL,
+          date_to TEXT NOT NULL,
+          method TEXT NOT NULL,
+          technique TEXT,
+          ndt_level_snapshot TEXT CHECK (ndt_level_snapshot IS NULL OR ndt_level_snapshot IN ('trainee', 'I', 'II', 'III')),
+          supervised TEXT NOT NULL DEFAULT 'independent' CHECK (supervised IN ('supervised', 'independent')),
+          hours REAL NOT NULL,
+          site TEXT NOT NULL,
+          client TEXT,
+          employer TEXT,
+          procedure_ref TEXT,
+          component TEXT,
+          ndt_scheme TEXT,
+          description TEXT,
+          linked_entry_id TEXT REFERENCES entries(id),
+          status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'logged', 'pending', 'verified', 'amended')),
+          amends_inspection_id TEXT REFERENCES ndt_inspections(id),
+          pending_signature_id TEXT,
+          timezone_offset INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS ndt_signatures (
+          id TEXT PRIMARY KEY,
+          inspection_id TEXT NOT NULL REFERENCES ndt_inspections(id),
+          verifier_name TEXT NOT NULL,
+          verifier_cert_number TEXT NOT NULL,
+          verifier_level TEXT CHECK (verifier_level IS NULL OR verifier_level IN ('II', 'III')),
+          verifier_scheme TEXT,
+          verifier_employer TEXT,
+          signed_at TEXT NOT NULL,
+          inspection_hash TEXT NOT NULL,
+          hash_version INTEGER NOT NULL,
+          method TEXT NOT NULL DEFAULT 'local' CHECK (method IN ('local', 'remote')),
+          remote_request_id TEXT,
+          signer_attestation TEXT,
+          signature_path TEXT,
+          attestation_accepted_at TEXT,
+          previous_chain_hash TEXT,
+          chain_hash TEXT,
+          created_at TEXT NOT NULL
+        );
+      `);
+      await db.exec(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_ndt_signatures_inspection_unique ON ndt_signatures(inspection_id);`,
+      );
+      await db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_ndt_signatures_chain_latest ON ndt_signatures(signed_at DESC, created_at DESC) WHERE chain_hash IS NOT NULL;`,
+      );
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS ndt_remote_signature_requests (
+          id TEXT PRIMARY KEY,
+          inspection_id TEXT NOT NULL REFERENCES ndt_inspections(id),
+          recipient_name TEXT NOT NULL,
+          recipient_contact TEXT,
+          verifier_role TEXT,
+          verifier_company TEXT,
+          status TEXT NOT NULL CHECK (status IN ('pending', 'completed', 'cancelled', 'expired')),
+          request_code TEXT NOT NULL UNIQUE,
+          inspection_hash TEXT NOT NULL,
+          hash_version INTEGER NOT NULL,
+          expires_at TEXT,
+          completed_signature_id TEXT REFERENCES ndt_signatures(id),
+          signing_token_hash TEXT,
+          token_hint TEXT,
+          viewed_at TEXT,
+          completed_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      await db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_ndt_inspections_status ON ndt_inspections(status);`,
+      );
+      await db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_ndt_inspections_method ON ndt_inspections(method);`,
+      );
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the

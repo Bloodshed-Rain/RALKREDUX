@@ -26,6 +26,7 @@ describe('database migrations', () => {
       { id: 16, name: 'profile-hours-baseline' },
       { id: 17, name: 'legacy-logbook-archives' },
       { id: 18, name: 'entry-multi-classification' },
+      { id: 19, name: 'ndt-ledger' },
     ]);
   });
 
@@ -119,6 +120,30 @@ describe('database migrations', () => {
     expect(byName.get('entry_kind')?.dflt_value).toBe("'work'");
     expect(byName.has('rescue_cover')).toBe(true);
     expect(byName.has('hazards')).toBe(true);
+  });
+
+  it('migration 19 creates the NDT ledger tables', async () => {
+    const db = await createTestClient();
+    const tables = await db.getAll<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ndt_%' ORDER BY name",
+    );
+    expect(tables.map((t) => t.name)).toEqual([
+      'ndt_inspections',
+      'ndt_remote_signature_requests',
+      'ndt_signatures',
+    ]);
+
+    const cols = await db.getAll<{ name: string }>(`PRAGMA table_info(ndt_inspections)`);
+    const names = cols.map((c) => c.name);
+    for (const required of [
+      'id', 'date_from', 'date_to', 'method', 'technique', 'ndt_level_snapshot',
+      'supervised', 'hours', 'site', 'client', 'employer', 'procedure_ref',
+      'component', 'ndt_scheme', 'description', 'linked_entry_id', 'status',
+      'amends_inspection_id', 'pending_signature_id', 'timezone_offset',
+      'created_at', 'updated_at',
+    ]) {
+      expect(names).toContain(required);
+    }
   });
 
   it('creates the local-first core tables', async () => {
