@@ -725,6 +725,8 @@ const migrations: Migration[] = [
           updated_at TEXT NOT NULL
         );
       `);
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_ndt_inspections_status ON ndt_inspections(status);');
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_ndt_inspections_method ON ndt_inspections(method);');
       await db.exec(`
         CREATE TABLE IF NOT EXISTS ndt_signatures (
           id TEXT PRIMARY KEY,
@@ -747,12 +749,8 @@ const migrations: Migration[] = [
           created_at TEXT NOT NULL
         );
       `);
-      await db.exec(
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_ndt_signatures_inspection_unique ON ndt_signatures(inspection_id);`,
-      );
-      await db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_ndt_signatures_chain_latest ON ndt_signatures(signed_at DESC, created_at DESC) WHERE chain_hash IS NOT NULL;`,
-      );
+      await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_ndt_signatures_inspection_unique ON ndt_signatures(inspection_id);');
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_ndt_signatures_chain_latest ON ndt_signatures(signed_at DESC, created_at DESC) WHERE chain_hash IS NOT NULL;');
       await db.exec(`
         CREATE TABLE IF NOT EXISTS ndt_remote_signature_requests (
           id TEXT PRIMARY KEY,
@@ -775,12 +773,7 @@ const migrations: Migration[] = [
           updated_at TEXT NOT NULL
         );
       `);
-      await db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_ndt_inspections_status ON ndt_inspections(status);`,
-      );
-      await db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_ndt_inspections_method ON ndt_inspections(method);`,
-      );
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_ndt_remote_signature_requests_inspection_id ON ndt_remote_signature_requests(inspection_id);');
     },
   },
 ];

@@ -144,6 +144,28 @@ describe('database migrations', () => {
     ]) {
       expect(names).toContain(required);
     }
+
+    const sigCols = await db.getAll<{ name: string }>('PRAGMA table_info(ndt_signatures)');
+    const sigNames = sigCols.map((c) => c.name);
+    for (const required of [
+      'id', 'inspection_id', 'verifier_name', 'verifier_cert_number', 'verifier_level',
+      'verifier_scheme', 'verifier_employer', 'signed_at', 'inspection_hash', 'hash_version',
+      'method', 'remote_request_id', 'signer_attestation', 'signature_path',
+      'attestation_accepted_at', 'previous_chain_hash', 'chain_hash', 'created_at',
+    ]) {
+      expect(sigNames).toContain(required);
+    }
+
+    const rsrCols = await db.getAll<{ name: string }>('PRAGMA table_info(ndt_remote_signature_requests)');
+    const rsrNames = rsrCols.map((c) => c.name);
+    for (const required of [
+      'id', 'inspection_id', 'recipient_name', 'recipient_contact', 'verifier_role',
+      'verifier_company', 'status', 'request_code', 'inspection_hash', 'hash_version',
+      'expires_at', 'completed_signature_id', 'signing_token_hash', 'token_hint',
+      'viewed_at', 'completed_at', 'created_at', 'updated_at',
+    ]) {
+      expect(rsrNames).toContain(required);
+    }
   });
 
   it('creates the local-first core tables', async () => {
