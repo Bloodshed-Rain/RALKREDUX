@@ -40,6 +40,7 @@ export default (): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-sqlite',
+    'expo-font',
     'expo-apple-authentication',
     [
       '@react-native-google-signin/google-signin',
