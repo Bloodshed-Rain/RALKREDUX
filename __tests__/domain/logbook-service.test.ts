@@ -169,6 +169,38 @@ describe('logbook service', () => {
     await expect(service.deleteDraftEntry(entry.id)).rejects.toThrow('entry_not_found');
   });
 
+  it('removes a single evidence attachment from a draft, leaving the rest', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+
+    const entry = await service.createDraft(draftInput());
+    await service.addEntryAttachment({
+      entry_id: entry.id,
+      label: 'Anchor photo',
+      uri: 'file:///tmp/anchor.jpg',
+      mime_type: 'image/jpeg',
+    });
+    const withTwo = await service.addEntryAttachment({
+      entry_id: entry.id,
+      label: 'Hazard photo',
+      uri: 'file:///tmp/hazard.jpg',
+      mime_type: 'image/jpeg',
+    });
+    expect(withTwo.attachments).toHaveLength(2);
+
+    const target = withTwo.attachments.find((a) => a.label === 'Anchor photo')!;
+    const after = await service.removeEntryAttachment({
+      entry_id: entry.id,
+      attachment_id: target.id,
+    });
+
+    expect(after.attachments).toHaveLength(1);
+    expect(after.attachments[0].label).toBe('Hazard photo');
+    expect(
+      await db.getAll('SELECT * FROM entry_attachments WHERE id = ?', [target.id]),
+    ).toHaveLength(0);
+  });
+
   it('refuses to delete a signed entry', async () => {
     const db = await createTestClient();
     const service = createLogbookService(db);

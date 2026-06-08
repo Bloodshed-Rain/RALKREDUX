@@ -13,7 +13,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
-import { persistAttachmentFile } from '@/src/ui/attachment-storage';
+import { deleteAttachmentFile, persistAttachmentFile } from '@/src/ui/attachment-storage';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type {
   CreateEntryInput,
@@ -39,6 +39,7 @@ import {
   useEntryDetail,
   useRecentClassificationValues,
   useRecentHazardValues,
+  useRemoveEntryAttachment,
   useRemoveGearFromEntry,
   useSupervisorContacts,
   useUpdateDraftEntry,
@@ -907,6 +908,7 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
   const attachGear = useAttachGearToEntry();
   const removeGear = useRemoveGearFromEntry();
   const addAttachment = useAddEntryAttachment();
+  const removeAttachment = useRemoveEntryAttachment();
 
   const attachedGearIds = new Set((detail.data?.gear_usage ?? []).map(({ gear }) => gear.id));
   const selectableGear = (gearItems.data ?? []).filter(({ status }) => status !== 'retired');
@@ -1045,6 +1047,21 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
           onCapture={addPhoto}
           capturePending={addAttachment.isPending}
           disabled={!draft.entryId}
+          onRemove={(id) => {
+            if (!draft.entryId || removeAttachment.isPending) return;
+            haptics.selection();
+            const target = attachments.find((a) => a.id === id);
+            removeAttachment.mutate(
+              { entry_id: draft.entryId, attachment_id: id },
+              {
+                // Reclaim the durable file bytes only after the row is gone, so a
+                // failed DB delete never leaves a dangling pointer. Best-effort.
+                onSuccess: () => {
+                  if (target) void deleteAttachmentFile(target.uri);
+                },
+              },
+            );
+          }}
         />
       </View>
     </View>

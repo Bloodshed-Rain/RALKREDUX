@@ -33,3 +33,20 @@ export async function persistAttachmentFile(sourceUri: string): Promise<string> 
     return sourceUri;
   }
 }
+
+/**
+ * Reclaim a durable evidence file previously created by persistAttachmentFile,
+ * called when an attachment is removed from a draft. Deletes ONLY files we own
+ * (under documentDirectory) — a fallback/source URI (web blob, picker cache, or
+ * a failed-copy passthrough) is left untouched. No-op on web and best-effort
+ * otherwise: an orphaned file is a storage nuisance, never worth throwing.
+ */
+export async function deleteAttachmentFile(uri: string): Promise<void> {
+  const dir = FileSystem.documentDirectory;
+  if (!dir || !uri.startsWith(dir)) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+    // best effort
+  }
+}

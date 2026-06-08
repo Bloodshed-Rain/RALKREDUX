@@ -19,6 +19,7 @@ import {
   EntrySignature,
   ExportLogbookOptions,
   LogbookEntry,
+  RemoveEntryAttachmentInput,
   RemoveGearFromEntryInput,
   SignEntryInput,
   UpdateDraftEntryInput,
@@ -274,6 +275,18 @@ export function useAddEntryAttachment() {
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       // Keep the cross-entry Attachments index fresh after a new attachment. (P3-3)
+      queryClient.invalidateQueries({ queryKey: ['attachmentsAll'] });
+    },
+  });
+}
+
+export function useRemoveEntryAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: RemoveEntryAttachmentInput) =>
+      createLogbookService(getClient()).removeEntryAttachment(input),
+    onSuccess: (detail) => {
+      queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['attachmentsAll'] });
     },
   });
