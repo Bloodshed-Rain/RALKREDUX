@@ -13,7 +13,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
-import { persistAttachmentFile } from '@/src/ui/attachment-storage';
+import { deleteAttachmentFile, persistAttachmentFile } from '@/src/ui/attachment-storage';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type {
   CreateEntryInput,
@@ -1050,7 +1050,17 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
           onRemove={(id) => {
             if (!draft.entryId || removeAttachment.isPending) return;
             haptics.selection();
-            removeAttachment.mutate({ entry_id: draft.entryId, attachment_id: id });
+            const target = attachments.find((a) => a.id === id);
+            removeAttachment.mutate(
+              { entry_id: draft.entryId, attachment_id: id },
+              {
+                // Reclaim the durable file bytes only after the row is gone, so a
+                // failed DB delete never leaves a dangling pointer. Best-effort.
+                onSuccess: () => {
+                  if (target) void deleteAttachmentFile(target.uri);
+                },
+              },
+            );
           }}
         />
       </View>
