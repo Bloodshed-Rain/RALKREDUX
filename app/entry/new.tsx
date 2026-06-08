@@ -39,6 +39,7 @@ import {
   useEntryDetail,
   useRecentClassificationValues,
   useRecentHazardValues,
+  useRemoveEntryAttachment,
   useRemoveGearFromEntry,
   useSupervisorContacts,
   useUpdateDraftEntry,
@@ -907,6 +908,7 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
   const attachGear = useAttachGearToEntry();
   const removeGear = useRemoveGearFromEntry();
   const addAttachment = useAddEntryAttachment();
+  const removeAttachment = useRemoveEntryAttachment();
 
   const attachedGearIds = new Set((detail.data?.gear_usage ?? []).map(({ gear }) => gear.id));
   const selectableGear = (gearItems.data ?? []).filter(({ status }) => status !== 'retired');
@@ -1045,6 +1047,11 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
           onCapture={addPhoto}
           capturePending={addAttachment.isPending}
           disabled={!draft.entryId}
+          onRemove={(id) => {
+            if (!draft.entryId || removeAttachment.isPending) return;
+            haptics.selection();
+            removeAttachment.mutate({ entry_id: draft.entryId, attachment_id: id });
+          }}
         />
       </View>
     </View>

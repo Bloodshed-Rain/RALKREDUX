@@ -339,6 +339,11 @@ export interface AddEntryAttachmentInput {
   notes?: string | null;
 }
 
+export interface RemoveEntryAttachmentInput {
+  entry_id: string;
+  attachment_id: string;
+}
+
 export interface EntryTemplate {
   id: string;
   name: string;

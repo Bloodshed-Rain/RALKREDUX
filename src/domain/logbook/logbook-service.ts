@@ -19,6 +19,7 @@ import {
   EntryAttachment,
   EntryAttachmentWithEntry,
   EntryGearUsageDetail,
+  RemoveEntryAttachmentInput,
   EntrySignature,
   EntryTemplate,
   ExportLogbookOptions,
@@ -1290,6 +1291,21 @@ export function createLogbookService(db: DbClient) {
           new Date().toISOString(),
         ],
       );
+
+      const detail = await getEntryDetail(entry.id);
+      if (!detail) throw new Error('entry_not_found');
+      return detail;
+    },
+
+    async removeEntryAttachment(input: RemoveEntryAttachmentInput): Promise<EntryDetail> {
+      const entry = await getEntryById(input.entry_id);
+      if (!entry) throw new Error('entry_not_found');
+      if (entry.status !== 'draft') throw new Error('entry_locked');
+
+      await db.run(`DELETE FROM entry_attachments WHERE id = ? AND entry_id = ?`, [
+        input.attachment_id,
+        entry.id,
+      ]);
 
       const detail = await getEntryDetail(entry.id);
       if (!detail) throw new Error('entry_not_found');

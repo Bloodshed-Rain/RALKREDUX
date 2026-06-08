@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Pressable, ScrollView, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
-import { IconCamera } from '@/src/ui/icons';
+import { IconCamera, IconClose } from '@/src/ui/icons';
 
 const TILE = 88;
 const SLOT_LABELS = ['Anchors', 'Workzone', 'Hazard'] as const;
@@ -17,6 +17,9 @@ export interface PhotoStripProps {
   onCapture: () => void;
   capturePending?: boolean;
   disabled?: boolean;
+  // When provided, each captured photo shows a ✕ button that calls this with the
+  // photo's id, so attachments can be removed (drafts only — the caller gates).
+  onRemove?: (id: string) => void;
 }
 
 // Horizontally-scrolling row: leading "Capture" tile (accent-filled with
@@ -25,7 +28,13 @@ export interface PhotoStripProps {
 // thumbnail tile with a mono filename overlay. Filled photos collapse the
 // matching slot from the trailing side, so the strip never grows beyond
 // max(slots, photos+capture).
-export function PhotoStrip({ photos, onCapture, capturePending, disabled }: PhotoStripProps) {
+export function PhotoStrip({
+  photos,
+  onCapture,
+  capturePending,
+  disabled,
+  onRemove,
+}: PhotoStripProps) {
   const remainingSlots = Math.max(0, SLOT_LABELS.length - photos.length);
 
   return (
@@ -40,7 +49,7 @@ export function PhotoStrip({ photos, onCapture, capturePending, disabled }: Phot
         disabled={!!disabled}
       />
       {photos.map((p) => (
-        <PhotoTile key={p.id} photo={p} />
+        <PhotoTile key={p.id} photo={p} onRemove={onRemove} />
       ))}
       {Array.from({ length: remainingSlots }).map((_, i) => (
         <SlotTile key={`slot-${i}`} label={SLOT_LABELS[i + photos.length]} />
@@ -119,7 +128,13 @@ function SlotTile({ label }: { label: string }) {
   );
 }
 
-function PhotoTile({ photo }: { photo: PhotoStripItem }) {
+function PhotoTile({
+  photo,
+  onRemove,
+}: {
+  photo: PhotoStripItem;
+  onRemove?: (id: string) => void;
+}) {
   const { tokens } = useTheme();
   const tileStyle: ViewStyle = {
     width: TILE,
@@ -159,6 +174,30 @@ function PhotoTile({ photo }: { photo: PhotoStripItem }) {
             {photo.label}
           </Text>
         </View>
+      ) : null}
+      {onRemove ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${photo.label || 'photo'}`}
+          onPress={() => onRemove(photo.id)}
+          hitSlop={6}
+          style={({ pressed }) => [
+            {
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            pressed ? { transform: [{ scale: 0.9 }] } : null,
+          ]}
+        >
+          <IconClose size={14} color="#FFFFFF" />
+        </Pressable>
       ) : null}
     </View>
   );
