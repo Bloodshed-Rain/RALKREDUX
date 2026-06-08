@@ -47,6 +47,27 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 
 const containerStyle: ViewStyle = { flexDirection: 'row', flexWrap: 'wrap', gap: 6 };
 
+// Wraps a chip group in a danger-bordered box when the group is a required
+// field left empty — the border-only "invalid" treatment that matches Field /
+// DateField. No message line: the screen's "Still needed: …" summary carries
+// the non-visual (screen-reader) signal, so the box is purely the visual cue.
+function InvalidWrap({ invalid, children }: { invalid?: boolean; children: React.ReactNode }) {
+  const { tokens } = useTheme();
+  if (!invalid) return <>{children}</>;
+  return (
+    <View
+      style={{
+        borderWidth: 1.5,
+        borderColor: tokens.danger,
+        borderRadius: 12,
+        padding: 8,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
 export interface ClassificationChipsProps {
   value: string;
   onChange: (value: string) => void;
@@ -55,6 +76,8 @@ export interface ClassificationChipsProps {
   label: string; // sheet title + a11y
   inlineCount?: number;
   customMaxLength?: number;
+  // Highlight the group as an empty required field (danger outline, no message).
+  invalid?: boolean;
 }
 
 export function ClassificationChips({
@@ -65,6 +88,7 @@ export function ClassificationChips({
   label,
   inlineCount = DEFAULT_INLINE_COUNT,
   customMaxLength,
+  invalid,
 }: ClassificationChipsProps) {
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const inlinePresets = presets.slice(0, inlineCount);
@@ -76,30 +100,32 @@ export function ClassificationChips({
   const injected = trimmed.length > 0 && !valueInInline ? [trimmed] : [];
 
   return (
-    <View style={containerStyle}>
-      {injected.map((v) => (
-        <Chip key={`sel:${v}`} label={v} active onPress={() => onChange(v)} />
-      ))}
-      {inlinePresets.map((p) => (
-        <Chip
-          key={`p:${p}`}
-          label={p}
-          active={p.toLowerCase() === trimmed.toLowerCase()}
-          onPress={() => onChange(p)}
+    <InvalidWrap invalid={invalid}>
+      <View style={containerStyle}>
+        {injected.map((v) => (
+          <Chip key={`sel:${v}`} label={v} active onPress={() => onChange(v)} />
+        ))}
+        {inlinePresets.map((p) => (
+          <Chip
+            key={`p:${p}`}
+            label={p}
+            active={p.toLowerCase() === trimmed.toLowerCase()}
+            onPress={() => onChange(p)}
+          />
+        ))}
+        <Chip label="＋ More" active={false} onPress={() => setSheetOpen(true)} />
+        <ClassificationPickerSheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          title={label}
+          presets={presets}
+          recents={recents}
+          selected={trimmed ? [trimmed] : []}
+          customMaxLength={customMaxLength}
+          onPick={(v) => onChange(v)}
         />
-      ))}
-      <Chip label="＋ More" active={false} onPress={() => setSheetOpen(true)} />
-      <ClassificationPickerSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title={label}
-        presets={presets}
-        recents={recents}
-        selected={trimmed ? [trimmed] : []}
-        customMaxLength={customMaxLength}
-        onPick={(v) => onChange(v)}
-      />
-    </View>
+      </View>
+    </InvalidWrap>
   );
 }
 
@@ -111,6 +137,8 @@ export interface MultiClassificationChipsProps {
   label: string;
   inlineCount?: number;
   customMaxLength?: number;
+  // Highlight the group as an empty required field (danger outline, no message).
+  invalid?: boolean;
 }
 
 export function MultiClassificationChips({
@@ -121,6 +149,7 @@ export function MultiClassificationChips({
   label,
   inlineCount = DEFAULT_INLINE_COUNT,
   customMaxLength,
+  invalid,
 }: MultiClassificationChipsProps) {
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const selectedLower = new Set(values.map((v) => v.trim().toLowerCase()));
@@ -140,25 +169,27 @@ export function MultiClassificationChips({
   }
 
   return (
-    <View style={containerStyle}>
-      {injected.map((v) => (
-        <Chip key={`sel:${v}`} label={v} active onPress={() => toggle(v)} />
-      ))}
-      {inlinePresets.map((p) => (
-        <Chip key={`p:${p}`} label={p} active={selectedLower.has(p.toLowerCase())} onPress={() => toggle(p)} />
-      ))}
-      <Chip label="＋ More" active={false} onPress={() => setSheetOpen(true)} />
-      <ClassificationPickerSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title={label}
-        presets={presets}
-        recents={recents}
-        selected={values}
-        multi
-        customMaxLength={customMaxLength}
-        onPick={(v) => toggle(v)}
-      />
-    </View>
+    <InvalidWrap invalid={invalid}>
+      <View style={containerStyle}>
+        {injected.map((v) => (
+          <Chip key={`sel:${v}`} label={v} active onPress={() => toggle(v)} />
+        ))}
+        {inlinePresets.map((p) => (
+          <Chip key={`p:${p}`} label={p} active={selectedLower.has(p.toLowerCase())} onPress={() => toggle(p)} />
+        ))}
+        <Chip label="＋ More" active={false} onPress={() => setSheetOpen(true)} />
+        <ClassificationPickerSheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          title={label}
+          presets={presets}
+          recents={recents}
+          selected={values}
+          multi
+          customMaxLength={customMaxLength}
+          onPick={(v) => toggle(v)}
+        />
+      </View>
+    </InvalidWrap>
   );
 }

@@ -15,6 +15,9 @@ export interface DateFieldProps {
   // in danger text (overrides `helper`). Mirrors Field's `error` so the signal
   // is not color-only — the thicker border also reads on Heliotype.
   error?: string;
+  // Border-only invalid state with no message — highlights an empty *required*
+  // date the same way Field's `invalid` does. `error` wins when both are set.
+  invalid?: boolean;
   minDate?: string | null;
   maxDate?: string | null;
   clearable?: boolean;
@@ -30,6 +33,7 @@ export function DateField({
   placeholder = 'Select date',
   helper,
   error,
+  invalid,
   minDate,
   maxDate,
   clearable = false,
@@ -41,6 +45,7 @@ export function DateField({
   const [open, setOpen] = React.useState(false);
   const isHeliotype = theme.key === 'heliotype';
   const hasError = !!error;
+  const showDanger = hasError || !!invalid;
   const display = formatIsoForDisplay(value);
 
   const labelStyle: TextStyle = {
@@ -60,8 +65,8 @@ export function DateField({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderWidth: hasError || isHeliotype ? 1.5 : 1,
-    borderColor: hasError ? tokens.danger : isHeliotype ? tokens.line : tokens.lineSoft,
+    borderWidth: showDanger || isHeliotype ? 1.5 : 1,
+    borderColor: showDanger ? tokens.danger : isHeliotype ? tokens.line : tokens.lineSoft,
   };
 
   const valueStyle: TextStyle = {
@@ -90,7 +95,7 @@ export function DateField({
         onPress={() => { if (!disabled) setOpen(true); }}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={`${label ?? title ?? 'Date'}: ${display ?? 'not set'}`}
+        accessibilityLabel={`${label ?? title ?? 'Date'}: ${display ?? 'not set'}${showDanger ? ', required' : ''}`}
         accessibilityState={{ disabled }}
         style={({ pressed }) => [rowStyle, pressed && !disabled ? { transform: [{ scale: 0.99 }] } : null]}
       >
