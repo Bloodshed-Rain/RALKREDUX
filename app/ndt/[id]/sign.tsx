@@ -1,0 +1,453 @@
+import React from 'react';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatDateRange } from '@/src/domain/date-format';
+import { getNdtInspectionReadiness } from '@/src/domain/ndt/ndt-readiness';
+import { useNdtInspectionDetail, useSignNdtLocal } from '@/src/domain/ndt/use-ndt';
+import type { NdtInspection, NdtMethod, NdtVerifierLevel } from '@/src/domain/ndt/types';
+import { useTheme } from '@/src/ui/theme/theme-provider';
+import { type } from '@/src/ui/theme/type';
+import {
+  Button,
+  Card,
+  ChipSelect,
+  Field,
+  IconBtn,
+  SectionH,
+  SigPad,
+  TopBar,
+  type SigPadHandle,
+} from '@/src/ui/primitives/v2';
+import { IconArrowLeft, IconCheck, IconWarn } from '@/src/ui/icons';
+import { haptics } from '@/src/ui/haptics';
+
+function firstParam(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] : value;
+}
+
+// NDT attestation copy — verbatim and DISTINCT from the rope-access copy. This is
+// the responsible-Level-III statement recorded against the signature. Framed as
+// confirming logged hours were performed under procedure — never "qualified /
+// eligible / accepted".
+const NDT_ATTESTATION_TEXT =
+  'I am the responsible NDT Level III (or authorised verifier) and I confirm the logged method-hours were performed under the applicable procedure.';
+
+// Verifier level segmented control. Defaults to III (this is the Level III sign
+// screen); II covers an authorised Level II verifier where a procedure allows.
+const VERIFIER_LEVELS: Array<{ value: NdtVerifierLevel; label: string }> = [
+  { value: 'II', label: 'Level II' },
+  { value: 'III', label: 'Level III' },
+];
+
+// Local METHOD_LABEL — the detail route's map isn't exported, so re-declare it
+// here rather than importing from a sibling route file.
+const METHOD_LABEL: Record<NdtMethod, string> = {
+  UT: 'Ultrasonic',
+  MT: 'Magnetic Particle',
+  PT: 'Penetrant',
+  RT: 'Radiographic',
+  ET: 'Eddy Current',
+  VT: 'Visual',
+  LT: 'Leak',
+  AE: 'Acoustic Emission',
+  IRT: 'Infrared',
+  NR: 'Neutron Radiography',
+  GW: 'Guided Wave',
+};
+
+function methodLabel(method: NdtMethod): string {
+  return `${method} · ${METHOD_LABEL[method] ?? method}`;
+}
+
+function supervisionLabel(value: NdtInspection['supervised']): string {
+  return value === 'independent' ? 'Independent' : 'Supervised';
+}
+
+export default function NdtLocalSignScreen() {
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const inspectionId = firstParam(id);
+  const detail = useNdtInspectionDetail(inspectionId);
+  const signNdt = useSignNdtLocal();
+
+  const [verifierName, setVerifierName] = React.useState('');
+  const [verifierCertNumber, setVerifierCertNumber] = React.useState('');
+  const [verifierLevel, setVerifierLevel] = React.useState<NdtVerifierLevel>('III');
+  const [verifierScheme, setVerifierScheme] = React.useState('');
+  const [verifierEmployer, setVerifierEmployer] = React.useState('');
+  const [signaturePath, setSignaturePath] = React.useState('');
+  const [signatureActive, setSignatureActive] = React.useState(false);
+  const [attestationAccepted, setAttestationAccepted] = React.useState(false);
+
+  const sigPadRef = React.useRef<SigPadHandle>(null);
+
+  const inspection = detail.data?.inspection;
+  const readiness = inspection ? getNdtInspectionReadiness(inspection) : null;
+  const isReady = readiness?.ready === true;
+  // Defensive: the detail screen only routes here while editable, but a
+  // verified/amended inspection reaching this screen would be rejected by the
+  // service (SIGNABLE_STATUSES = draft|logged|pending). Surface it gently.
+  const isSignableStatus =
+    inspection?.status === 'draft' ||
+    inspection?.status === 'logged' ||
+    inspection?.status === 'pending';
+
+  const nameReady = verifierName.trim().length >= 2;
+  const certReady = verifierCertNumber.trim().length >= 2;
+  const signatureReady = signaturePath.trim().length > 0;
+
+  const canSign =
+    Boolean(inspectionId) &&
+    isReady &&
+    isSignableStatus &&
+    nameReady &&
+    certReady &&
+    signatureReady &&
+    attestationAccepted;
+
+  function submit() {
+    if (!canSign || !inspectionId) return;
+    signNdt.mutate(
+      {
+        inspection_id: inspectionId,
+        verifier_name: verifierName.trim(),
+        verifier_cert_number: verifierCertNumber.trim(),
+        verifier_level: verifierLevel,
+        verifier_scheme: verifierScheme.trim() || null,
+        verifier_employer: verifierEmployer.trim() || null,
+        signature_path: signaturePath,
+        attestation_accepted: true,
+        signer_attestation: NDT_ATTESTATION_TEXT,
+      },
+      {
+        onSuccess: () => {
+          haptics.success();
+          router.replace(('/ndt/' + inspectionId) as never);
+        },
+        onError: () => haptics.error(),
+      },
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <TopBar
+        title="Verify in chain"
+        leading={
+          <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />
+        }
+      />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: 132,
+          gap: 14,
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        scrollEnabled={!signatureActive}
+      >
+        {/* CONTEXT — read-only summary of the inspection being verified. */}
+        <Card padding={14}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>VERIFYING</Text>
+              <Text
+                style={{ ...type.heroCardTitle, color: tokens.text, marginTop: 2 }}
+                numberOfLines={1}
+              >
+                {inspection?.site || 'Loading NDT record…'}
+              </Text>
+              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+                {inspection
+                  ? [inspection.employer, inspection.client].filter(Boolean).join(' · ') ||
+                    'No employer / client on file'
+                  : ''}
+              </Text>
+            </View>
+          </View>
+          {inspection && readiness && !isReady ? (
+            <View
+              style={{
+                marginTop: 12,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 8,
+                padding: 10,
+                borderRadius: 10,
+                backgroundColor: tokens.warnSoft,
+              }}
+            >
+              <IconWarn size={18} color={tokens.warn} />
+              <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
+                Finish required fields before verifying: {readiness.missingFields.join(', ')}.
+              </Text>
+            </View>
+          ) : null}
+          {inspection && isReady && !isSignableStatus ? (
+            <View
+              style={{
+                marginTop: 12,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 8,
+                padding: 10,
+                borderRadius: 10,
+                backgroundColor: tokens.warnSoft,
+              }}
+            >
+              <IconWarn size={18} color={tokens.warn} />
+              <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
+                This record is already sealed and can no longer be verified.
+              </Text>
+            </View>
+          ) : null}
+        </Card>
+
+        {/* INSPECTION RECORD — read-only field summary so the verifier sees
+            exactly what their attestation covers. */}
+        {inspection ? (
+          <View>
+            <SectionH
+              kicker="INSPECTION RECORD"
+              title={formatDateRange(inspection.date_from, inspection.date_to)}
+            />
+            <Card padding={14}>
+              <Row label="Method" value={methodLabel(inspection.method)} />
+              <Row label="Technique" value={inspection.technique || '—'} />
+              <Row label="Hours" value={`${(inspection.hours ?? 0).toFixed(1)} h`} />
+              <Row label="Mode" value={supervisionLabel(inspection.supervised)} />
+              <Row label="Level held" value={inspection.ndt_level_snapshot ?? '—'} />
+              <Row label="Site / job" value={inspection.site || '—'} />
+              <Row label="Procedure" value={inspection.procedure_ref || '—'} />
+              <Row label="Component" value={inspection.component || '—'} />
+              <Row
+                label="Scheme"
+                value={inspection.ndt_scheme || '—'}
+                last={!inspection.description?.trim()}
+              />
+              {inspection.description?.trim() ? (
+                <RecordBlock label="Description" body={inspection.description} />
+              ) : null}
+            </Card>
+          </View>
+        ) : null}
+
+        {/* VERIFIER */}
+        <View>
+          <SectionH kicker="VERIFIER" title="Who's verifying" />
+          <View style={{ gap: 12 }}>
+            <Field
+              label="Verifier name"
+              value={verifierName}
+              onChangeText={setVerifierName}
+              placeholder="Jordan Lee"
+              autoCapitalize="words"
+            />
+            <Field
+              label="Cert number"
+              value={verifierCertNumber}
+              onChangeText={setVerifierCertNumber}
+              placeholder="e.g. 12345"
+              helper="Required — the verifier's NDT certification number."
+            />
+            <View style={{ gap: 6 }}>
+              <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>VERIFIER LEVEL</Text>
+              <ChipSelect<NdtVerifierLevel>
+                value={verifierLevel}
+                options={VERIFIER_LEVELS}
+                onChange={setVerifierLevel}
+              />
+            </View>
+            <Field
+              label="Scheme (optional)"
+              value={verifierScheme}
+              onChangeText={setVerifierScheme}
+              placeholder="e.g. ISO 9712, PCN, SNT-TC-1A"
+            />
+            <Field
+              label="Employer (optional)"
+              value={verifierEmployer}
+              onChangeText={setVerifierEmployer}
+              placeholder="Company name"
+              autoCapitalize="words"
+            />
+          </View>
+        </View>
+
+        {/* SIGNATURE PAD */}
+        <View>
+          <SectionH
+            kicker="SIGNATURE"
+            title="Draw to sign"
+            action={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear signature"
+                onPress={() => sigPadRef.current?.clear()}
+                hitSlop={8}
+              >
+                <Text
+                  style={{
+                    ...type.cardSub,
+                    color: tokens.accent,
+                    fontFamily: 'Manrope_600SemiBold',
+                    fontWeight: '600',
+                  }}
+                >
+                  Clear
+                </Text>
+              </Pressable>
+            }
+          />
+          <SigPad
+            ref={sigPadRef}
+            value={signaturePath}
+            onChange={setSignaturePath}
+            onStrokeStart={() => setSignatureActive(true)}
+            onStrokeEnd={() => setSignatureActive(false)}
+          />
+        </View>
+
+        {/* ATTESTATION */}
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: attestationAccepted }}
+          onPress={() => setAttestationAccepted(!attestationAccepted)}
+          style={({ pressed }) => [
+            attestationStyle(tokens, attestationAccepted),
+            pressed ? { transform: [{ scale: 0.99 }] } : null,
+          ]}
+        >
+          <View
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              borderWidth: 1.5,
+              borderColor: attestationAccepted ? tokens.ok : tokens.line,
+              backgroundColor: attestationAccepted ? tokens.ok : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {attestationAccepted ? (
+              <IconCheck size={17} color={tokens.bg} fill={tokens.bg} />
+            ) : null}
+          </View>
+          <Text style={{ ...type.cardSub, color: tokens.text, flex: 1, lineHeight: 19 }}>
+            {NDT_ATTESTATION_TEXT}
+          </Text>
+        </Pressable>
+      </ScrollView>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 12 + insets.bottom,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+          backgroundColor: tokens.bg,
+        }}
+      >
+        <Button variant="ghost" onPress={() => router.back()}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          grow
+          onPress={submit}
+          disabled={!canSign || signNdt.isPending}
+        >
+          {signNdt.isPending ? 'Verifying…' : 'Verify in chain'}
+        </Button>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function attestationStyle(
+  tokens: ReturnType<typeof useTheme>['tokens'],
+  accepted: boolean,
+): ViewStyle {
+  return {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: accepted ? tokens.ok : tokens.lineSoft,
+    backgroundColor: accepted ? tokens.okSoft : tokens.surface,
+  };
+}
+
+function Row({
+  label,
+  value,
+  mono = false,
+  last = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  last?: boolean;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        paddingVertical: 8,
+        gap: 12,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: tokens.lineSoft,
+      }}
+    >
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, width: 92 }}>
+        {label.toUpperCase()}
+      </Text>
+      <Text
+        selectable
+        style={[mono ? type.mono : type.body, { color: tokens.text, flex: 1 }]}
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function RecordBlock({ label, body }: { label: string; body: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View
+      style={{
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: tokens.lineSoft,
+      }}
+    >
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 4 }}>
+        {label.toUpperCase()}
+      </Text>
+      <Text selectable style={{ ...type.body, color: tokens.text }}>
+        {body}
+      </Text>
+    </View>
+  );
+}
