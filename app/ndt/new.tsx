@@ -8,6 +8,7 @@ import {
   Text,
   View,
   type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,55 +27,54 @@ import { useEntries } from '@/src/domain/logbook/use-logbook';
 import type { LogbookEntry } from '@/src/domain/logbook/types';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
-import {
-  Button,
-  Card,
-  ChipSelect,
-  type ChipOption,
-  DateField,
-  Field,
-  IconBtn,
-  Pill,
-  SectionH,
-  TopBar,
-} from '@/src/ui/primitives/v2';
-import { IconArrowLeft, IconWarn } from '@/src/ui/icons';
+import { Button, Card, DateField, Field, Pill } from '@/src/ui/primitives/v2';
+import { IconClose, IconDraft, IconSign, IconWarn, type IconProps } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
 
-// ─── Picker option sets (neutral labels only — see compliance note) ──────────
+// ─── Tile option sets (neutral labels only — see compliance note) ────────────
 
-// The 11-method taxonomy. Codes are the stored NdtMethod values; the long names
-// are display only.
-const METHOD_OPTIONS: Array<ChipOption<NdtMethod>> = [
-  { value: 'UT', label: 'UT · Ultrasonic' },
-  { value: 'MT', label: 'MT · Magnetic Particle' },
-  { value: 'PT', label: 'PT · Penetrant' },
-  { value: 'RT', label: 'RT · Radiographic' },
-  { value: 'ET', label: 'ET · Eddy Current' },
-  { value: 'VT', label: 'VT · Visual' },
-  { value: 'LT', label: 'LT · Leak' },
-  { value: 'AE', label: 'AE · Acoustic Emission' },
-  { value: 'IRT', label: 'IRT · Infrared' },
-  { value: 'NR', label: 'NR · Neutron Radiography' },
-  { value: 'GW', label: 'GW · Guided Wave' },
+// The 11-method taxonomy. `value` is the stored NdtMethod; `label` is the short
+// code (the tile's headline) and `sub` the long name beneath it.
+interface MethodTile {
+  value: NdtMethod;
+  label: string;
+  sub: string;
+}
+const METHOD_TILES: MethodTile[] = [
+  { value: 'UT', label: 'UT', sub: 'Ultrasonic' },
+  { value: 'MT', label: 'MT', sub: 'Magnetic Particle' },
+  { value: 'PT', label: 'PT', sub: 'Penetrant' },
+  { value: 'RT', label: 'RT', sub: 'Radiographic' },
+  { value: 'ET', label: 'ET', sub: 'Eddy Current' },
+  { value: 'VT', label: 'VT', sub: 'Visual' },
+  { value: 'LT', label: 'LT', sub: 'Leak' },
+  { value: 'AE', label: 'AE', sub: 'Acoustic Emission' },
+  { value: 'IRT', label: 'IRT', sub: 'Infrared' },
+  { value: 'NR', label: 'NR', sub: 'Neutron Radiography' },
+  { value: 'GW', label: 'GW', sub: 'Guided Wave' },
 ];
 
-const LEVEL_OPTIONS: Array<ChipOption<NdtLevel>> = [
+interface TileOption<T extends string = string> {
+  value: T;
+  label: string;
+}
+
+const SUPERVISION_TILES: TileOption<NdtSupervision>[] = [
+  { value: 'supervised', label: 'Supervised' },
+  { value: 'independent', label: 'Independent' },
+];
+
+const LEVEL_TILES: TileOption<NdtLevel>[] = [
   { value: 'trainee', label: 'Trainee' },
   { value: 'I', label: 'Level I' },
   { value: 'II', label: 'Level II' },
   { value: 'III', label: 'Level III' },
 ];
 
-const SUPERVISION_OPTIONS: Array<ChipOption<NdtSupervision>> = [
-  { value: 'supervised', label: 'Supervised' },
-  { value: 'independent', label: 'Independent' },
-];
-
 // Stored values are the exact NdtScheme union members (note: 'NAS410' has no
 // space); labels are neutral scheme names only — never a claim that a scheme's
 // requirement is met.
-const SCHEME_OPTIONS: Array<ChipOption<NdtScheme>> = [
+const SCHEME_TILES: TileOption<NdtScheme>[] = [
   { value: 'ISO 9712', label: 'ISO 9712' },
   { value: 'SNT-TC-1A', label: 'SNT-TC-1A' },
   { value: 'EN 4179', label: 'EN 4179' },
@@ -85,28 +85,96 @@ const SCHEME_OPTIONS: Array<ChipOption<NdtScheme>> = [
 
 const TECHNIQUE_SUGGESTIONS = ['PAUT', 'TOFD', 'AUT', 'PEC', 'DR', 'CR'];
 
-// ─── Shared form helpers ─────────────────────────────────────────────────────
+// ─── Wizard shape ────────────────────────────────────────────────────────────
 
-// getNdtInspectionReadiness reads only method/hours/site/ndt_level_snapshot/
-// date_from; the rest is nulled and cast so a single readiness call drives both
-// the missing-summary and the per-field reds.
-function buildCandidateInspection(args: {
+// 6-page flow mirroring entry/new.tsx. The required spine is split across the
+// first four pages — method (1) → dates/hours (2) → supervision/level (3) →
+// site (4); procedure/scheme (5) and notes/link (6) never block Next. NDT has no
+// gear/photo attachments, so unlike entry/new we hold everything in local state
+// and create the row once, at the final save action.
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
+const TOTAL_STEPS = 6;
+const STEP_TITLES = ['Method', 'When & hours', 'Context', 'Where', 'Scope', 'Notes & save'];
+const STEP_SUBS = [
+  'What you inspected with',
+  'Dates worked · hours accrued',
+  'How you worked · level held',
+  'Site · employer · client',
+  'Procedure · component · scheme',
+  'Description, link, then save',
+];
+
+interface DraftState {
   dateFrom: string;
+  dateTo: string;
   method: NdtMethod | null;
+  technique: string;
   ndtLevel: NdtLevel | null;
+  supervised: NdtSupervision | null;
   hours: string;
   site: string;
-}): NdtInspection {
+  employer: string;
+  client: string;
+  procedureRef: string;
+  component: string;
+  scheme: NdtScheme | null;
+  description: string;
+  linkedEntryId: string | null;
+}
+
+function initialDraft(): DraftState {
+  return {
+    dateFrom: todayLocalIsoDate(),
+    dateTo: todayLocalIsoDate(),
+    method: null,
+    technique: '',
+    ndtLevel: null,
+    supervised: null,
+    hours: '',
+    site: '',
+    employer: '',
+    client: '',
+    procedureRef: '',
+    component: '',
+    scheme: null,
+    description: '',
+    linkedEntryId: null,
+  };
+}
+
+function hasAnyContent(draft: DraftState): boolean {
+  return (
+    draft.method != null ||
+    draft.ndtLevel != null ||
+    draft.supervised != null ||
+    draft.scheme != null ||
+    draft.technique.trim().length > 0 ||
+    Number(draft.hours) > 0 ||
+    draft.site.trim().length > 0 ||
+    draft.employer.trim().length > 0 ||
+    draft.client.trim().length > 0 ||
+    draft.procedureRef.trim().length > 0 ||
+    draft.component.trim().length > 0 ||
+    draft.description.trim().length > 0 ||
+    draft.linkedEntryId != null
+  );
+}
+
+// getNdtInspectionReadiness reads only method/hours/site/ndt_level_snapshot/
+// date_from; the rest is nulled and cast so a single readiness call drives the
+// review-page summary. Supervision and date-range validity aren't checked by it —
+// we fold those in ourselves (see canSelfLog / missingSummary below).
+function buildCandidateInspection(draft: DraftState): NdtInspection {
   return {
     id: '',
-    date_from: args.dateFrom,
-    date_to: args.dateFrom,
-    method: (args.method ?? '') as NdtMethod,
+    date_from: draft.dateFrom,
+    date_to: draft.dateTo || draft.dateFrom,
+    method: (draft.method ?? '') as NdtMethod,
     technique: null,
-    ndt_level_snapshot: args.ndtLevel,
-    supervised: 'supervised',
-    hours: Number(args.hours),
-    site: args.site.trim(),
+    ndt_level_snapshot: draft.ndtLevel,
+    supervised: draft.supervised ?? 'supervised',
+    hours: Number(draft.hours),
+    site: draft.site.trim(),
     client: null,
     employer: null,
     procedure_ref: null,
@@ -123,81 +191,837 @@ function buildCandidateInspection(args: {
   };
 }
 
-interface NdtGaps {
-  method: boolean;
-  supervised: boolean;
-  ndtLevel: boolean;
-  hours: boolean;
-  site: boolean;
-}
-
-function ndtRequiredGaps(args: {
-  method: NdtMethod | null;
-  supervised: NdtSupervision | null;
-  ndtLevel: NdtLevel | null;
-  hours: string;
-  site: string;
-}): NdtGaps {
+function buildInput(draft: DraftState): CreateNdtInspectionInput | null {
+  // method + supervised are the two non-nullable input fields; without them we
+  // cannot construct a valid CreateNdtInspectionInput at all.
+  if (!draft.method || !draft.supervised) return null;
   return {
-    method: args.method == null,
-    supervised: args.supervised == null,
-    ndtLevel: args.ndtLevel == null,
-    hours: !(Number(args.hours) > 0),
-    site: !args.site.trim(),
+    date_from: draft.dateFrom,
+    date_to: draft.dateTo || draft.dateFrom,
+    method: draft.method,
+    technique: draft.technique.trim() || null,
+    ndt_level_snapshot: draft.ndtLevel,
+    supervised: draft.supervised,
+    hours: Number(draft.hours) || 0,
+    site: draft.site.trim(),
+    client: draft.client.trim() || null,
+    employer: draft.employer.trim() || null,
+    procedure_ref: draft.procedureRef.trim() || null,
+    component: draft.component.trim() || null,
+    ndt_scheme: draft.scheme,
+    description: draft.description.trim() || null,
+    linked_entry_id: draft.linkedEntryId,
   };
 }
 
+function validRangeOf(draft: DraftState): boolean {
+  return isValidIsoDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom);
+}
+
+// Each page's gate. The required spine spreads across pages 1–4: method (1) →
+// hours + valid range (2) → supervision + level (3) → site (4). Pages 5–6 never
+// block. Same total requirement as the old single-screen gate, just re-split.
+function stepReady(step: Step, draft: DraftState): boolean {
+  if (step === 1) return draft.method != null;
+  if (step === 2) return Number(draft.hours) > 0 && validRangeOf(draft);
+  if (step === 3) return draft.supervised != null && draft.ndtLevel != null;
+  if (step === 4) return draft.site.trim().length > 0;
+  return true;
+}
+
+// "a, b and c" — grammatical join for the missing-field summary.
+function listToText(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+// Names the field(s) still blocking Next so the tech isn't left hunting a
+// red-outlined page with no explanation. Mirrors stepReady's required set.
+function missingStepHint(step: Step, draft: DraftState): string | null {
+  const need: string[] = [];
+  if (step === 1) {
+    if (draft.method == null) need.push('an NDT method');
+  } else if (step === 2) {
+    if (!(Number(draft.hours) > 0)) need.push('hours');
+    if (!validRangeOf(draft)) need.push('a valid date range');
+  } else if (step === 3) {
+    if (draft.supervised == null) need.push('supervised or independent');
+    if (draft.ndtLevel == null) need.push('the NDT level held');
+  } else if (step === 4) {
+    if (!draft.site.trim()) need.push('a site / job reference');
+  }
+  return need.length ? `Add ${listToText(need)} to continue.` : null;
+}
+
 // readiness.missingFields omits supervision (the readiness fn doesn't check it)
-// and date validity isn't a "missing field" — fold both in so the header summary
+// and date validity isn't a "missing field" — fold both in so the review summary
 // matches what actually blocks self-logging.
-function ndtMissingSummary(
-  readiness: { missingFields: string[] },
-  supervised: NdtSupervision | null,
-  validRange: boolean,
-): string[] {
+function selfLogMissing(draft: DraftState): string[] {
+  const readiness = getNdtInspectionReadiness(buildCandidateInspection(draft));
   const out = [...readiness.missingFields];
-  if (supervised == null) out.push('supervision');
-  if (!validRange) out.push('valid date range');
+  if (draft.supervised == null) out.push('supervision');
+  if (!validRangeOf(draft)) out.push('valid date range');
   return out;
 }
 
-// ─── Inline primitives ───────────────────────────────────────────────────────
+function entryLabel(entry: LogbookEntry): string {
+  const parts = [
+    entry.site?.trim(),
+    formatIsoForDisplay(entry.date_to) ?? entry.date_to?.trim(),
+  ].filter((p): p is string => Boolean(p));
+  return parts.length ? parts.join(' · ') : 'Untitled entry';
+}
 
-// ChipSelect has no `invalid` prop, so the required-empty RED treatment is a
-// danger-bordered wrapper around the picker — the picker-group analogue of
-// Field's border-only `invalid`. Mirrors the TileGrid wrapper in entry/new.tsx.
-function NdtPickerGroup({
-  label,
-  helper,
-  invalid,
-  children,
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
+export default function NewNdtRecordWizard() {
+  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const entries = useEntries();
+  const createInspection = useCreateNdtInspection();
+  const markLogged = useMarkNdtLogged();
+
+  const [step, setStep] = React.useState<Step>(1);
+  const [draft, setDraft] = React.useState<DraftState>(initialDraft);
+  const [busy, setBusy] = React.useState<null | 'draft' | 'logged'>(null);
+  // Flips the current page's empty required fields to a red outline once the tech
+  // taps Next with the page incomplete. Reset on every page change so each page
+  // only shows red after its own failed attempt.
+  const [showErrors, setShowErrors] = React.useState(false);
+
+  const update = React.useCallback((patch: Partial<DraftState>) => {
+    setDraft((s) => ({ ...s, ...patch }));
+  }, []);
+
+  function handleContinue() {
+    if (step >= TOTAL_STEPS) return;
+    if (!stepReady(step, draft)) {
+      // Reveal the red outlines on the empty required fields instead of silently
+      // doing nothing, and block progress.
+      setShowErrors(true);
+      haptics.error();
+      return;
+    }
+    // Clear synchronously with the advance so the next page never renders a frame
+    // with the previous page's red still on.
+    setShowErrors(false);
+    setStep((step + 1) as Step);
+  }
+
+  function handleBack() {
+    if (step === 1) {
+      handleClose();
+    } else {
+      setShowErrors(false);
+      setStep((step - 1) as Step);
+    }
+  }
+
+  function handleClose() {
+    // Nothing typed → just leave. We never create a partial row on exit (the NDT
+    // service throws ndt_site_required / ndt_date_range_invalid below the
+    // minimum), so there's no mid-wizard draft to park — only a discard confirm.
+    if (!hasAnyContent(draft)) {
+      router.back();
+      return;
+    }
+    haptics.warning();
+    Alert.alert(
+      'Discard this record?',
+      "Nothing's been saved yet. Leaving now discards what you've entered.",
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+      ],
+    );
+  }
+
+  async function handleSaveDraft() {
+    // A plain draft still needs a site + valid date range — the service throws
+    // ndt_site_required / ndt_date_range_invalid otherwise. Surface those gaps in
+    // red rather than letting the insert throw.
+    const input = buildInput(draft);
+    if (!draft.site.trim() || !validRangeOf(draft) || !input) {
+      setShowErrors(true);
+      haptics.error();
+      return;
+    }
+    setBusy('draft');
+    try {
+      const created = await createInspection.mutateAsync(input);
+      router.replace(`/ndt/${created.id}` as never);
+    } catch (err) {
+      haptics.error();
+      Alert.alert('Could not save draft', err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSaveLogged() {
+    const input = buildInput(draft);
+    if (selfLogMissing(draft).length > 0 || !input) {
+      setShowErrors(true);
+      haptics.error();
+      return;
+    }
+    setBusy('logged');
+    let createdId: string | null = null;
+    try {
+      const created = await createInspection.mutateAsync(input);
+      createdId = created.id;
+      await markLogged.mutateAsync(created.id);
+      router.replace(`/ndt/${created.id}` as never);
+    } catch (err) {
+      haptics.error();
+      // If create succeeded but mark-logged failed, the draft still exists — send
+      // the tech to it rather than orphaning the record silently.
+      if (createdId) {
+        const savedId = createdId;
+        Alert.alert(
+          'Saved as draft',
+          'The record was saved but could not be marked self-logged:\n\n' +
+            (err instanceof Error ? err.message : String(err)),
+          [{ text: 'OK', onPress: () => router.replace(`/ndt/${savedId}` as never) }],
+        );
+      } else {
+        Alert.alert('Could not save record', err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: tokens.bg }}
+    >
+      {/* The NDT stack shows a native header by default — keep it hidden so it
+          doesn't sit on top of the custom wizard header. */}
+      <Stack.Screen options={{ headerShown: false }} />
+      <SheetHeader
+        step={step}
+        title={STEP_TITLES[step - 1]}
+        sub={STEP_SUBS[step - 1]}
+        onClose={handleClose}
+      />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 6,
+          paddingBottom: 24,
+          gap: 14,
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        {step === 1 ? <StepMethod draft={draft} update={update} showErrors={showErrors} /> : null}
+        {step === 2 ? <StepWhenHours draft={draft} update={update} showErrors={showErrors} /> : null}
+        {step === 3 ? <StepContext draft={draft} update={update} showErrors={showErrors} /> : null}
+        {step === 4 ? <StepWhere draft={draft} update={update} showErrors={showErrors} /> : null}
+        {step === 5 ? <StepScope draft={draft} update={update} /> : null}
+        {step === 6 ? (
+          <StepReview
+            draft={draft}
+            update={update}
+            entries={entries.data ?? []}
+            busy={busy}
+            onSaveLogged={handleSaveLogged}
+            onSaveDraft={handleSaveDraft}
+          />
+        ) : null}
+      </ScrollView>
+
+      <View
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 12 + insets.bottom,
+          borderTopWidth: 1,
+          borderTopColor: tokens.lineSoft,
+          backgroundColor: tokens.bg,
+          gap: 8,
+        }}
+      >
+        {showErrors && missingStepHint(step, draft) ? (
+          <Text style={{ ...type.cardSub, color: tokens.danger }}>{missingStepHint(step, draft)}</Text>
+        ) : null}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {step < TOTAL_STEPS ? (
+            <>
+              <Button variant="ghost" grow onPress={handleBack}>
+                {step === 1 ? 'Cancel' : 'Back'}
+              </Button>
+              <Button variant="primary" grow onPress={handleContinue}>
+                {step === TOTAL_STEPS - 1 ? 'Review' : 'Next'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" full onPress={handleBack}>
+              Back to edit
+            </Button>
+          )}
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+function SheetHeader({
+  step,
+  title,
+  sub,
+  onClose,
 }: {
-  label: string;
-  helper?: string;
-  invalid?: boolean;
-  children: React.ReactNode;
+  step: Step;
+  title: string;
+  sub: string;
+  onClose: () => void;
 }) {
   const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+
   return (
-    <View>
-      <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>{label}</Text>
-      {invalid ? (
-        <View
+    <View
+      style={{
+        paddingTop: Math.max(insets.top, 12),
+        paddingHorizontal: 20,
+        paddingBottom: 14,
+        backgroundColor: tokens.bg,
+        gap: 8,
+      }}
+    >
+      <View
+        style={{
+          alignSelf: 'center',
+          width: 36,
+          height: 4,
+          borderRadius: 999,
+          backgroundColor: tokens.line,
+          marginBottom: 6,
+        }}
+      />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', gap: 4, flex: 1 }}>
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
+            <View
+              key={s}
+              style={{
+                flex: 1,
+                height: 3,
+                borderRadius: 999,
+                backgroundColor: s <= step ? tokens.accent : tokens.lineSoft,
+              }}
+            />
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={onClose}
+          hitSlop={10}
+          style={{ marginLeft: 12 }}
+        >
+          <IconClose size={24} color={tokens.textDim} />
+        </Pressable>
+      </View>
+      <View style={{ marginTop: 8 }}>
+        <Text
           style={{
-            borderWidth: 1.5,
-            borderColor: tokens.danger,
-            borderRadius: 14,
-            padding: 8,
+            fontFamily: 'Manrope_800ExtraBold',
+            fontWeight: '800',
+            fontSize: 28,
+            lineHeight: 32,
+            letterSpacing: -0.84,
+            color: tokens.text,
           }}
         >
-          {children}
+          {title}
+        </Text>
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }}>{sub}</Text>
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+interface StepProps {
+  draft: DraftState;
+  update: (patch: Partial<DraftState>) => void;
+  showErrors?: boolean;
+}
+
+// Page 1 — the required spine begins: which method, plus an optional technique.
+function StepMethod({ draft, update, showErrors }: StepProps) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ gap: 20 }}>
+      <View>
+        <SectionKicker>NDT METHOD</SectionKicker>
+        <MethodTileGrid
+          value={draft.method}
+          onChange={(method) => update({ method })}
+          invalid={!!showErrors && draft.method == null}
+        />
+      </View>
+      <View>
+        <SectionKicker>TECHNIQUE (OPTIONAL)</SectionKicker>
+        <Field
+          value={draft.technique}
+          onChangeText={(v) => update({ technique: v })}
+          placeholder="e.g. PAUT, TOFD, AUT"
+          autoCapitalize="characters"
+          accessibilityLabel="Technique"
+        />
+        <TechniqueSuggestions
+          current={draft.technique}
+          suggestions={TECHNIQUE_SUGGESTIONS}
+          onPick={(technique) => update({ technique })}
+        />
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
+          A specific technique within the method, if relevant.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// Page 2 — when the work happened, and how many hours it accrued.
+function StepWhenHours({ draft, update, showErrors }: StepProps) {
+  const valid = validRangeOf(draft);
+  return (
+    <View style={{ gap: 20 }}>
+      <View>
+        <SectionKicker>DATES WORKED</SectionKicker>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <DateField
+              label="From"
+              value={draft.dateFrom || null}
+              onChange={(iso) => update({ dateFrom: iso ?? '', dateTo: draft.dateTo || iso || '' })}
+              maxDate={draft.dateTo || null}
+              invalid={!!showErrors && !valid}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <DateField
+              label="To"
+              value={draft.dateTo || null}
+              onChange={(iso) => update({ dateTo: iso ?? '' })}
+              minDate={draft.dateFrom || null}
+              error={valid ? undefined : 'Invalid range'}
+            />
+          </View>
         </View>
-      ) : (
-        children
-      )}
-      {helper ? (
-        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 6 }}>{helper}</Text>
-      ) : null}
+      </View>
+      <View>
+        <SectionKicker>HOURS ACCRUED</SectionKicker>
+        <Field
+          value={draft.hours}
+          onChangeText={(v) => update({ hours: v.replace(/[^\d.]/g, '') })}
+          keyboardType="decimal-pad"
+          suffix="hrs"
+          placeholder="0"
+          accessibilityLabel="Hours accrued"
+          invalid={!!showErrors && !(Number(draft.hours) > 0)}
+        />
+      </View>
+    </View>
+  );
+}
+
+// Page 3 — how you worked, and the level you held. Both single-select tiles.
+function StepContext({ draft, update, showErrors }: StepProps) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ gap: 20 }}>
+      <View>
+        <SectionKicker>SUPERVISED OR INDEPENDENT</SectionKicker>
+        <TileGrid
+          options={SUPERVISION_TILES}
+          selectedValues={draft.supervised ? [draft.supervised] : []}
+          onPress={(supervised) => update({ supervised })}
+          invalid={!!showErrors && draft.supervised == null}
+        />
+      </View>
+      <View>
+        <SectionKicker>NDT LEVEL HELD</SectionKicker>
+        <TileGrid
+          options={LEVEL_TILES}
+          selectedValues={draft.ndtLevel ? [draft.ndtLevel] : []}
+          onPress={(ndtLevel) => update({ ndtLevel })}
+          invalid={!!showErrors && draft.ndtLevel == null}
+        />
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
+          The level you held while accruing this experience — this does not assert competency.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// Page 4 — site is required; employer and client are optional.
+function StepWhere({ draft, update, showErrors }: StepProps) {
+  return (
+    <View style={{ gap: 14 }}>
+      <Field
+        label="Site / job reference"
+        value={draft.site}
+        onChangeText={(v) => update({ site: v })}
+        placeholder="Plant, job number, work order"
+        autoCapitalize="words"
+        invalid={!!showErrors && !draft.site.trim()}
+      />
+      <Field
+        label="Employer (optional)"
+        value={draft.employer}
+        onChangeText={(v) => update({ employer: v })}
+        placeholder="Who you worked for"
+        autoCapitalize="words"
+      />
+      <Field
+        label="Client (optional)"
+        value={draft.client}
+        onChangeText={(v) => update({ client: v })}
+        placeholder="End client / asset owner"
+        autoCapitalize="words"
+      />
+    </View>
+  );
+}
+
+// Page 5 — entirely optional scope detail. Nothing here blocks Next or save.
+function StepScope({ draft, update }: StepProps) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ gap: 18 }}>
+      <Text style={{ ...type.cardSub, color: tokens.textDim }}>
+        Procedure, component and scheme are optional — add what's relevant to this record.
+      </Text>
+      <View>
+        <SectionKicker>PROCEDURE REFERENCE</SectionKicker>
+        <Field
+          value={draft.procedureRef}
+          onChangeText={(v) => update({ procedureRef: v })}
+          placeholder="e.g. WI-UT-014 rev. C"
+          accessibilityLabel="Procedure reference"
+        />
+      </View>
+      <View>
+        <SectionKicker>COMPONENT / MATERIAL</SectionKicker>
+        <Field
+          value={draft.component}
+          onChangeText={(v) => update({ component: v })}
+          placeholder="e.g. CS pipe weld, 12 mm wall"
+          accessibilityLabel="Component or material"
+        />
+      </View>
+      <View>
+        <SectionKicker>NDT SCHEME</SectionKicker>
+        {/* Optional and clearable: tapping the active scheme toggles it back to
+            null, since TileGrid's onPress only ever sets a value. */}
+        <TileGrid
+          options={SCHEME_TILES}
+          selectedValues={draft.scheme ? [draft.scheme] : []}
+          onPress={(next) => update({ scheme: draft.scheme === next ? null : next })}
+        />
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
+          The scheme this experience is recorded under. Verification rests with the NDT Level III.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// Page 6 — recap, optional rope-access link, then the two save actions.
+function StepReview({
+  draft,
+  update,
+  entries,
+  busy,
+  onSaveLogged,
+  onSaveDraft,
+}: {
+  draft: DraftState;
+  update: (patch: Partial<DraftState>) => void;
+  entries: LogbookEntry[];
+  busy: null | 'draft' | 'logged';
+  onSaveLogged: () => void;
+  onSaveDraft: () => void;
+}) {
+  const { tokens } = useTheme();
+  const methodLabel = METHOD_TILES.find((m) => m.value === draft.method);
+  const missing = selfLogMissing(draft);
+  const canSelfLog = missing.length === 0;
+
+  const scopeBits: string[] = [];
+  if (draft.technique.trim()) scopeBits.push(draft.technique.trim().toUpperCase());
+  if (draft.procedureRef.trim()) scopeBits.push('procedure');
+  if (draft.component.trim()) scopeBits.push('component');
+  if (draft.scheme) scopeBits.push(draft.scheme);
+  if (draft.description.trim()) scopeBits.push('notes');
+  if (draft.linkedEntryId) scopeBits.push('linked entry');
+
+  return (
+    <View style={{ gap: 14 }}>
+      <Card padding={16}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>REVIEW</Text>
+          <Pill tone={canSelfLog ? 'ok' : 'warn'} size="sm">
+            {canSelfLog ? 'Ready to self-log' : `${missing.length} to add`}
+          </Pill>
+        </View>
+        <Text style={{ ...type.heroCardTitle, color: tokens.text, marginTop: 4 }} numberOfLines={2}>
+          {draft.site.trim() || 'New inspection'}
+        </Text>
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={2}>
+          {[methodLabel ? `${methodLabel.label} · ${methodLabel.sub}` : null, draft.client.trim()]
+            .filter(Boolean)
+            .join(' · ') || '—'}
+        </Text>
+        <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 14 }} />
+        <View style={{ flexDirection: 'row', gap: 14 }}>
+          <Stat label="Hours" value={(Number(draft.hours) || 0).toFixed(1)} />
+          <Stat
+            label="Level"
+            value={LEVEL_TILES.find((l) => l.value === draft.ndtLevel)?.label ?? '—'}
+          />
+          <Stat
+            label="How"
+            value={
+              SUPERVISION_TILES.find((s) => s.value === draft.supervised)?.label ?? '—'
+            }
+          />
+        </View>
+        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 12 }} numberOfLines={2}>
+          {scopeBits.length > 0 ? `Scope · ${scopeBits.join(' · ')}` : 'No extra scope added'}
+        </Text>
+        {missing.length > 0 ? (
+          <Text style={{ ...type.cardSub, color: tokens.danger, marginTop: 8 }}>
+            {`Still needed to self-log: ${missing.join(', ')}.`}
+          </Text>
+        ) : null}
+      </Card>
+
+      <View>
+        <SectionKicker>DESCRIPTION / NOTES (OPTIONAL)</SectionKicker>
+        <Field
+          value={draft.description}
+          onChangeText={(v) => update({ description: v })}
+          multiline
+          placeholder="Scope, findings, indications, anything notable"
+          accessibilityLabel="Description or notes"
+        />
+      </View>
+
+      <View>
+        <SectionKicker>LINKED ROPE-ACCESS ENTRY (OPTIONAL)</SectionKicker>
+        <LinkedEntryPicker
+          entries={entries}
+          value={draft.linkedEntryId}
+          onChange={(id) => update({ linkedEntryId: id })}
+        />
+      </View>
+
+      <View style={{ gap: 8 }}>
+        <ChoiceRow
+          label="Save as self-logged"
+          hint="Accrues experience now, pending an NDT Level III's verification."
+          icon={IconSign}
+          emphasis
+          disabled={busy != null && busy !== 'logged'}
+          loading={busy === 'logged'}
+          onPress={onSaveLogged}
+        />
+        <ChoiceRow
+          label="Save as draft"
+          hint="Park the record. Mark it self-logged or send for verification later."
+          icon={IconDraft}
+          disabled={busy != null && busy !== 'draft'}
+          loading={busy === 'draft'}
+          onPress={onSaveDraft}
+        />
+      </View>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: tokens.warnSoft,
+        }}
+      >
+        <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
+        <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
+          Self-logged hours accrue experience only. They become verified experience once an NDT Level
+          III signs the record.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+// ── Tile selection ─────────────────────────────────────────────────────────
+
+function tileStyle(tokens: ReturnType<typeof useTheme>['tokens'], active: boolean): ViewStyle {
+  return {
+    width: '48%',
+    minHeight: 78,
+    borderRadius: 14,
+    borderWidth: active ? 2 : 1,
+    borderColor: active ? tokens.accent : tokens.lineSoft,
+    backgroundColor: active ? tokens.accentSoft : tokens.surface,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  };
+}
+
+function tileLabelStyle(tokens: ReturnType<typeof useTheme>['tokens']): TextStyle {
+  // Flow through the type scale so tile labels (the wizard's primary tap surface)
+  // track UI_SCALE like all other text.
+  return {
+    ...type.cardTitle,
+    color: tokens.text,
+    textAlign: 'center',
+  };
+}
+
+// 2-column grid of big, calm, label-only tiles — the wizard's selection
+// primitive in place of the old ChipSelect rows. Selection reads from the accent
+// border + fill (no glyphs anywhere in the wizard, by design).
+function TileGrid<T extends string = string>({
+  options,
+  selectedValues,
+  onPress,
+  invalid,
+}: {
+  options: TileOption<T>[];
+  selectedValues: readonly string[];
+  onPress: (value: T) => void;
+  invalid?: boolean;
+}) {
+  const { tokens } = useTheme();
+  const selected = new Set(selectedValues.map((s) => s.trim().toLowerCase()));
+  const grid = (
+    <View
+      style={{
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        rowGap: 10,
+      }}
+    >
+      {options.map((o) => {
+        const active = selected.has(o.value.trim().toLowerCase());
+        return (
+          <Pressable
+            key={o.value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={o.label}
+            onPress={() => {
+              haptics.selection();
+              onPress(o.value);
+            }}
+            style={({ pressed }) => [
+              tileStyle(tokens, active),
+              pressed ? { transform: [{ scale: 0.98 }] } : null,
+            ]}
+          >
+            <Text style={tileLabelStyle(tokens)} numberOfLines={2}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+  // Required-field highlight: wrap the whole group in a danger outline — the
+  // tile-grid analogue of Field's border-only `invalid`.
+  if (!invalid) return grid;
+  return (
+    <View style={{ borderWidth: 1.5, borderColor: tokens.danger, borderRadius: 16, padding: 8 }}>
+      {grid}
+    </View>
+  );
+}
+
+// The 11-method grid: each tile carries the short code as its headline and the
+// long name beneath, so the taxonomy reads at a glance without a glossary.
+function MethodTileGrid({
+  value,
+  onChange,
+  invalid,
+}: {
+  value: NdtMethod | null;
+  onChange: (value: NdtMethod) => void;
+  invalid?: boolean;
+}) {
+  const { tokens } = useTheme();
+  const grid = (
+    <View
+      style={{
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        rowGap: 10,
+      }}
+    >
+      {METHOD_TILES.map((m) => {
+        const active = value === m.value;
+        return (
+          <Pressable
+            key={m.value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`${m.label} ${m.sub}`}
+            onPress={() => {
+              haptics.selection();
+              onChange(m.value);
+            }}
+            style={({ pressed }) => [
+              tileStyle(tokens, active),
+              pressed ? { transform: [{ scale: 0.98 }] } : null,
+            ]}
+          >
+            <Text style={tileLabelStyle(tokens)} numberOfLines={1}>
+              {m.label}
+            </Text>
+            <Text
+              style={{ ...type.cardSub, color: tokens.textDim, textAlign: 'center' }}
+              numberOfLines={2}
+            >
+              {m.sub}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+  if (!invalid) return grid;
+  return (
+    <View style={{ borderWidth: 1.5, borderColor: tokens.danger, borderRadius: 16, padding: 8 }}>
+      {grid}
     </View>
   );
 }
@@ -248,15 +1072,8 @@ function TechniqueSuggestions({
   );
 }
 
-function entryLabel(entry: LogbookEntry): string {
-  const parts = [entry.site?.trim(), formatIsoForDisplay(entry.date_to) ?? entry.date_to?.trim()].filter(
-    (p): p is string => Boolean(p),
-  );
-  return parts.length ? parts.join(' · ') : 'Untitled entry';
-}
-
-// Optional single-select link to a rope-access entry. Stores linked_entry_id;
-// a "None" chip clears it. Caps the list so the picker stays calm.
+// Optional single-select link to a rope-access entry. Stores linked_entry_id; a
+// "None" chip clears it. Caps the list so the picker stays calm.
 function LinkedEntryPicker({
   entries,
   value,
@@ -297,7 +1114,10 @@ function LinkedEntryPicker({
           pressed ? { transform: [{ scale: 0.97 }] } : null,
         ]}
       >
-        <Text style={{ ...type.cardSub, color: on ? tokens.accentInk : tokens.text }} numberOfLines={1}>
+        <Text
+          style={{ ...type.cardSub, color: on ? tokens.accentInk : tokens.text }}
+          numberOfLines={1}
+        >
           {label}
         </Text>
       </Pressable>
@@ -311,356 +1131,108 @@ function LinkedEntryPicker({
   );
 }
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 
-export default function NewNdtRecordScreen() {
+function ChoiceRow({
+  label,
+  hint,
+  icon: Icon,
+  emphasis,
+  disabled,
+  loading,
+  onPress,
+}: {
+  label: string;
+  hint: string;
+  icon: React.ComponentType<IconProps>;
+  emphasis?: boolean;
+  disabled?: boolean;
+  loading?: boolean;
+  onPress: () => void;
+}) {
   const { tokens } = useTheme();
-  const insets = useSafeAreaInsets();
-  const entries = useEntries();
-  const createInspection = useCreateNdtInspection();
-  const markLogged = useMarkNdtLogged();
-
-  const [dateFrom, setDateFrom] = React.useState(todayLocalIsoDate());
-  const [dateTo, setDateTo] = React.useState(todayLocalIsoDate());
-  const [method, setMethod] = React.useState<NdtMethod | null>(null);
-  const [technique, setTechnique] = React.useState('');
-  const [ndtLevel, setNdtLevel] = React.useState<NdtLevel | null>(null);
-  const [supervised, setSupervised] = React.useState<NdtSupervision | null>(null);
-  const [hours, setHours] = React.useState('');
-  const [site, setSite] = React.useState('');
-  const [employer, setEmployer] = React.useState('');
-  const [client, setClient] = React.useState('');
-  const [procedureRef, setProcedureRef] = React.useState('');
-  const [component, setComponent] = React.useState('');
-  const [scheme, setScheme] = React.useState<NdtScheme | null>(null);
-  const [description, setDescription] = React.useState('');
-  const [linkedEntryId, setLinkedEntryId] = React.useState<string | null>(null);
-
-  // Reveal the per-field red outlines only once the tech attempts a gated save.
-  const [showErrors, setShowErrors] = React.useState(false);
-  const [busy, setBusy] = React.useState<null | 'draft' | 'logged'>(null);
-
-  const candidate = buildCandidateInspection({ dateFrom, method, ndtLevel, hours, site });
-  const readiness = getNdtInspectionReadiness(candidate);
-  const validRange = isValidIsoDateRange(dateFrom, dateTo || dateFrom);
-  // supervised is required by the input type but NOT checked by readiness — gate
-  // on it ourselves and fold it into the summary so the two never disagree.
-  const canLog = readiness.ready && supervised != null && validRange;
-  const gaps = ndtRequiredGaps({ method, ndtLevel, supervised, hours, site });
-  const missingSummary = ndtMissingSummary(readiness, supervised, validRange);
-
-  function buildInput(): CreateNdtInspectionInput | null {
-    // method + supervised are the two non-nullable input fields; without them we
-    // cannot construct a valid CreateNdtInspectionInput at all.
-    if (!method || !supervised) return null;
-    return {
-      date_from: dateFrom,
-      date_to: dateTo || dateFrom,
-      method,
-      technique: technique.trim() || null,
-      ndt_level_snapshot: ndtLevel,
-      supervised,
-      hours: Number(hours) || 0,
-      site: site.trim(),
-      client: client.trim() || null,
-      employer: employer.trim() || null,
-      procedure_ref: procedureRef.trim() || null,
-      component: component.trim() || null,
-      ndt_scheme: scheme,
-      description: description.trim() || null,
-      linked_entry_id: linkedEntryId,
-    };
-  }
-
-  async function handleSaveDraft() {
-    // A plain draft still needs a site + valid date range — the service throws
-    // ndt_site_required / ndt_date_range_invalid otherwise. Surface those gaps in
-    // red rather than letting the insert throw.
-    const input = buildInput();
-    if (!site.trim() || !validRange || !input) {
-      setShowErrors(true);
-      haptics.error();
-      return;
-    }
-    setBusy('draft');
-    try {
-      const created = await createInspection.mutateAsync(input);
-      router.replace(`/ndt/${created.id}` as never);
-    } catch (err) {
-      haptics.error();
-      Alert.alert('Could not save draft', err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleSaveLogged() {
-    const input = buildInput();
-    if (!canLog || !input) {
-      setShowErrors(true);
-      haptics.error();
-      return;
-    }
-    setBusy('logged');
-    let createdId: string | null = null;
-    try {
-      const created = await createInspection.mutateAsync(input);
-      createdId = created.id;
-      await markLogged.mutateAsync(created.id);
-      router.replace(`/ndt/${created.id}` as never);
-    } catch (err) {
-      haptics.error();
-      // If create succeeded but mark-logged failed, the draft still exists — send
-      // the tech to it rather than orphaning the record silently.
-      if (createdId) {
-        const savedId = createdId;
-        Alert.alert(
-          'Saved as draft',
-          'The record was saved but could not be marked self-logged:\n\n' +
-            (err instanceof Error ? err.message : String(err)),
-          [{ text: 'OK', onPress: () => router.replace(`/ndt/${savedId}` as never) }],
-        );
-      } else {
-        Alert.alert('Could not save record', err instanceof Error ? err.message : String(err));
-      }
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  const heroTitleStyle: TextStyle = {
-    fontFamily: 'Manrope_800ExtraBold',
-    fontWeight: '800',
-    fontSize: 26,
-    letterSpacing: -0.7,
-    lineHeight: 30,
-    color: tokens.text,
-    marginTop: 4,
-  };
-
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: tokens.bg }}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={({ pressed }) => [
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          padding: 14,
+          borderRadius: 14,
+          backgroundColor: emphasis ? tokens.accent : tokens.surface,
+          borderWidth: 1,
+          borderColor: emphasis ? tokens.accent : tokens.lineSoft,
+          opacity: disabled ? 0.5 : 1,
+        },
+        pressed && !disabled ? { transform: [{ scale: 0.99 }] } : null,
+      ]}
     >
-      <Stack.Screen options={{ headerShown: false }} />
-      <TopBar
-        title="New NDT record"
-        leading={
-          <IconBtn icon={IconArrowLeft} label="Back" size="md" onPress={() => router.back()} />
-        }
-      />
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 140 + insets.bottom }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
-          <Card padding={18}>
-            <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>NDT EXPERIENCE LOG</Text>
-            <Text style={heroTitleStyle} numberOfLines={2}>
-              {site.trim() || 'New inspection'}
-            </Text>
-            <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 4 }}>
-              A self-maintained record of NDT experience. Self-logged hours accrue
-              pending an NDT Level III's verification.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
-              <Pill tone={canLog ? 'ok' : 'warn'}>
-                {canLog ? 'Ready to self-log' : `${missingSummary.length} to add`}
-              </Pill>
-              {Number(hours) > 0 ? <Pill tone="chip">{`${Number(hours).toFixed(1)} hrs`}</Pill> : null}
-            </View>
-            {missingSummary.length > 0 ? (
-              <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 8 }}>
-                {`Still needed before self-logging: ${missingSummary.join(', ')}.`}
-              </Text>
-            ) : null}
-          </Card>
-        </View>
-
-        <SectionH kicker="01 METHOD & TECHNIQUE" title="What you inspected with" />
-        <View style={{ paddingHorizontal: 20, gap: 14 }}>
-          <NdtPickerGroup label="NDT METHOD" invalid={showErrors && gaps.method}>
-            <ChipSelect<NdtMethod> value={method} options={METHOD_OPTIONS} onChange={setMethod} />
-          </NdtPickerGroup>
-          <View>
-            <Field
-              label="Technique (optional)"
-              value={technique}
-              onChangeText={setTechnique}
-              placeholder="e.g. PAUT, TOFD, AUT"
-              autoCapitalize="characters"
-            />
-            <TechniqueSuggestions
-              current={technique}
-              suggestions={TECHNIQUE_SUGGESTIONS}
-              onPick={setTechnique}
-            />
-          </View>
-        </View>
-
-        <SectionH kicker="02 SUPERVISION & LEVEL" title="How you worked, what you held" />
-        <View style={{ paddingHorizontal: 20, gap: 14 }}>
-          <NdtPickerGroup label="SUPERVISED OR INDEPENDENT" invalid={showErrors && gaps.supervised}>
-            <ChipSelect<NdtSupervision>
-              value={supervised}
-              options={SUPERVISION_OPTIONS}
-              onChange={setSupervised}
-            />
-          </NdtPickerGroup>
-          <NdtPickerGroup
-            label="NDT LEVEL HELD"
-            invalid={showErrors && gaps.ndtLevel}
-            helper="The level you held while accruing this experience — this does not assert competency."
-          >
-            <ChipSelect<NdtLevel> value={ndtLevel} options={LEVEL_OPTIONS} onChange={setNdtLevel} />
-          </NdtPickerGroup>
-          <Field
-            label="Hours"
-            value={hours}
-            onChangeText={(v) => setHours(v.replace(/[^\d.]/g, ''))}
-            keyboardType="decimal-pad"
-            suffix="hrs"
-            placeholder="0"
-            invalid={showErrors && gaps.hours}
-          />
-        </View>
-
-        <SectionH kicker="03 WHEN & WHERE" title="Dates, site, parties" />
-        <View style={{ paddingHorizontal: 20, gap: 12 }}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <DateField
-                label="From"
-                value={dateFrom || null}
-                onChange={(iso) => setDateFrom(iso ?? '')}
-                maxDate={dateTo || null}
-                invalid={showErrors && !validRange}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <DateField
-                label="To"
-                value={dateTo || null}
-                onChange={(iso) => setDateTo(iso ?? '')}
-                minDate={dateFrom || null}
-                error={validRange ? undefined : 'Invalid range'}
-              />
-            </View>
-          </View>
-          <Field
-            label="Site / job reference"
-            value={site}
-            onChangeText={setSite}
-            placeholder="Plant, job number, work order"
-            autoCapitalize="words"
-            invalid={showErrors && gaps.site}
-          />
-          <Field
-            label="Employer (optional)"
-            value={employer}
-            onChangeText={setEmployer}
-            placeholder="Who you worked for"
-            autoCapitalize="words"
-          />
-          <Field
-            label="Client (optional)"
-            value={client}
-            onChangeText={setClient}
-            placeholder="End client / asset owner"
-            autoCapitalize="words"
-          />
-        </View>
-
-        <SectionH kicker="04 SCOPE" title="Procedure, component, scheme" />
-        <View style={{ paddingHorizontal: 20, gap: 12 }}>
-          <Field
-            label="Procedure reference (optional)"
-            value={procedureRef}
-            onChangeText={setProcedureRef}
-            placeholder="e.g. WI-UT-014 rev. C"
-          />
-          <Field
-            label="Component / material (optional)"
-            value={component}
-            onChangeText={setComponent}
-            placeholder="e.g. CS pipe weld, 12 mm wall"
-          />
-          <NdtPickerGroup
-            label="NDT SCHEME (OPTIONAL)"
-            helper="The scheme this experience is recorded under. Verification rests with the NDT Level III."
-          >
-            <ChipSelect<NdtScheme>
-              value={scheme}
-              options={SCHEME_OPTIONS}
-              onChange={(next) => setScheme(scheme === next ? null : next)}
-            />
-          </NdtPickerGroup>
-        </View>
-
-        <SectionH kicker="05 NOTES & LINK" title="Description, rope-access link" />
-        <View style={{ paddingHorizontal: 20, gap: 12 }}>
-          <Field
-            label="Description / notes (optional)"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            placeholder="Scope, findings, indications, anything notable"
-          />
-          <View>
-            <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
-              LINKED ROPE-ACCESS ENTRY (OPTIONAL)
-            </Text>
-            <LinkedEntryPicker
-              entries={entries.data ?? []}
-              value={linkedEntryId}
-              onChange={setLinkedEntryId}
-            />
-          </View>
-        </View>
-
-        <View style={{ paddingHorizontal: 20, marginTop: 18 }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              gap: 10,
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: tokens.warnSoft,
-            }}
-          >
-            <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
-            <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
-              Self-logged hours accrue experience only. They become verified
-              experience once an NDT Level III signs the record.
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-
       <View
         style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: insets.bottom + 12,
-          backgroundColor: tokens.bg,
-          borderTopWidth: 1,
-          borderTopColor: tokens.lineSoft,
-          gap: 8,
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          backgroundColor: emphasis ? 'rgba(0,0,0,0.12)' : tokens.surface2,
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        <Button variant="primary" size="lg" full onPress={handleSaveLogged} disabled={busy != null}>
-          {busy === 'logged' ? 'Saving…' : 'Save as self-logged'}
-        </Button>
-        <Button variant="ghost" full onPress={handleSaveDraft} disabled={busy != null}>
-          {busy === 'draft' ? 'Saving…' : 'Save as draft'}
-        </Button>
+        <Icon
+          size={24}
+          color={emphasis ? tokens.accentInk : tokens.text}
+          fill={emphasis ? tokens.accentInk : tokens.accent}
+        />
       </View>
-    </KeyboardAvoidingView>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{ ...type.cardTitle, color: emphasis ? tokens.accentInk : tokens.text }}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+        <Text
+          style={{
+            ...type.cardSub,
+            color: emphasis ? tokens.accentInk : tokens.textDim,
+            opacity: emphasis ? 0.85 : 1,
+            marginTop: 2,
+          }}
+          numberOfLines={2}
+        >
+          {loading ? 'Saving…' : hint}
+        </Text>
+      </View>
+    </Pressable>
   );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+function Stat({ label, value }: { label: string; value: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ ...type.detailStat, color: tokens.text }} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function SectionKicker({ children }: { children: string }) {
+  const { tokens } = useTheme();
+  const kickerStyle: TextStyle = {
+    ...type.monoKicker,
+    color: tokens.textFaint,
+    marginBottom: 8,
+  };
+  return <Text style={kickerStyle}>{children}</Text>;
 }

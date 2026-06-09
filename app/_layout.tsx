@@ -26,6 +26,7 @@ function ThemedStack() {
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false, title: 'Rope Access Logbook' }} />
+      <Stack.Screen name="landing" options={{ headerShown: false, title: 'Rope Access Logbook' }} />
       <Stack.Screen name="(onboarding)/setup" options={{ headerShown: false, title: 'Set up' }} />
       <Stack.Screen name="(onboarding)/intro" options={{ headerShown: false, title: 'Welcome' }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Rope Access Logbook' }} />
@@ -52,6 +53,25 @@ function ThemedStack() {
       <Stack.Screen
         name="verify/[code]"
         options={{ title: 'Remote verification', headerShown: false }}
+      />
+      {/* NDT verified-ledger routes (mirror the entry routes' chrome/presentation). */}
+      <Stack.Screen
+        name="ndt/new"
+        options={{ title: 'New NDT record', presentation: 'modal', headerShown: false }}
+      />
+      <Stack.Screen name="ndt/[id]" options={{ title: 'NDT record', headerShown: false }} />
+      <Stack.Screen
+        name="ndt/[id]/edit"
+        options={{ title: 'Edit NDT record', presentation: 'modal', headerShown: false }}
+      />
+      <Stack.Screen name="ndt/[id]/sign" options={{ title: 'Verify NDT (Level III)', headerShown: false }} />
+      <Stack.Screen
+        name="ndt/[id]/request-verification"
+        options={{ title: 'Request NDT verification', presentation: 'modal', headerShown: false }}
+      />
+      <Stack.Screen
+        name="ndt-verify/[code]"
+        options={{ title: 'NDT verification', headerShown: false }}
       />
       <Stack.Screen name="gear/[id]" options={{ title: 'Gear', headerShown: false }} />
       <Stack.Screen name="gear/catalog" options={{ title: 'Gear catalog', headerShown: false }} />
