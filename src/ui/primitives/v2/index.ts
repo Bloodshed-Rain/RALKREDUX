@@ -6,6 +6,7 @@
 export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './button';
 export { IconBtn, type IconBtnProps, type IconBtnSize } from './icon-btn';
 export { Card, type CardProps } from './card';
+export { Avatar, deriveInitials, type AvatarProps } from './avatar';
 export {
   Pill,
   StatusPill,

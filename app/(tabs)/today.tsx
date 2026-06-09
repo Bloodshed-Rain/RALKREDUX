@@ -15,6 +15,7 @@ import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
   AnimatedNumber,
+  Avatar,
   Card,
   EmptyState,
   EntryRow,
@@ -199,12 +200,21 @@ export default function TodayScreen() {
           subtitle={`${weekHours.toFixed(1)}h this week · ${careerEntries} career entries`}
           large
           leading={
-            <IconBtn
-              icon={IconBrand}
-              label="About Rope Access Logbook"
-              size="md"
-              onPress={() => setAboutOpen(true)}
-            />
+            <>
+              <Avatar
+                uri={profileData.avatar_uri}
+                name={profileData.full_name}
+                size={40}
+                onPress={() => router.push('/more' as never)}
+                accessibilityLabel="Your profile"
+              />
+              <IconBtn
+                icon={IconBrand}
+                label="About Rope Access Logbook"
+                size="md"
+                onPress={() => setAboutOpen(true)}
+              />
+            </>
           }
           trailing={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
