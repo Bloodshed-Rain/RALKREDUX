@@ -110,4 +110,26 @@ describe('verifyNdtChainHashFor', () => {
     const tampered = signature({ inspection_hash: inspectionHash, chain_hash: chain, verifier_cert_number: 'L3-UT-9002' });
     expect(await verifyNdtChainHashFor({ inspection: insp, signature: tampered })).toBe(false);
   });
+  it('rejects when the sealed inspection itself was altered after signing', async () => {
+    const insp = inspection();
+    const inspectionHash = await hashNdtInspection(insp);
+    const base = signature({ inspection_hash: inspectionHash });
+    const chain = await hashNdtSignatureChain({
+      inspectionHash, signatureId: base.id, signedAt: base.signed_at,
+      method: base.method, previousChainHash: null,
+      signer: ndtSignerEnvelopeFromSignature(base),
+    });
+    // The signature is internally valid, but the inspection it points at was edited
+    // post-signing — this must trip the inspection-hash-mismatch branch, the most
+    // fundamental audit property (alter the sealed record → verification fails).
+    const sig = signature({ inspection_hash: inspectionHash, chain_hash: chain });
+    const altered = inspection({ hours: 99 });
+    expect(await verifyNdtChainHashFor({ inspection: altered, signature: sig })).toBe(false);
+  });
+  it('rejects a below-range (version 0) hash version', async () => {
+    expect(await verifyNdtChainHashFor({
+      inspection: inspection(),
+      signature: signature({ hash_version: 0, chain_hash: 'x' }),
+    })).toBe(false);
+  });
 });
