@@ -11,13 +11,17 @@ import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
 import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
 import { press as pressTokens, easings, durations } from '@/src/ui/animation/motion';
 import {
+  IconClose,
   IconGear,
+  IconInspect,
   IconPlus,
   IconProfile,
   IconRecords,
+  IconRope,
   IconToday,
   type IconProps,
 } from '@/src/ui/icons';
+import { FabChooser, type FabChoice } from '@/src/ui/fab-chooser';
 
 type TabIcon = React.ComponentType<IconProps>;
 
@@ -139,19 +143,40 @@ function TabButton({
   );
 }
 
-// The center "+" action. Press scale + a slight counter-clockwise tip, driven
-// off one gesture value so they move together.
+// The center action. Now a toggle for the create-record chooser. Press scale + a
+// slight counter-clockwise tip ride the press gesture; a separate `open` value
+// rotates the "+" 45° into an "×" when the chooser is open. Under reduced motion
+// there's no rotation node at all, so the open state is shown by swapping the
+// glyph (IconPlus → IconClose) instead.
 function FabButton({
   tokens,
   isHeliotype,
-  onPress,
+  open,
+  onToggle,
 }: {
   tokens: ThemeTokens;
   isHeliotype: boolean;
-  onPress: () => void;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const reduced = useReducedMotion();
   const pressScale = usePressScale();
+  const openValue = React.useRef(new Animated.Value(open ? 1 : 0)).current;
+
+  React.useEffect(() => {
+    if (reduced) {
+      openValue.setValue(open ? 1 : 0);
+      return;
+    }
+    const anim = Animated.timing(openValue, {
+      toValue: open ? 1 : 0,
+      duration: durations.reveal,
+      easing: easings.standard,
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [open, reduced, openValue]);
 
   const fabStyle = reduced
     ? null
@@ -164,9 +189,17 @@ function FabButton({
             }),
           },
           {
+            // Press tip rides the gesture.
             rotate: pressScale.value.interpolate({
               inputRange: [0, 1],
               outputRange: ['0deg', '-8deg'],
+            }),
+          },
+          {
+            // Opening rotates the whole button 45° so the "+" reads as "×".
+            rotate: openValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0deg', '45deg'],
             }),
           },
         ],
@@ -175,8 +208,9 @@ function FabButton({
   return (
     <AnimatedPressable
       accessibilityRole="button"
-      accessibilityLabel="Create new entry"
-      onPress={onPress}
+      accessibilityLabel="Create new record"
+      accessibilityState={{ expanded: open }}
+      onPress={onToggle}
       onPressIn={pressScale.onPressIn}
       onPressOut={pressScale.onPressOut}
       style={[{ width: 84, alignItems: 'center', justifyContent: 'flex-end' }, fabStyle]}
@@ -198,7 +232,11 @@ function FabButton({
           borderColor: isHeliotype ? tokens.line : 'transparent',
         }}
       >
-        <IconPlus size={31} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
+        {reduced && open ? (
+          <IconClose size={31} color={tokens.accentInk} fill={tokens.accentInk} />
+        ) : (
+          <IconPlus size={31} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
+        )}
       </View>
     </AnimatedPressable>
   );
@@ -209,6 +247,35 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const isHeliotype = isHeliotypeFamily(theme.key);
   const bottomPad = Math.max(insets.bottom, 12) + 8;
+
+  const [chooserOpen, setChooserOpen] = React.useState(false);
+
+  // The two record types the "+" now offers. Selecting routes synchronously
+  // (never from an animation callback) and then closes the chooser visually.
+  const choices: FabChoice[] = [
+    {
+      key: 'rope',
+      label: 'Rope Access',
+      hint: 'Log a rope-access work entry',
+      Icon: IconRope,
+      onSelect: () => {
+        haptics.selection();
+        router.push('/entry/new');
+        setChooserOpen(false);
+      },
+    },
+    {
+      key: 'ndt',
+      label: 'NDT',
+      hint: 'Log an NDT inspection record',
+      Icon: IconInspect,
+      onSelect: () => {
+        haptics.selection();
+        router.push('/ndt/new' as never);
+        setChooserOpen(false);
+      },
+    },
+  ];
 
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
@@ -223,64 +290,76 @@ function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   };
 
   return (
-    <View role="tablist" style={containerStyle}>
-      {state.routes.map((route, index) => {
-        const isFocused = state.index === index;
-        const { options } = descriptors[route.key];
-        const label =
-          options.tabBarLabel !== undefined
-            ? options.tabBarLabel
-            : options.title !== undefined
-              ? options.title
-              : route.name;
+    <>
+      <View role="tablist" style={containerStyle}>
+        {state.routes.map((route, index) => {
+          const isFocused = state.index === index;
+          const { options } = descriptors[route.key];
+          const label =
+            options.tabBarLabel !== undefined
+              ? options.tabBarLabel
+              : options.title !== undefined
+                ? options.title
+                : route.name;
 
-        if (route.name === 'new') {
+          if (route.name === 'new') {
+            return (
+              <FabButton
+                key={route.key}
+                tokens={tokens}
+                isHeliotype={isHeliotype}
+                open={chooserOpen}
+                onToggle={() => {
+                  haptics.selection();
+                  setChooserOpen((prev) => !prev);
+                }}
+              />
+            );
+          }
+
+          const Icon = TAB_ICONS[route.name];
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              haptics.selection();
+              navigation.navigate(route.name, route.params);
+            }
+          };
+
+          const onLongPress = () => {
+            navigation.emit({ type: 'tabLongPress', target: route.key });
+          };
+
           return (
-            <FabButton
+            <TabButton
               key={route.key}
+              Icon={Icon}
+              label={typeof label === 'string' ? label : route.name}
+              isFocused={isFocused}
               tokens={tokens}
-              isHeliotype={isHeliotype}
-              onPress={() => {
-                haptics.selection();
-                router.push('/entry/new');
-              }}
+              onPress={onPress}
+              onLongPress={onLongPress}
+              accessibilityLabel={options.tabBarAccessibilityLabel}
+              testID={options.tabBarButtonTestID}
             />
           );
-        }
+        })}
+      </View>
 
-        const Icon = TAB_ICONS[route.name];
-
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!isFocused && !event.defaultPrevented) {
-            haptics.selection();
-            navigation.navigate(route.name, route.params);
-          }
-        };
-
-        const onLongPress = () => {
-          navigation.emit({ type: 'tabLongPress', target: route.key });
-        };
-
-        return (
-          <TabButton
-            key={route.key}
-            Icon={Icon}
-            label={typeof label === 'string' ? label : route.name}
-            isFocused={isFocused}
-            tokens={tokens}
-            onPress={onPress}
-            onLongPress={onLongPress}
-            accessibilityLabel={options.tabBarAccessibilityLabel}
-            testID={options.tabBarButtonTestID}
-          />
-        );
-      })}
-    </View>
+      {/* Rendered into a portal Modal, so it floats above content AND this tab
+          bar on both platforms. bottomOffset lifts the menu clear of the bar. */}
+      <FabChooser
+        open={chooserOpen}
+        onClose={() => setChooserOpen(false)}
+        choices={choices}
+        bottomOffset={76}
+      />
+    </>
   );
 }
 
