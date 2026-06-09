@@ -193,6 +193,33 @@ export function createNdtService(db: DbClient) {
       );
     },
 
+    // Bulk fetch for the audit export's NDT section: all inspections plus a
+    // lookup of the (at most one) signature per inspection. Kept here (vs. N×
+    // getInspectionDetail) so the export screen does a single round-trip. The
+    // ascending order matches the rope-access export's record ledger ordering.
+    async listInspectionsWithSignatures(): Promise<{
+      inspections: NdtInspection[];
+      signaturesById: Record<string, NdtSignature>;
+    }> {
+      const inspections = await db.getAll<NdtInspection>(
+        'SELECT * FROM ndt_inspections ORDER BY date_from ASC, created_at ASC',
+      );
+      const signatures = await db.getAll<NdtSignature>(
+        `SELECT
+          id, inspection_id, verifier_name, verifier_cert_number, verifier_level,
+          verifier_scheme, verifier_employer, signed_at, inspection_hash, hash_version,
+          method, remote_request_id, signer_attestation, signature_path,
+          attestation_accepted_at, previous_chain_hash, chain_hash, created_at
+        FROM ndt_signatures
+        ORDER BY signed_at ASC, created_at ASC`,
+      );
+      const signaturesById: Record<string, NdtSignature> = {};
+      for (const sig of signatures) {
+        signaturesById[sig.inspection_id] = sig;
+      }
+      return { inspections, signaturesById };
+    },
+
     getInspectionById,
 
     getInspectionDetail,

@@ -37,6 +37,17 @@ export function useNdtSummary() {
   });
 }
 
+// All inspections + their signatures, for the audit export's separate NDT
+// section. Disabled until explicitly fetched so the export screen only pays for
+// it on demand.
+export function useNdtExportData(enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: ['ndtExportData'],
+    queryFn: () => createNdtService(getClient()).listInspectionsWithSignatures(),
+  });
+}
+
 export function useNdtRemoteRequestDetail(requestCode: string | null, signingToken?: string | null) {
   return useQuery({
     enabled: Boolean(requestCode && signingToken),

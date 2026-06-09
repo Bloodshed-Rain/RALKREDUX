@@ -29,6 +29,8 @@ import {
   useExportLogbook,
   useVerifyFullChain,
 } from '@/src/domain/logbook/use-logbook';
+import { useNdtExportData } from '@/src/domain/ndt/use-ndt';
+import { buildNdtCsv, buildNdtCsvRows, buildNdtPdfHtml } from '@/src/domain/ndt/ndt-export';
 import { isValidIsoDateRange } from '@/src/domain/date-utils';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
@@ -98,6 +100,7 @@ export default function ExportScreen() {
   const chainHeadQ = useChainHead();
   const verifyChainQ = useVerifyFullChain();
   const exportLogbook = useExportLogbook();
+  const ndtExportQ = useNdtExportData();
 
   const [range, setRange] = React.useState<Range>('all');
   const [customFrom, setCustomFrom] = React.useState('');
@@ -153,8 +156,22 @@ export default function ExportScreen() {
         exportedAt: bundle.exported_at,
       });
 
+      // NDT experience is a SEPARATE, self-maintained ledger. It is appended as
+      // its own clearly-labelled section and is NEVER summed into rope-access
+      // totals (those live only in sanitizedBundle.summary, which never sees
+      // NDT data). Fetched fresh here, independent of the rope range filter.
+      const ndt = ndtExportQ.data ?? { inspections: [], signaturesById: {} };
+
       if (format === 'pdf') {
-        const html = buildLogbookPdfHtml(sanitizedBundle);
+        const ropeHtml = buildLogbookPdfHtml(sanitizedBundle);
+        const ndtSection = buildNdtPdfHtml(ndt.inspections, ndt.signaturesById);
+        // Inject the NDT fragment before </body> so it renders as a distinct
+        // trailing section of the same audit document.
+        // Function replacer: a plain string replacement would interpret $&, $`,
+        // $$ etc. in ndtSection (which carries user data) and corrupt the PDF.
+        const html = ropeHtml.includes('</body>')
+          ? ropeHtml.replace('</body>', () => `${ndtSection}\n</body>`)
+          : `${ropeHtml}\n${ndtSection}`;
         const { uri } = await Print.printToFileAsync({ html });
         const fileName = buildLogbookExportFileName(sanitizedBundle, 'pdf');
         const namedUri = FileSystem.cacheDirectory
@@ -174,12 +191,25 @@ export default function ExportScreen() {
           await Share.share({ title: 'Rope Access Logbook audit PDF', message: namedUri });
         }
       } else if (format === 'json') {
+        // NDT lives under its own top-level key — kept structurally separate so
+        // no consumer can fold NDT hours into the rope-access summary.
+        const jsonBundle = {
+          ...sanitizedBundle,
+          ndt_experience: {
+            note: 'Self-logged NDT experience, pending verification by the NDT Level III. Not summed with rope-access totals.',
+            records: buildNdtCsvRows(ndt.inspections, ndt.signaturesById),
+          },
+        };
         await Share.share({
           title: 'Rope Access Logbook export',
-          message: JSON.stringify(sanitizedBundle, null, 2),
+          message: JSON.stringify(jsonBundle, null, 2),
         });
       } else {
-        const csv = buildLogbookCsv(sanitizedBundle);
+        const ropeCsv = buildLogbookCsv(sanitizedBundle);
+        const ndtCsv = buildNdtCsv(ndt.inspections, ndt.signaturesById);
+        // Two clearly-delimited blocks in one CSV. The NDT block carries its own
+        // ndt_-prefixed headers and is never interleaved with rope rows.
+        const csv = `${ropeCsv}\n\n# NDT experience (self-maintained) — not summed with rope-access totals\n${ndtCsv}`;
         await Share.share({ title: 'Rope Access Logbook CSV', message: csv });
       }
       haptics.success();
