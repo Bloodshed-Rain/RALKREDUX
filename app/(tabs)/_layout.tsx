@@ -5,6 +5,7 @@ import { Animated, Text, View, type TextStyle, type ViewStyle } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import type { ThemeTokens } from '@/src/ui/theme/themes';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 import { haptics } from '@/src/ui/haptics';
 import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
 import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
@@ -188,13 +189,13 @@ function FabButton({
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: tokens.accent,
-          shadowColor: isHeliotype ? '#1A1410' : tokens.accent,
+          shadowColor: isHeliotype ? tokens.line : tokens.accent,
           shadowOffset: { width: 0, height: isHeliotype ? 3 : 12 },
           shadowOpacity: isHeliotype ? 1 : 0.45,
           shadowRadius: isHeliotype ? 0 : 18,
           elevation: 8,
           borderWidth: isHeliotype ? 2 : 0,
-          borderColor: isHeliotype ? '#1A1410' : 'transparent',
+          borderColor: isHeliotype ? tokens.line : 'transparent',
         }}
       >
         <IconPlus size={31} color={tokens.accentInk} fill={tokens.accentInk} fillOpacity={0.2} />
@@ -206,7 +207,7 @@ function FabButton({
 function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme, tokens } = useTheme();
   const insets = useSafeAreaInsets();
-  const isHeliotype = theme.key === 'heliotype';
+  const isHeliotype = isHeliotypeFamily(theme.key);
   const bottomPad = Math.max(insets.bottom, 12) + 8;
 
   const containerStyle: ViewStyle = {

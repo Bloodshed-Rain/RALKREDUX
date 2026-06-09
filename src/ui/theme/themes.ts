@@ -36,6 +36,7 @@ export type ThemeKey =
   | 'mariner'
   | 'verdigris'
   | 'heliotype'
+  | 'heliotype-dark'
   | 'forge'
   | 'mercury';
 
@@ -168,13 +169,65 @@ export const THEMES: Record<ThemeKey, Theme> = {
       okSoft: '#D2DFC4',
       warn: '#9C6E0A',
       warnSoft: '#EDDFB5',
-      danger: '#8B1F1A',
-      dangerSoft: '#EAD3CF',
+      // danger is a brighter "alarm red" (L≈46%) clearly separable from the deep
+      // oxblood accent (#8B1F1A, L≈32%) so a destructive/error state never reads
+      // as the primary Sign action. AA on bg 4.69 / surface 5.03.
+      danger: '#C0392B',
+      // Soft danger wash — warmer & more saturated than accentSoft's mauve
+      // (#EAD3CF), so error backgrounds don't collide with accent backgrounds.
+      dangerSoft: '#F4D9D2',
       chip: '#EBE5D3',
       chipText: '#1A1410',
       scrim: 'rgba(26,20,16,0.42)',
       shadow: '0 1px 0 #FAF6E9 inset, 0 2px 0 #1A1410, 0 0 0 1.5px #1A1410',
       ring: 'rgba(139,31,26,0.3)',
+    },
+  },
+  'heliotype-dark': {
+    key: 'heliotype-dark',
+    name: 'Heliotype Dark',
+    sub: 'Ink stock · oxblood',
+    mode: 'dark',
+    swatch: ['#1C1612', '#E6DCC4', '#E0594E'],
+    tokens: {
+      // Inverts Heliotype's paper→ink relationship: a warm dark "ink stock"
+      // ground with the bone-paper colour now carrying the text, kept WARM so it
+      // stays in the Heliotype family rather than the cool/steel dark themes.
+      bg: '#1C1612',
+      surface: '#241C16',
+      surface2: '#2D241B',
+      surface3: '#382C20',
+      // The stamped hard edge, inverted: `line` is now a bone hairline (was the
+      // hard ink #1A1410 in light Heliotype); `lineSoft` stays warm-dark for
+      // subtle dividers — mirroring the light palette's hard-line/soft-line split.
+      line: '#E6DCC4',
+      lineSoft: '#2A211A',
+      // Bone paper as text. AA: text/bg 15.44, text/surface 14.45, textDim/bg 8.80.
+      text: '#F3EEDF',
+      textDim: '#C3B49B',
+      // De-emphasised hint text — ≥3 (4.37 on bg).
+      textFaint: '#8C7B63',
+      // Oxblood brightened to stay legible on dark (accent/bg 4.87). accentInk is
+      // dark warm ink so the button label clears AA on the bright fill (5.09).
+      accent: '#E0594E',
+      accentInk: '#1A1008',
+      accentSoft: '#46221C',
+      ok: '#7FC4A0',
+      okSoft: '#22332A',
+      warn: '#E0B45C',
+      warnSoft: '#352A18',
+      // Same danger≠accent rule: a cool pink-red alarm (hue ≈353°) clearly hue-
+      // separated from the warm oxblood accent (hue ≈5°). AA: bg 5.57 / surface 5.21.
+      danger: '#F25C6E',
+      dangerSoft: '#3E1E22',
+      chip: '#2D241B',
+      chipText: '#D8C9AE',
+      scrim: 'rgba(10,7,5,0.58)',
+      // Letterpress shadow preserved as a HARD, no-blur 3-part stack (not the soft
+      // blur the other dark themes use): subtle bone inset highlight, a near-black
+      // warm drop ledge, and the 1.5px ring flipped from black to bone.
+      shadow: '0 1px 0 rgba(243,238,223,0.10) inset, 0 2px 0 #0E0A07, 0 0 0 1.5px #E6DCC4',
+      ring: 'rgba(224,89,78,0.34)',
     },
   },
   forge: {
@@ -253,6 +306,7 @@ export const THEME_ORDER: ThemeKey[] = [
   'mariner',
   'verdigris',
   'heliotype',
+  'heliotype-dark',
   'forge',
   'mercury',
 ];
@@ -261,4 +315,14 @@ export const DEFAULT_THEME_KEY: ThemeKey = 'tungsten';
 
 export function isThemeKey(value: unknown): value is ThemeKey {
   return typeof value === 'string' && value in THEMES;
+}
+
+// The Heliotype family (light + dark) shares the stamped, letterpress
+// "ink-on-paper" treatment — 1.5px hard borders and a no-blur drop ledge —
+// applied at the primitive level (it is intentionally not encoded into
+// `ThemeTokens`). Primitives branch on this rather than a single key so the
+// dark sibling inherits the same identity. The hard edge colour comes from
+// `tokens.line` (ink in light, bone in dark), so callers don't hard-code it.
+export function isHeliotypeFamily(key: ThemeKey): boolean {
+  return key === 'heliotype' || key === 'heliotype-dark';
 }

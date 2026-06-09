@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 import { type } from '@/src/ui/theme/type';
 import { scaled, scaledIcon } from '@/src/ui/scale';
 import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
@@ -65,7 +66,7 @@ export function Button({
   // Icon/CustomIcon). Size the wrapper box to that rendered dimension and center
   // it, so the glyph sits centered in the row instead of overflowing top-left.
   const iconBox = scaledIcon(spec.iconSize);
-  const isHeliotype = theme.key === 'heliotype';
+  const isHeliotype = isHeliotypeFamily(theme.key);
 
   // Variant colors.
   let bg = 'transparent';
@@ -97,9 +98,9 @@ export function Button({
       break;
   }
 
-  // On Heliotype, accent and danger share the same oxblood — distinguish the
-  // danger button by SHAPE: swap to outlined ink-on-bone (canvas-fill, oxblood
-  // text, 1.5px oxblood ring) so it doesn't render identical to primary.
+  // On the Heliotype family, danger buttons take an outlined letterpress
+  // treatment (canvas fill, danger text + 1.5px danger ring) — distinct from the
+  // filled primary even now that danger has its own colour.
   if (isHeliotype && variant === 'danger') {
     bg = tokens.bg;
     fg = tokens.danger;
@@ -107,12 +108,13 @@ export function Button({
     borderColor = tokens.danger;
   }
 
-  // Heliotype primary AND danger get a 2px hard ink drop shadow (ink-on-paper
-  // print feel). Danger keeps the shadow even when outlined.
+  // Heliotype primary AND danger get a 2px hard drop shadow (letterpress feel).
+  // The ledge colour is the family's hard edge — tokens.line (ink in light, bone
+  // in dark). Danger keeps the shadow even when outlined.
   const heliotypeShadow: ViewStyle =
     isHeliotype && (variant === 'primary' || variant === 'danger')
       ? {
-          shadowColor: '#1A1410',
+          shadowColor: tokens.line,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 1,
           shadowRadius: 0,

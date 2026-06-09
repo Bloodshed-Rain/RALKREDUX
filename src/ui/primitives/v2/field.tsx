@@ -8,6 +8,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 
 export interface FieldProps {
   label?: string;
@@ -58,7 +59,7 @@ export function Field({
 }: FieldProps) {
   const { theme, tokens } = useTheme();
   const [focused, setFocused] = React.useState(false);
-  const isHeliotype = theme.key === 'heliotype';
+  const isHeliotype = isHeliotypeFamily(theme.key);
 
   const labelStyle: TextStyle = {
     fontFamily: 'JetBrainsMono_600SemiBold',

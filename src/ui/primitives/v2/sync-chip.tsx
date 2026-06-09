@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View, Animated, Easing, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
 import { scaledIcon } from '@/src/ui/scale';
 import { IconCheck, IconSync, IconOffline } from '@/src/ui/icons';
@@ -62,7 +63,7 @@ export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
   const rotation = React.useRef(new Animated.Value(0)).current;
   const reducedMotion = useReducedMotion();
   const shouldSpin = s.spin && !reducedMotion;
-  const isHeliotype = theme.key === 'heliotype';
+  const isHeliotype = isHeliotypeFamily(theme.key);
 
   React.useEffect(() => {
     if (!shouldSpin) {
@@ -81,9 +82,9 @@ export function SyncChip({ state, count = 0, onPress }: SyncChipProps) {
     return () => loop.stop();
   }, [shouldSpin, rotation]);
 
-  // On Heliotype, accent and danger collapse to the same oxblood, so `syncing`
-  // and `offline` look identical. Distinguish offline by SHAPE: swap to outlined
-  // ink-on-bone (canvas-fill, oxblood text, 1.5px oxblood ring).
+  // Heliotype-family offline chips take an outlined letterpress treatment (canvas
+  // fill + 1.5px ring) so offline reads distinctly from the filled syncing state
+  // in the ink-on-paper palettes.
   const heliotypeOfflineOutline = isHeliotype && state === 'offline';
   const effectiveBg = heliotypeOfflineOutline ? tokens.bg : s.bg;
 

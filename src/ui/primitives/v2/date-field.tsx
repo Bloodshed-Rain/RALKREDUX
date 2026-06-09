@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import { IconCalendar } from '@/src/ui/icons';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 import { formatIsoForDisplay } from '@/src/domain/date-utils';
 import { DatePickerSheet } from './date-picker-sheet';
 
@@ -43,7 +44,7 @@ export function DateField({
 }: DateFieldProps) {
   const { theme, tokens } = useTheme();
   const [open, setOpen] = React.useState(false);
-  const isHeliotype = theme.key === 'heliotype';
+  const isHeliotype = isHeliotypeFamily(theme.key);
   const hasError = !!error;
   const showDanger = hasError || !!invalid;
   const display = formatIsoForDisplay(value);

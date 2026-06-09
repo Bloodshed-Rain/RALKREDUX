@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
 import { press } from '@/src/ui/animation/motion';
 
@@ -23,7 +24,7 @@ export function Card({
 }: CardProps) {
   const { theme, tokens } = useTheme();
   const pressScale = usePressScale(press.scale.card);
-  const isHeliotype = theme.key === 'heliotype';
+  const isHeliotype = isHeliotypeFamily(theme.key);
   const borderWidth = isHeliotype ? 1.5 : 1;
   const borderColor = isHeliotype ? tokens.line : tokens.lineSoft;
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 import { scaled } from '@/src/ui/scale';
 import type { IconProps } from '@/src/ui/icons';
 import {
@@ -50,12 +51,12 @@ export function Pill({ tone = 'chip', size = 'sm', icon: Icon, children }: PillP
   const { theme, tokens } = useTheme();
   const spec = SIZE_SPEC[size];
   const { bg, fg } = toneColors(tone, tokens);
-  const isHeliotype = theme.key === 'heliotype';
+  const isHeliotype = isHeliotypeFamily(theme.key);
   const isForge = theme.key === 'forge';
 
-  // On Heliotype, accent and danger collapse to the same oxblood. Distinguish them
-  // by SHAPE rather than color: danger swaps to an outlined ink-on-bone treatment
-  // (canvas-fill + oxblood text + 1.5px oxblood ring) while accent stays filled.
+  // Heliotype-family danger pills take an outlined letterpress treatment (canvas
+  // fill + danger text + 1.5px danger ring) instead of a solid fill, keeping the
+  // ink-on-paper look and reading distinctly from filled accent pills.
   const heliotypeDangerOutline = isHeliotype && tone === 'danger';
 
   // Forge keeps a bright ember accent, which fails contrast as text on its pale
