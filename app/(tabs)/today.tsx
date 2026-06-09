@@ -30,7 +30,6 @@ import {
 import Constants from 'expo-constants';
 import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import { MIGRATION_COUNT } from '@/src/db/migrations';
-import { NotificationsStubSheet } from '@/src/ui/sheets/notifications-stub-sheet';
 import { Reveal } from '@/src/ui/animation/reveal';
 import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
 import {
@@ -102,7 +101,6 @@ export default function TodayScreen() {
   const entries = useEntries();
   const { tokens } = useTheme();
   const [aboutOpen, setAboutOpen] = React.useState(false);
-  const [notifOpen, setNotifOpen] = React.useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -218,7 +216,7 @@ export default function TodayScreen() {
                 icon={IconBell}
                 label="Notifications"
                 size="md"
-                onPress={() => setNotifOpen(true)}
+                onPress={() => router.push('/notifications' as never)}
               />
             </View>
           }
@@ -342,7 +340,6 @@ export default function TodayScreen() {
         </Reveal>
       </PullToRefresh>
       <AboutSheet visible={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <NotificationsStubSheet visible={notifOpen} onClose={() => setNotifOpen(false)} />
     </View>
   );
 }

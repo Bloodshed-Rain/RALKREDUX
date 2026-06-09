@@ -32,6 +32,15 @@ export function useEntries() {
   });
 }
 
+// Pending, expiry-bearing remote requests — the change-signal the notification
+// reconciler watches to (re)schedule "request expired" reminders.
+export function useActiveRemoteSignatureRequests() {
+  return useQuery({
+    queryKey: ['activeRemoteSignatureRequests'],
+    queryFn: () => createLogbookService(getClient()).listActiveRemoteSignatureRequests(),
+  });
+}
+
 export function useDashboardSummary() {
   return useQuery({
     queryKey: ['dashboardSummary'],
@@ -202,6 +211,7 @@ export function useCreateRemoteSignatureRequest() {
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['activeRemoteSignatureRequests'] });
     },
   });
 }
@@ -215,6 +225,7 @@ export function useCancelRemoteSignatureRequest() {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['activeRemoteSignatureRequests'] });
     },
   });
 }
@@ -231,6 +242,7 @@ export function useCompleteRemoteSignatureRequest() {
       queryClient.invalidateQueries({ queryKey: ['supervisorContacts'] });
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['remoteSignatureRequest', input.request_code] });
+      queryClient.invalidateQueries({ queryKey: ['activeRemoteSignatureRequests'] });
       queryClient.invalidateQueries({ queryKey: ['chainHead'] });
       // A new signature extends the chain → re-run the full-chain verification
       // the audit-export screen's "Chain valid" pill is gated on.

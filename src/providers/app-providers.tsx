@@ -21,6 +21,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeDatabase } from '@/src/db/initialize';
 import { loadHapticsPref } from '@/src/ui/haptics';
+import { ensureSetup as ensureNotificationsSetup } from '@/src/notifications/scheduler';
 import { IconBrand } from '@/src/ui/icons';
 import { ThemeProvider, useTheme } from '@/src/ui/theme/theme-provider';
 
@@ -56,6 +57,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     runInit();
     void loadHapticsPref();
+    // Register the notification handler + Android channels once, at boot. Needs no
+    // DB/auth; channels must exist before POST_NOTIFICATIONS is ever requested
+    // (Android 13+). The reconciler (a descendant, post-DB) does the scheduling.
+    void ensureNotificationsSetup();
   }, [runInit]);
 
   // Don't block the boot forever on fonts — after a grace period (or immediately

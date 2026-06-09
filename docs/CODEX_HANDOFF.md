@@ -1,8 +1,12 @@
 # Codex Handoff: RALB Codex Edition
 
-Last updated: 2026-06-05 (production-readiness backlog verified closed; road-to-1.0 handoff)
+Last updated: 2026-06-09 (NDT verified ledger Phase 1 + Heliotype theme cull merged to main; native-notifications + production-hardening branches merged in)
 
 This file is the continuity note for future Codex sessions working from `C:\Users\MC\Desktop\RALB-Codex-Edition`, including sessions started from the user's phone.
+
+## READ THIS FIRST — NDT verified ledger + theme cull shipped, 2026-06-09
+
+A separate NDT (non-destructive testing) verified-hours ledger landed on `main` (plan: `docs/superpowers/plans/2026-06-08-ndt-verified-ledger.md`). It MIRRORS but never touches the rope-access machinery: own `NDT_HASH_VERSION = 1` (`src/domain/ndt/ndt-hash.ts`), own signature chain, own tables (migration 19: `ndt_inspections` / `ndt_signatures` / `ndt_remote_signature_requests`), own deep link `ralb://ndt-verify/<code>`. **`ENTRY_HASH_VERSION` stays 5 and the Deno mirror is untouched — zero coordinated-deploy risk.** Verified by an NDT Level III (cert# always required), not a rope-access supervisor; the app only ACCRUES NDT hours and never asserts eligibility (scheme names are neutral picker labels only). Themes were also culled 7→2 to **Heliotype light + dark** (default Heliotype, was Tungsten). Follow-ups owed: central-register the `ndt/*` + `ndt-verify` routes in `app/_layout.tsx` (deferred around an uncommitted landing-page WIP — deep links resolve file-based and screens self-declare `headerShown:false` today, so only first-frame chrome + modal presentation are affected); the Phase 2 hosted cross-device verifier path + per-method prior-hours baseline; and an on-device smoke of the NDT screens.
 
 ## READ THIS FIRST — audit-integrity backlog is closed; see road-to-1.0, 2026-06-05
 
@@ -23,7 +27,16 @@ reasons in `road-to-1.0.md` for a future autonomous session.
 Shipped this session on branch `production-hardening` (off `main` @ `feada72`, commit
 `8d3d85e`): **P3-10** (attachments screen now surfaces read errors instead of showing an
 empty state) and **P3-11** (`onError` alerts on the six previously-silent attach/detach
-draft mutations). tsc + 244 jest green; UI-only, device-verification owed. Not yet merged.
+draft mutations). tsc + 244 jest green; UI-only, device-verification owed. Merged to main 2026-06-09.
+
+## READ THIS FIRST — native local notifications, 2026-06-04
+
+Real iOS/Android **local** notifications (`expo-notifications` SDK 54, installed this session) replaced the old in-development stub sheet. OS-scheduled, **no push server / no tokens**, offline. Three categories: gear inspections (30d + 7d lead @ 07:00 local + weekly overdue), remote-signing (expired pre-scheduled / completed event-driven), backup failures (event-driven, gated to persistent). New prefs screen `app/notifications.tsx` (permission row + per-category toggles); the Today + More bells now push to it.
+
+- **Full design + spec:** `docs/notifications.md` (categories table, architecture, and the device-verification TODO list).
+- **Module:** `src/notifications/` — `planner.ts` is PURE + unit-tested (`__tests__/notifications/planner.test.ts`, 17 cases); `scheduler.ts` is the only `expo-notifications` importer; `notify.ts` is a lazy facade (keeps expo-notifications out of node tests); `reconcile-now.ts` is the single reconcile entry; `notification-reconciler.tsx` is mounted between `<AuthGate>` and `<AppLock>`.
+- **Prefs:** `local-prefs.ts` → `notificationPrefs { gear, signing, backup }`. **Service add:** `listActiveRemoteSignatureRequests()` on the logbook service + `useActiveRemoteSignatureRequests()` hook + `['activeRemoteSignatureRequests']` invalidations.
+- **Validated at typecheck + 261/261 jest + web bundle; on-device delivery CONFIRMED 2026-06-05** — a dev-client `__DEV__` test notification fired and was delivered to the lock screen, exercising the OS-scheduling path unit tests can't reach. Built via an EAS dev-client (Expo Go can't apply the entitlement strip). Still device-pending: the WEEKLY weekday mapping (`getDay()+1` off-by-one), the iOS ~64 cap on large inventories, and per-category Android channel routing. **iOS-build gotcha (resolved 2026-06-05, the hard way):** Expo SDK 54 **auto-applies** `expo-notifications`' config plugin even when it's NOT in `app.config.ts` (config-plugin autolinking), so its iOS mod still adds the push-only `aps-environment` entitlement → the first AdHoc dev build failed codesigning ("provisioning profile doesn't include the aps-environment entitlement"), since this app uses local notifications only (no push key, no-push profile). Fix: a custom config plugin `plugins/with-no-aps-entitlement.js` (listed in `app.config.ts` `plugins[]`) that **removes** the entitlement — it runs last in the entitlements mod chain. Do NOT delete it, and do NOT add the `expo-notifications` plugin to "enable" push without an APNs key + push-capable profile. Device-verify the WEEKLY weekday index, iOS ~64 cap, per-category Android channels, and add a push-free custom icon plugin before store release — see `docs/notifications.md`.
 
 ## READ THIS FIRST — real auth replaces anonymous, hard gate, 2026-05-20
 

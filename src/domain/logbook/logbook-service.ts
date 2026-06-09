@@ -239,6 +239,22 @@ export function createLogbookService(db: DbClient) {
     );
   }
 
+  // Fleet-wide read of still-active (pending, expiry-bearing) remote requests, for
+  // the notification planner to schedule a one-shot "expired" reminder per request.
+  // Sweep-then-list so already-expired rows are flipped before we return them.
+  async function listActiveRemoteSignatureRequests(): Promise<RemoteSignatureRequest[]> {
+    await sweepExpiredRemoteRequests(new Date().toISOString());
+    return db.getAll<RemoteSignatureRequest>(
+      `SELECT
+        id, entry_id, recipient_name, recipient_contact, verifier_role, verifier_company,
+        status, request_code, entry_hash, hash_version, expires_at, completed_signature_id,
+        signing_token_hash, token_hint, viewed_at, completed_at, created_at, updated_at
+      FROM remote_signature_requests
+      WHERE status = 'pending' AND expires_at IS NOT NULL
+      ORDER BY expires_at ASC`,
+    );
+  }
+
   function remoteAccessInput(input: string | RemoteSignatureAccessInput): RemoteSignatureAccessInput {
     return typeof input === 'string' ? { request_code: input } : input;
   }
@@ -526,6 +542,8 @@ export function createLogbookService(db: DbClient) {
     getLatestChainHash,
 
     getLatestRemoteRequestForEntry,
+
+    listActiveRemoteSignatureRequests,
 
     listAttachmentsWithEntry,
 
