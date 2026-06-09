@@ -287,12 +287,23 @@ export default function EntryDetailScreen() {
     // Persist the picker's transient cache URI to durable storage before it's
     // recorded — a signed entry locks, so a dangling pointer can't be repaired.
     const uri = await persistAttachmentFile(photo.uri);
-    addAttachment.mutate({
-      entry_id: entryId,
-      label: photo.fileName || 'Evidence photo',
-      uri,
-      mime_type: photo.mimeType ?? 'image/jpeg',
-    });
+    addAttachment.mutate(
+      {
+        entry_id: entryId,
+        label: photo.fileName || 'Evidence photo',
+        uri,
+        mime_type: photo.mimeType ?? 'image/jpeg',
+      },
+      {
+        onError: () => {
+          haptics.error();
+          Alert.alert(
+            'Photo not attached',
+            'Could not add the photo evidence. Nothing was changed — please try again.',
+          );
+        },
+      },
+    );
   }
 
   const chainLinks: ChainLinkItem[] = [];
@@ -527,7 +538,18 @@ export default function EntryDetailScreen() {
                                     text: 'Detach',
                                     style: 'destructive',
                                     onPress: () =>
-                                      removeGear.mutate({ entry_id: entry.id, gear_id: gear.id }),
+                                      removeGear.mutate(
+                                        { entry_id: entry.id, gear_id: gear.id },
+                                        {
+                                          onError: () => {
+                                            haptics.error();
+                                            Alert.alert(
+                                              'Gear not detached',
+                                              'Could not detach the gear item. Nothing was changed — please try again.',
+                                            );
+                                          },
+                                        },
+                                      ),
                                   },
                                 ],
                               );
@@ -557,11 +579,22 @@ export default function EntryDetailScreen() {
                         accessibilityRole="button"
                         onPress={() => {
                           haptics.selection();
-                          attachGear.mutate({
-                            entry_id: entry.id,
-                            gear_id: item.id,
-                            role: item.category,
-                          });
+                          attachGear.mutate(
+                            {
+                              entry_id: entry.id,
+                              gear_id: item.id,
+                              role: item.category,
+                            },
+                            {
+                              onError: () => {
+                                haptics.error();
+                                Alert.alert(
+                                  'Gear not attached',
+                                  'Could not attach the gear item. Nothing was changed — please try again.',
+                                );
+                              },
+                            },
+                          );
                         }}
                         disabled={attachGear.isPending}
                         style={({ pressed }) => ({

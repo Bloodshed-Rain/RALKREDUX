@@ -918,10 +918,23 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
   function toggleGear(gearId: string, category: string) {
     if (!draft.entryId || gearBusy) return;
     haptics.selection();
+    const onGearError = (attaching: boolean) => () => {
+      haptics.error();
+      Alert.alert(
+        attaching ? 'Gear not attached' : 'Gear not detached',
+        `Could not ${attaching ? 'attach' : 'detach'} the gear item. Nothing was changed — please try again.`,
+      );
+    };
     if (attachedGearIds.has(gearId)) {
-      removeGear.mutate({ entry_id: draft.entryId, gear_id: gearId });
+      removeGear.mutate(
+        { entry_id: draft.entryId, gear_id: gearId },
+        { onError: onGearError(false) },
+      );
     } else {
-      attachGear.mutate({ entry_id: draft.entryId, gear_id: gearId, role: category });
+      attachGear.mutate(
+        { entry_id: draft.entryId, gear_id: gearId, role: category },
+        { onError: onGearError(true) },
+      );
     }
   }
 
@@ -932,12 +945,23 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
     // Persist the picker's transient cache URI to durable storage before it's
     // recorded — a signed entry locks, so a dangling pointer can't be repaired.
     const uri = await persistAttachmentFile(photo.uri);
-    addAttachment.mutate({
-      entry_id: draft.entryId,
-      label: photo.fileName || 'Evidence photo',
-      uri,
-      mime_type: photo.mimeType ?? 'image/jpeg',
-    });
+    addAttachment.mutate(
+      {
+        entry_id: draft.entryId,
+        label: photo.fileName || 'Evidence photo',
+        uri,
+        mime_type: photo.mimeType ?? 'image/jpeg',
+      },
+      {
+        onError: () => {
+          haptics.error();
+          Alert.alert(
+            'Photo not attached',
+            'Could not add the photo evidence. Nothing was changed — please try again.',
+          );
+        },
+      },
+    );
   }
 
   const photoItems: PhotoStripItem[] = attachments.map((a) => ({
