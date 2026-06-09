@@ -16,8 +16,12 @@ import {
   CreateNdtRemoteRequestInput,
   NdtInspection,
   NdtInspectionDetail,
+  NdtMethod,
+  NdtMethodLevelTotal,
+  NdtMethodTotal,
   NdtRemoteSignatureRequest,
   NdtSignature,
+  NdtSummary,
   SignNdtInspectionInput,
   UpdateNdtInspectionInput,
 } from './types';
@@ -567,6 +571,109 @@ export function createNdtService(db: DbClient) {
       const inspection = await getInspectionById(request.inspection_id);
       if (!inspection) return null;
       return { inspection, request };
+    },
+
+    async getSummary(): Promise<NdtSummary> {
+      const ACCRUED = `'logged','pending','verified'`;
+
+      // Scalar sums
+      const selfRow = await db.get<{ hours: number | null }>(
+        `SELECT SUM(hours) AS hours FROM ndt_inspections WHERE status IN ('logged','pending')`,
+      );
+      const verifiedRow = await db.get<{ hours: number | null }>(
+        `SELECT SUM(hours) AS hours FROM ndt_inspections WHERE status = 'verified'`,
+      );
+      const selfLoggedHours = Number(((selfRow?.hours ?? 0)).toFixed(2));
+      const verifiedHours = Number(((verifiedRow?.hours ?? 0)).toFixed(2));
+
+      // byMethod — accrued statuses grouped by method
+      const byMethodRaw = await db.getAll<{ method: NdtMethod; hours: number | null; inspections: number }>(
+        `SELECT method, SUM(hours) AS hours, COUNT(*) AS inspections
+         FROM ndt_inspections
+         WHERE status IN (${ACCRUED})
+         GROUP BY method
+         ORDER BY method`,
+      );
+      const byMethod: NdtMethodTotal[] = byMethodRaw.map((r) => ({
+        method: r.method,
+        hours: Number((r.hours ?? 0).toFixed(2)),
+        inspections: r.inspections,
+      }));
+
+      // byMethodVerified — verified only, grouped by method
+      const byMethodVerifiedRaw = await db.getAll<{ method: NdtMethod; hours: number | null; inspections: number }>(
+        `SELECT method, SUM(hours) AS hours, COUNT(*) AS inspections
+         FROM ndt_inspections
+         WHERE status = 'verified'
+         GROUP BY method
+         ORDER BY method`,
+      );
+      const byMethodVerified: NdtMethodTotal[] = byMethodVerifiedRaw.map((r) => ({
+        method: r.method,
+        hours: Number((r.hours ?? 0).toFixed(2)),
+        inspections: r.inspections,
+      }));
+
+      // byMethodLevel — accrued statuses grouped by method + level
+      const byMethodLevelRaw = await db.getAll<{ method: NdtMethod; level: string; hours: number | null }>(
+        `SELECT method,
+                COALESCE(ndt_level_snapshot, 'Unspecified') AS level,
+                SUM(hours) AS hours
+         FROM ndt_inspections
+         WHERE status IN (${ACCRUED})
+         GROUP BY method, COALESCE(ndt_level_snapshot, 'Unspecified')
+         ORDER BY method, level`,
+      );
+      const byMethodLevel: NdtMethodLevelTotal[] = byMethodLevelRaw.map((r) => ({
+        method: r.method,
+        level: r.level as NdtMethodLevelTotal['level'],
+        hours: Number((r.hours ?? 0).toFixed(2)),
+      }));
+
+      // supervisedSplit — per method, supervised vs independent, over accrued statuses
+      const supervisedRaw = await db.getAll<{
+        method: NdtMethod;
+        supervised: number | null;
+        independent: number | null;
+      }>(
+        `SELECT method,
+                SUM(CASE WHEN supervised = 'supervised' THEN hours ELSE 0 END) AS supervised,
+                SUM(CASE WHEN supervised = 'independent' THEN hours ELSE 0 END) AS independent
+         FROM ndt_inspections
+         WHERE status IN (${ACCRUED})
+         GROUP BY method
+         ORDER BY method`,
+      );
+      const supervisedSplit = supervisedRaw.map((r) => ({
+        method: r.method,
+        supervised: Number((r.supervised ?? 0).toFixed(2)),
+        independent: Number((r.independent ?? 0).toFixed(2)),
+      }));
+
+      // last12mByMethod — byMethod-shape filtered to last 12 months
+      const last12mRaw = await db.getAll<{ method: NdtMethod; hours: number | null; inspections: number }>(
+        `SELECT method, SUM(hours) AS hours, COUNT(*) AS inspections
+         FROM ndt_inspections
+         WHERE status IN (${ACCRUED})
+           AND date_from >= date('now', '-12 months')
+         GROUP BY method
+         ORDER BY method`,
+      );
+      const last12mByMethod: NdtMethodTotal[] = last12mRaw.map((r) => ({
+        method: r.method,
+        hours: Number((r.hours ?? 0).toFixed(2)),
+        inspections: r.inspections,
+      }));
+
+      return {
+        selfLoggedHours,
+        verifiedHours,
+        byMethod,
+        byMethodVerified,
+        byMethodLevel,
+        supervisedSplit,
+        last12mByMethod,
+      };
     },
 
     async completeRemoteRequest(input: CompleteNdtRemoteRequestInput): Promise<NdtInspectionDetail> {

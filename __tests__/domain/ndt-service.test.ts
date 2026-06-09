@@ -106,3 +106,31 @@ it('rejects edits to a verified inspection', async () => {
   await svc.signNdtLocal({ inspection_id: draft.id, verifier_name: 'Dana', verifier_cert_number: 'L3', signature_path: 'M', attestation_accepted: true });
   await expect(svc.updateInspection({ id: draft.id, hours: 9 })).rejects.toThrow();
 });
+
+it('summarises hours per method and splits verified vs self-logged', async () => {
+  const db = await createTestClient();
+  const svc = createNdtService(db);
+  const a = await svc.createInspection({ ...draftInput, method: 'UT', hours: 4 });
+  await svc.markLogged(a.id); // self-logged
+  const b = await svc.createInspection({ ...draftInput, method: 'UT', hours: 6 });
+  await svc.signNdtLocal({ inspection_id: b.id, verifier_name: 'DD', verifier_cert_number: 'L3', signature_path: 'M', attestation_accepted: true }); // verified
+  const c = await svc.createInspection({ ...draftInput, method: 'MT', hours: 2 });
+  await svc.signNdtLocal({ inspection_id: c.id, verifier_name: 'DD', verifier_cert_number: 'L3', signature_path: 'M', attestation_accepted: true });
+
+  const s = await svc.getSummary();
+  expect(s.verifiedHours).toBe(8);     // 6 UT + 2 MT
+  expect(s.selfLoggedHours).toBe(4);   // 4 UT logged
+  const ut = s.byMethod.find((m) => m.method === 'UT')!;
+  expect(ut.hours).toBe(10);           // 4 + 6, all UT regardless of state
+  const utVerified = s.byMethodVerified.find((m) => m.method === 'UT')!;
+  expect(utVerified.hours).toBe(6);
+});
+
+it('drafts are excluded from accrued totals', async () => {
+  const db = await createTestClient();
+  const svc = createNdtService(db);
+  await svc.createInspection({ ...draftInput, hours: 99 }); // stays draft
+  const s = await svc.getSummary();
+  expect(s.selfLoggedHours).toBe(0);
+  expect(s.verifiedHours).toBe(0);
+});
