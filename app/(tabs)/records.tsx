@@ -1,10 +1,21 @@
 import React from 'react';
-import { Alert, ScrollView, SectionList, Text, View, type TextStyle } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  SectionList,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { haptics } from '@/src/ui/haptics';
 import { useDeleteDraftEntry, useEntries } from '@/src/domain/logbook/use-logbook';
 import type { LogbookEntry } from '@/src/domain/logbook/types';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { isHeliotypeFamily } from '@/src/ui/theme/themes';
+import { type } from '@/src/ui/theme/type';
 import {
   Button,
   ChipSelect,
@@ -18,6 +29,9 @@ import {
 } from '@/src/ui/primitives/v2';
 import { IconExport, IconSearch } from '@/src/ui/icons';
 import { Reveal } from '@/src/ui/animation/reveal';
+import { NdtLedger } from '@/src/ui/ndt/ndt-ledger';
+
+type RecordsTab = 'rope' | 'ndt';
 
 // Once per app session: play a wiggle on the first deletable draft so users
 // discover that draft rows can be swiped. The decision is made in an effect
@@ -125,16 +139,27 @@ export default function RecordsScreen() {
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<FilterKey>(initialFilter);
 
-  // Records hosts the rope-access logbook; NDT experience lives in its own ledger
-  // (app/ndt). This segment is a launcher into that screen (value stays on 'rope'
-  // — tapping NDT navigates away rather than toggling in place). Provisional
-  // placement pending the UX pass.
-  const scope: 'rope' | 'ndt' = 'rope';
+  // Two prominent tabs switch content IN PLACE: the rope-access logbook (this
+  // screen's original content) and the NDT ledger (embedded inline via the
+  // shared <NdtLedger/>). Default to rope. This screen stays mounted while NDT
+  // detail/new routes are pushed on top, so plain local state survives the
+  // round-trip — do NOT add a focus listener that resets it.
+  const [tab, setTab] = React.useState<RecordsTab>('rope');
 
-  // Honour route-param changes after mount (re-tap from Today on a different tile).
+  // Honour route-param changes after mount (re-tap from Today on a different
+  // tile). `?filter=` is rope-only, so a deep-link also forces the rope tab —
+  // otherwise a re-tap from Today would set a pending filter silently behind the
+  // NDT ledger.
   React.useEffect(() => {
     setFilter(initialFilter);
+    if (initialFilter !== 'all') setTab('rope');
   }, [initialFilter]);
+
+  function selectTab(next: RecordsTab) {
+    if (next === tab) return;
+    haptics.selection();
+    setTab(next);
+  }
 
   const entriesData = entries.data ?? [];
   const counts = React.useMemo(() => {
@@ -219,20 +244,137 @@ export default function RecordsScreen() {
         }
       />
 
-      <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 12 }}>
-        <ChipSelect<'rope' | 'ndt'>
-          value={scope}
-          options={[
-            { value: 'rope', label: 'Rope Access' },
-            { value: 'ndt', label: 'NDT' },
-          ]}
-          onChange={(v) => {
-            if (v === 'ndt') {
-              haptics.selection();
-              router.push('/ndt' as never);
-            }
-          }}
+      <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+        <RecordsTabBar value={tab} onChange={selectTab} />
+      </View>
+
+      {tab === 'rope' ? (
+        <RopeAccessTab
+          tokens={tokens}
+          query={query}
+          setQuery={setQuery}
+          filter={filter}
+          setFilter={setFilter}
+          counts={counts}
+          entries={entries}
+          filteredEntries={filteredEntries}
+          monthGroups={monthGroups}
+          sectionKickerStyle={sectionKickerStyle}
+          onDeleteDraft={confirmDeleteDraft}
         />
+      ) : (
+        <NdtLedger
+          onOpenRecord={(id) => router.push(`/ndt/${id}` as never)}
+          onNewRecord={() => router.push('/ndt/new' as never)}
+          // This host's TopBar action is Export, not +New — surface the in-card
+          // create affordance so a non-empty NDT ledger here isn't a dead end.
+          showHeaderCreate
+        />
+      )}
+    </View>
+  );
+}
+
+// Two prominent in-place tabs, generously sized (≥44pt, width split evenly).
+// Active state leans on the Heliotype stamped identity: a filled oxblood block
+// with a 1.5px hard ink border and accent-ink label — unmistakable in glare.
+// Inactive is a bordered "paper" tile, so the pair reads as a hard-edged
+// segmented control rather than the soft pill ChipSelect it replaces.
+function RecordsTabBar({
+  value,
+  onChange,
+}: {
+  value: RecordsTab;
+  onChange: (next: RecordsTab) => void;
+}) {
+  const { theme, tokens } = useTheme();
+  const isHeliotype = isHeliotypeFamily(theme.key);
+  const borderWidth = isHeliotype ? 1.5 : 1;
+
+  const options: Array<{ value: RecordsTab; label: string }> = [
+    { value: 'rope', label: 'Rope Access' },
+    { value: 'ndt', label: 'NDT' },
+  ];
+
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={{ flexDirection: 'row', gap: 8 }}
+    >
+      {options.map((o) => {
+        const active = o.value === value;
+        const tabStyle: ViewStyle = {
+          flex: 1,
+          minHeight: 46,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 11,
+          paddingHorizontal: 12,
+          borderRadius: 14,
+          borderWidth,
+          borderColor: active ? tokens.line : tokens.lineSoft,
+          backgroundColor: active ? tokens.accent : tokens.surface,
+        };
+        const labelStyle: TextStyle = {
+          ...type.buttonLabel,
+          color: active ? tokens.accentInk : tokens.text,
+        };
+        return (
+          <Pressable
+            key={o.value}
+            accessibilityRole="tab"
+            accessibilityLabel={o.label}
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(o.value)}
+            style={({ pressed }) => [
+              tabStyle,
+              pressed ? { transform: [{ scale: 0.98 }] } : null,
+            ]}
+          >
+            <Text selectable={false} style={labelStyle} numberOfLines={1}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+interface RopeAccessTabProps {
+  tokens: ReturnType<typeof useTheme>['tokens'];
+  query: string;
+  setQuery: (q: string) => void;
+  filter: FilterKey;
+  setFilter: (f: FilterKey) => void;
+  counts: { drafts: number; pending: number; signed: number; amended: number; all: number };
+  entries: ReturnType<typeof useEntries>;
+  filteredEntries: LogbookEntry[];
+  monthGroups: MonthGroup[];
+  sectionKickerStyle: TextStyle;
+  onDeleteDraft: (entry: LogbookEntry) => void;
+}
+
+// The rope-access logbook tab: search Field + filter ChipSelect (in a
+// non-scrolling header View) over the virtualized SectionList. The search/filter
+// chips live here so they ONLY render on the rope tab — the NDT ledger has its
+// own summary header and must not show rope-access filters.
+function RopeAccessTab({
+  tokens,
+  query,
+  setQuery,
+  filter,
+  setFilter,
+  counts,
+  entries,
+  filteredEntries,
+  monthGroups,
+  sectionKickerStyle,
+  onDeleteDraft,
+}: RopeAccessTabProps) {
+  return (
+    <>
+      <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 12 }}>
         <Field
           value={query}
           onChangeText={setQuery}
@@ -252,8 +394,8 @@ export default function RecordsScreen() {
         />
       </View>
 
-      {/* 
-        CRITICAL FIX: Removed ScrollView wrapper around the list. 
+      {/*
+        CRITICAL FIX: Removed ScrollView wrapper around the list.
         ScrollView disables virtualization for SectionList/FlatList children,
         which would crash the app with an OOM on large logbooks.
       */}
@@ -321,10 +463,10 @@ export default function RecordsScreen() {
           groups={monthGroups}
           kickerStyle={sectionKickerStyle}
           onEntryPress={(id) => router.push(`/entry/${id}` as never)}
-          onDeleteDraft={confirmDeleteDraft}
+          onDeleteDraft={onDeleteDraft}
         />
       )}
-    </View>
+    </>
   );
 }
 
