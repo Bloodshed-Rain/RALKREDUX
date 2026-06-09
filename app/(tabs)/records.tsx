@@ -125,6 +125,12 @@ export default function RecordsScreen() {
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<FilterKey>(initialFilter);
 
+  // Records hosts the rope-access logbook; NDT experience lives in its own ledger
+  // (app/ndt). This segment is a launcher into that screen (value stays on 'rope'
+  // — tapping NDT navigates away rather than toggling in place). Provisional
+  // placement pending the UX pass.
+  const scope: 'rope' | 'ndt' = 'rope';
+
   // Honour route-param changes after mount (re-tap from Today on a different tile).
   React.useEffect(() => {
     setFilter(initialFilter);
@@ -214,6 +220,19 @@ export default function RecordsScreen() {
       />
 
       <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 12 }}>
+        <ChipSelect<'rope' | 'ndt'>
+          value={scope}
+          options={[
+            { value: 'rope', label: 'Rope Access' },
+            { value: 'ndt', label: 'NDT' },
+          ]}
+          onChange={(v) => {
+            if (v === 'ndt') {
+              haptics.selection();
+              router.push('/ndt' as never);
+            }
+          }}
+        />
         <Field
           value={query}
           onChangeText={setQuery}
