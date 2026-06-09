@@ -169,10 +169,12 @@ export const THEMES: Record<ThemeKey, Theme> = {
       okSoft: '#D2DFC4',
       warn: '#9C6E0A',
       warnSoft: '#EDDFB5',
-      // danger is a brighter "alarm red" (L≈46%) clearly separable from the deep
-      // oxblood accent (#8B1F1A, L≈32%) so a destructive/error state never reads
-      // as the primary Sign action. AA on bg 4.69 / surface 5.03.
-      danger: '#C0392B',
+      // danger is a vivid "alarm red" clearly separable from the deep oxblood
+      // accent (#8B1F1A) so a destructive/error state never reads as the primary
+      // Sign action. Darkened from #C0392B so danger TEXT also clears AA on the
+      // dangerSoft wash (badges render fg=danger on bg=dangerSoft, e.g. a failed
+      // gear inspection). AA: bg 5.58 / surface 5.99 / on dangerSoft 4.85.
+      danger: '#B22A1C',
       // Soft danger wash — warmer & more saturated than accentSoft's mauve
       // (#EAD3CF), so error backgrounds don't collide with accent backgrounds.
       dangerSoft: '#F4D9D2',
