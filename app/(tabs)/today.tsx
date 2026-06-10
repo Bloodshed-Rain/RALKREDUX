@@ -63,6 +63,19 @@ function firstNameOf(fullName: string | undefined | null): string | null {
   return trimmed.split(/\s+/)[0];
 }
 
+// Compact certification identity line for the hero header, e.g. "SPRAT Level II".
+// Branches on the technician's primary scheme; the level is nullable, so it
+// degrades to just the scheme name ("SPRAT") when no level is recorded.
+function certIdentityLine(profile: {
+  primary_scheme: 'sprat' | 'irata';
+  sprat_level: 'I' | 'II' | 'III' | null;
+  irata_level: 'I' | 'II' | 'III' | null;
+}): string {
+  const scheme = profile.primary_scheme === 'irata' ? 'IRATA' : 'SPRAT';
+  const level = profile.primary_scheme === 'irata' ? profile.irata_level : profile.sprat_level;
+  return level ? `${scheme} · Level ${level}` : scheme;
+}
+
 function startOfLocalDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
@@ -188,6 +201,8 @@ export default function TodayScreen() {
 
   const recentEntries = entriesList.slice(0, 5);
 
+  const identityLine = certIdentityLine(profileData);
+
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
       <PullToRefresh
@@ -200,21 +215,12 @@ export default function TodayScreen() {
           subtitle={`${weekHours.toFixed(1)}h this week · ${careerEntries} career entries`}
           large
           leading={
-            <>
-              <Avatar
-                uri={profileData.avatar_uri}
-                name={profileData.full_name}
-                size={40}
-                onPress={() => router.push('/more' as never)}
-                accessibilityLabel="Your profile"
-              />
-              <IconBtn
-                icon={IconBrand}
-                label="About Rope Access Logbook"
-                size="md"
-                onPress={() => setAboutOpen(true)}
-              />
-            </>
+            <IconBtn
+              icon={IconBrand}
+              label="About Rope Access Logbook"
+              size="md"
+              onPress={() => setAboutOpen(true)}
+            />
           }
           trailing={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -239,6 +245,10 @@ export default function TodayScreen() {
               weekHours={weekHours}
               monthHours={monthHours}
               totalEntries={careerEntries}
+              avatarUri={profileData.avatar_uri}
+              name={profileData.full_name}
+              identityLine={identityLine}
+              onPressIdentity={() => router.push('/more' as never)}
             />
           </Reveal>
           <Reveal index={1}>
@@ -451,16 +461,51 @@ function CareerHero({
   weekHours,
   monthHours,
   totalEntries,
+  avatarUri,
+  name,
+  identityLine,
+  onPressIdentity,
 }: {
   hours: number;
   weekHours: number;
   monthHours: number;
   totalEntries: number;
+  avatarUri: string | null;
+  name: string | null;
+  identityLine: string;
+  onPressIdentity: () => void;
 }) {
   const { tokens } = useTheme();
+  const displayName = name?.trim() || 'Your profile';
   return (
     <Card padding={18}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Identity header: [photo] You — these are your career hours. The avatar
+          leads the card and is tappable through to the profile (More tab). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Avatar
+          uri={avatarUri}
+          name={name}
+          size={60}
+          onPress={onPressIdentity}
+          accessibilityLabel="Your profile"
+        />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+            {displayName}
+          </Text>
+          <Text style={{ ...type.monoKicker, color: tokens.textFaint }} numberOfLines={1}>
+            {identityLine}
+          </Text>
+        </View>
+      </View>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 16,
+        }}
+      >
         <Text style={{ ...type.monoKickerLg, color: tokens.textFaint }}>CAREER HOURS</Text>
         <Pill tone="accent" size="sm" icon={IconBolt}>
           Live
