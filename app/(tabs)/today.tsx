@@ -50,17 +50,10 @@ import { haptics } from '@/src/ui/haptics';
 
 const MS_PER_DAY = 86_400_000;
 
-function greetingFor(date: Date, firstName: string | null | undefined): string {
+function greetingFor(date: Date): string {
   const hour = date.getHours();
   const slot = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  return firstName ? `${slot}, ${firstName}.` : `${slot}.`;
-}
-
-function firstNameOf(fullName: string | undefined | null): string | null {
-  if (!fullName) return null;
-  const trimmed = fullName.trim();
-  if (!trimmed) return null;
-  return trimmed.split(/\s+/)[0];
+  return `${slot}.`;
 }
 
 // Compact certification identity line for the hero header, e.g. "SPRAT Level II".
@@ -177,7 +170,6 @@ export default function TodayScreen() {
 
   const today = new Date();
   const profileData = profile.data;
-  const firstName = firstNameOf(profileData.full_name);
   const entriesList = entries.data ?? [];
 
   const careerHours = career.data?.signedHours ?? 0;
@@ -211,7 +203,7 @@ export default function TodayScreen() {
         contentContainerStyle={{ paddingBottom: 132 }}
       >
         <TopBar
-          title={greetingFor(today, firstName)}
+          title={greetingFor(today)}
           subtitle={`${weekHours.toFixed(1)}h this week · ${careerEntries} career entries`}
           large
           leading={
