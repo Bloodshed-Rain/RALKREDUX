@@ -1,14 +1,35 @@
 import { createTestClient } from '../setup';
 import { createGearService } from '@/src/domain/gear/gear-service';
+import { createLogbookService } from '@/src/domain/logbook/logbook-service';
+import { CreateEntryInput } from '@/src/domain/logbook/types';
 
 let mockUuidCounter = 0;
 
 jest.mock('expo-crypto', () => ({
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  digestStringAsync: jest.fn(async (_algorithm: string, value: string) => `sha256:${value.length}`),
   randomUUID: jest.fn(() => {
     mockUuidCounter += 1;
     return `00000000-0000-4000-8000-${String(mockUuidCounter).padStart(12, '0')}`;
   }),
 }));
+
+function draftInput(overrides: Partial<CreateEntryInput> = {}): CreateEntryInput {
+  return {
+    employer: 'Northwind Rope',
+    site: 'Bridge 12',
+    client: 'City Works',
+    description: 'Inspected anchor array and installed edge protection.',
+    work_hours: 7.5,
+    work_task: 'Inspection',
+    access_method: 'Two-rope access',
+    structure_type: 'Bridge',
+    max_height: 120,
+    height_unit: 'ft',
+    sprat_level_snapshot: 'II',
+    ...overrides,
+  };
+}
 
 describe('gear service', () => {
   beforeEach(() => {
@@ -251,5 +272,66 @@ describe('gear service', () => {
 
     const missing = await service.getGearItemDetailById('does-not-exist');
     expect(missing).toBeNull();
+  });
+
+  it('deletes an orphaned mis-add and rejects a second delete', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const item = await service.createGearItem({ name: 'Duplicate rope', category: 'rope' });
+
+    await expect(service.deleteGearItem(item.id)).resolves.toEqual({ id: item.id });
+    expect(await service.listGearItems()).toHaveLength(0);
+    await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_not_found');
+  });
+
+  it('blocks deleting gear with inspection history', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const item = await service.createGearItem({ name: 'Harness', category: 'harness' });
+
+    await service.recordInspection({
+      gear_id: item.id,
+      result: 'pass',
+      inspected_on: '2026-05-08',
+      next_inspection_due: '2026-08-08',
+      inspector_name: 'Casey Park',
+    });
+
+    await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_has_inspection_history');
+    expect(await service.listGearItems()).toHaveLength(1);
+  });
+
+  it('blocks deleting gear referenced by an entry, then allows it after detaching', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const logbook = createLogbookService(db);
+
+    const entry = await logbook.createDraft(draftInput());
+    const item = await service.createGearItem({ name: 'Petzl ID', category: 'descender' });
+    await logbook.attachGearToEntry({ entry_id: entry.id, gear_id: item.id, role: 'descender' });
+
+    await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_used_in_entries');
+    expect(await service.listGearItems()).toHaveLength(1);
+
+    // A draft-time mis-attach can be detached, after which the orphaned item deletes cleanly.
+    await logbook.removeGearFromEntry({ entry_id: entry.id, gear_id: item.id });
+    await expect(service.deleteGearItem(item.id)).resolves.toEqual({ id: item.id });
+    expect(await service.listGearItems()).toHaveLength(0);
+  });
+
+  it('blocks deleting retired gear — it is the record of removal from service', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const item = await service.createGearItem({ name: 'Old carabiner', category: 'carabiner' });
+
+    await service.recordInspection({
+      gear_id: item.id,
+      result: 'fail',
+      inspected_on: '2026-05-08',
+      inspector_name: 'Casey Park',
+    });
+
+    await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_retired');
+    expect(await service.listGearItems()).toHaveLength(1);
   });
 });

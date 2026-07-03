@@ -4,6 +4,7 @@
 - [Access-method two-axis ruling](access-method-two-axis-ruling.md) — access_method = rope technique; do NOT merge MEWP/scaffold/ladder; means_of_access controls hour-countability; hash bump
 - [Starting hours + legacy paper evidence](starting-hours-and-legacy-evidence.md) — per-scheme immutable self-declared baselines (profile, no hash); paper scans are evidence-not-entries, walled appendix in export
 - [Gear inventory gaps vs real PPE register](gear-inventory-gaps.md) — Inspector identity, manufacture/in-service dates, lot/batch, quarantine state
+- [Gear delete policy ruling](gear-delete-policy-ruling.md) — hard-delete only orphaned mis-adds; block on entry usage / inspection history / retired; no hash bump
 - [Cert-gate logic ruling](cert-required-gate-supervisor-not-tech.md) — Supervisor scheme governs the cert-number requirement, not tech's IRATA level
 - [Compliance-language watch list](compliance-language-watchlist.md) — Specific phrases flagged in user-facing copy and where they live
 - [Hours-bucket ruling](hours-bucket-breakdown.md) — Work / training / assessment / rescue-drill must be distinguishable in exports

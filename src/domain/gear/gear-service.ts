@@ -221,6 +221,42 @@ export function createGearService(db: DbClient) {
       };
     },
 
+    async deleteGearItem(id: string): Promise<{ id: string }> {
+      const item = await getGearItemById(id);
+      if (!item) throw new Error('gear_not_found');
+      // Retired gear is the audit record of its removal from service.
+      if (item.retired_at) throw new Error('gear_retired');
+
+      // Hard delete is reserved for provably orphaned mis-adds. Gear referenced
+      // by any entry (drafts included — drafts become signed) or carrying
+      // inspection history is traceability evidence; retire it instead. This
+      // gate is what keeps the ON DELETE CASCADE on entry_gear_usage from
+      // silently stripping gear off signed entries — so the checks and the
+      // delete run in one transaction, closing the window where an in-flight
+      // attachGearToEntry could land between them and be cascade-deleted.
+      await db.exec('BEGIN');
+      try {
+        const usage = await db.get<{ n: number }>(
+          'SELECT COUNT(*) AS n FROM entry_gear_usage WHERE gear_id = ?',
+          [id],
+        );
+        if ((usage?.n ?? 0) > 0) throw new Error('gear_used_in_entries');
+
+        const inspections = await db.get<{ n: number }>(
+          'SELECT COUNT(*) AS n FROM gear_inspections WHERE gear_id = ?',
+          [id],
+        );
+        if ((inspections?.n ?? 0) > 0) throw new Error('gear_has_inspection_history');
+
+        await db.run('DELETE FROM gear_items WHERE id = ?', [id]);
+        await db.exec('COMMIT');
+      } catch (error) {
+        await db.exec('ROLLBACK');
+        throw error;
+      }
+      return { id };
+    },
+
     async getGearItemDetailById(id: string, asOf: string = todayLocalIsoDate()): Promise<GearItemDetail | null> {
       const item = await getGearItemById(id);
       if (!item) return null;

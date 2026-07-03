@@ -66,6 +66,21 @@ export function useCreateGearItem() {
   });
 }
 
+export function useDeleteGearItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gearId: string) => createGearService(getClient()).deleteGearItem(gearId),
+    onSuccess: (_result, gearId) => {
+      // Drop the per-item caches outright — the row no longer exists, so a
+      // refetch on back-navigation would just land on "not found".
+      queryClient.removeQueries({ queryKey: ['gearItem', gearId] });
+      queryClient.removeQueries({ queryKey: ['gearInspections', gearId] });
+      queryClient.invalidateQueries({ queryKey: ['gearItems'] });
+      queryClient.invalidateQueries({ queryKey: ['gearSummary'] });
+    },
+  });
+}
+
 export function useRecordGearInspection() {
   const queryClient = useQueryClient();
   return useMutation({

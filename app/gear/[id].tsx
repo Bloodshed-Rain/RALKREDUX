@@ -15,6 +15,7 @@ import { formatDate, formatDateOrDash } from '@/src/domain/date-format';
 import { todayLocalIsoDate } from '@/src/domain/date-utils';
 import type { GearInspection, GearInspectionResult, GearStatus } from '@/src/domain/gear/types';
 import {
+  useDeleteGearItem,
   useGearInspections,
   useGearItemDetail,
   useRecordGearInspection,
@@ -83,6 +84,7 @@ export default function GearDetailScreen() {
   const detail = useGearItemDetail(gearId);
   const inspections = useGearInspections(gearId, 8);
   const recordInspection = useRecordGearInspection();
+  const deleteGear = useDeleteGearItem();
 
   const [showInspect, setShowInspect] = React.useState(false);
   const [inspResult, setInspResult] = React.useState<GearInspectionResult>('pass');
@@ -234,6 +236,53 @@ export default function GearDetailScreen() {
         },
       },
     );
+  }
+
+  function confirmDelete() {
+    if (!gearId || !item) return;
+    // We already know locally whether inspection history exists — explain the
+    // block up front instead of confirming a delete that will be refused.
+    if (inspections.data && inspections.data.length > 0) {
+      Alert.alert(
+        'This item can’t be deleted',
+        'Its inspection history is kept for traceability. Retire the item instead — it stays on record but leaves active use.',
+      );
+      return;
+    }
+    haptics.warning();
+    Alert.alert(
+      'Delete this gear item?',
+      `${item.name} will be removed from your inventory. This can’t be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete },
+      ],
+    );
+  }
+
+  function performDelete() {
+    if (!gearId) return;
+    deleteGear.mutate(gearId, {
+      onSuccess: () => {
+        haptics.success();
+        router.replace('/gear');
+      },
+      onError: (err) => {
+        haptics.error();
+        const code = err instanceof Error ? err.message : String(err);
+        const friendly =
+          code === 'gear_used_in_entries'
+            ? 'This item is referenced by logbook entries, so deleting it would change what those entries record. It was not deleted — retire it instead.'
+            : code === 'gear_has_inspection_history'
+              ? 'This item has inspection history, which is kept for traceability. It was not deleted — retire it instead.'
+              : code === 'gear_retired'
+                ? 'Retired items are kept as the record of removal from service and can’t be deleted.'
+                : code === 'gear_not_found'
+                  ? 'This gear item could not be found — it may already have been removed on another device.'
+                  : 'Could not delete this item. Nothing was changed — please try again.';
+        Alert.alert('Item not deleted', friendly);
+      },
+    });
   }
 
   const categoryLabel = item.category.charAt(0).toUpperCase() + item.category.slice(1);
@@ -490,6 +539,22 @@ export default function GearDetailScreen() {
             </Text>
           </Card>
         )}
+
+        {/* Hard delete is only for mis-adds: the service refuses once the item
+            has inspection history or is referenced by an entry (retire covers
+            those). Retired items keep their removal-from-service record. */}
+        {!isRetired ? (
+          <View style={{ marginTop: 10 }}>
+            <Button
+              variant="danger"
+              full
+              onPress={confirmDelete}
+              disabled={deleteGear.isPending}
+            >
+              {deleteGear.isPending ? 'Deleting…' : 'Delete item'}
+            </Button>
+          </View>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
