@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rope Access Logbook - Verified hours, signatures, and gear records.</title>
+<meta name="description" content="Rope Access Logbook is an offline-first iPhone app for rope-access technicians. Log hours, capture signatures, track gear, back up records, and export a tamper-evident audit trail." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Newsreader:ital,wght@1,600&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #F3EEDF;
+  --surface: #FAF6E9;
+  --surface2: #EBE5D3;
+  --surface3: #DFD7C0;
+  --line: #1A1410;
+  --line-soft: #CBC2A8;
+  --text: #1A1410;
+  --text-dim: #574E40;
+  --text-faint: #8C8270;
+  --accent: #8B1F1A;
+  --accent-2: #B4473B;
+  --accent-ink: #FAF6E9;
+  --accent-soft: #EAD3CF;
+  --ok: #28583A;
+  --ok-soft: #D2DFC4;
+  --warn: #9C6E0A;
+  --warn-soft: #EDDFB5;
+  --radius: 8px;
+  --font: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --scrawl: 'Newsreader', Georgia, serif;
+  --stamp: 0 1px 0 var(--surface) inset, 0 2px 0 var(--line), 0 0 0 1.5px var(--line);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+  opacity: .035;
+  background-image:
+    repeating-linear-gradient(0deg, #000 0 1px, transparent 1px 4px);
+}
+
+a { color: inherit; }
+.wrap { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
+.eyebrow {
+  margin: 0 0 12px;
+  font: 700 11px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.section-title {
+  margin: 0;
+  max-width: 760px;
+  font-size: clamp(31px, 4.6vw, 58px);
+  line-height: .98;
+  letter-spacing: 0;
+}
+.section-copy {
+  margin: 18px 0 0;
+  max-width: 660px;
+  color: var(--text-dim);
+  font-size: clamp(16px, 2vw, 19px);
+  line-height: 1.55;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: rgba(243,238,223,.92);
+  border-bottom: 1.5px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+.nav {
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  min-width: 0;
+}
+
+
+.brand-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.brand-text strong {
+  font-size: 15px;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+.brand-text span {
+  font: 700 9px/1 var(--mono);
+  color: var(--text-faint);
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.nav-links a {
+  font: 700 11px/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text-dim);
+}
+.nav-links a:hover { color: var(--accent); }
+.nav-links a.button {
+  color: var(--accent-ink);
+}
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: var(--stamp);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 var(--surface) inset, 0 4px 0 var(--line), 0 0 0 1.5px var(--line);
+}
+.button.secondary {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.hero {
+  position: relative;
+  min-height: clamp(540px, 74svh, 740px);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, rgba(243,238,223,.98) 0%, rgba(243,238,223,.93) 38%, rgba(243,238,223,.54) 76%, rgba(243,238,223,.92) 100%),
+    url("media/ralb-poster.png") center right / min(760px, 72vw) auto no-repeat,
+    var(--bg);
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 47px,
+    rgba(26,20,16,.095) 48px
+  );
+}
+.phone {
+  position: absolute;
+  z-index: -1;
+  width: min(28vw, 270px);
+  filter: drop-shadow(0 20px 28px rgba(26,20,16,.18));
+}
+.phone.main {
+  right: clamp(42px, 10vw, 150px);
+  bottom: -46px;
+}
+.phone.sign {
+  right: clamp(218px, 28vw, 360px);
+  bottom: 46px;
+  width: min(23vw, 218px);
+  transform: rotate(-4deg);
+}
+.phone.sealed {
+  right: clamp(-18px, 2vw, 34px);
+  top: 72px;
+  width: min(21vw, 196px);
+  transform: rotate(4deg);
+}
+.hero-content {
+  min-height: inherit;
+  display: flex;
+  align-items: center;
+  padding: 58px 0 54px;
+}
+.hero-copy {
+  width: min(690px, 100%);
+}
+.hero h1 {
+  margin: 0;
+  font-size: clamp(50px, 8vw, 110px);
+  line-height: .86;
+  letter-spacing: 0;
+}
+.hero p:not(.eyebrow) {
+  margin: 24px 0 0;
+  max-width: 590px;
+  color: var(--text-dim);
+  font-size: clamp(17px, 2.1vw, 22px);
+  line-height: 1.5;
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+.hero-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+.hero-proof span {
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: 700 11px/1 var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: rgba(250,246,233,.76);
+}
+
+.proof-strip {
+  background: var(--surface);
+  border-top: 1.5px solid var(--line);
+  border-bottom: 1.5px solid var(--line);
+}
+.proof-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5px;
+  background: var(--line);
+  border-left: 1.5px solid var(--line);
+  border-right: 1.5px solid var(--line);
+}
+.proof-item {
+  background: var(--surface);
+  padding: 22px;
+}
+.proof-item strong {
+  display: block;
+  font-size: 24px;
+  letter-spacing: 0;
+}
+.proof-item span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-dim);
+  font: 700 11px/1.35 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+section.content {
+  padding: clamp(72px, 10vw, 128px) 0;
+}
+.section-head {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 34px;
+}
+.split-head {
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, .7fr);
+  align-items: end;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.product-panel {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--stamp);
+}
+.product-panel.featured {
+  display: block;
+  background: var(--surface2);
+}
+.product-panel img {
+  width: 100%;
+  display: block;
+}
+.phone-image {
+  width: min(260px, 78%);
+  margin: 24px auto 0;
+  filter: drop-shadow(0 18px 20px rgba(26,20,16,.16));
+}
+.panel-copy {
+  padding: 24px;
+}
+.panel-copy h3 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 34px);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+.panel-copy p {
+  margin: 10px 0 0;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.stacked-panels {
+  display: contents;
+}
+
+.feature-band {
+  background: var(--surface);
+  border-top: 1.5px solid var(--line);
+  border-bottom: 1.5px solid var(--line);
+}
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.feature-card {
+  min-height: 220px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  background: var(--bg);
+  box-shadow: var(--stamp);
+}
+.feature-card .num {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 700 12px/1 var(--mono);
+}
+.feature-card h3 {
+  margin: 22px 0 10px;
+  font-size: 24px;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+.feature-card p {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.chain {
+  background: var(--bg);
+}
+.chain-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 36px;
+}
+.chain-step {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  background: var(--surface);
+  box-shadow: var(--stamp);
+}
+.chain-step span {
+  color: var(--accent);
+  font: 700 11px/1 var(--mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.chain-step h3 {
+  margin: 28px 0 10px;
+  font-size: 26px;
+  letter-spacing: 0;
+}
+.chain-step p {
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.chain-step code {
+  display: block;
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface2);
+  overflow-wrap: anywhere;
+  font: 600 12px/1.45 var(--mono);
+}
+
+.field-section {
+  background: var(--surface2);
+  border-top: 1.5px solid var(--line);
+  border-bottom: 1.5px solid var(--line);
+}
+.field-layout {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(360px, 1fr);
+  gap: 34px;
+  align-items: center;
+}
+.workflow-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 26px;
+}
+.workflow-list div {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.workflow-list b {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-ink);
+  background: var(--accent);
+  font: 700 12px/1 var(--mono);
+}
+.workflow-list p {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.workflow-card {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 22px;
+  box-shadow: var(--stamp);
+}
+.request-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.request-line:last-child { border-bottom: 0; }
+.request-line strong { display: block; }
+.request-line span {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.request-line em {
+  align-self: center;
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--ok);
+  background: var(--ok-soft);
+  font: normal 700 10px/1 var(--mono);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pricing {
+  background: var(--bg);
+}
+.pricing-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 0;
+  align-items: stretch;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--stamp);
+}
+.pricing-copy {
+  padding: clamp(26px, 4vw, 42px);
+}
+.pricing-copy h2 {
+  margin: 0;
+  max-width: 760px;
+  font-size: clamp(32px, 5vw, 62px);
+  line-height: .98;
+  letter-spacing: 0;
+}
+.pricing-copy p {
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 1.55;
+}
+.price-card {
+  background: var(--accent);
+  color: var(--accent-ink);
+  padding: clamp(24px, 4vw, 38px);
+  display: grid;
+  align-content: center;
+}
+.price-card .eyebrow { color: var(--accent-ink); }
+.price-card .price {
+  margin: 14px 0 8px;
+  font-size: clamp(42px, 6vw, 70px);
+  line-height: .9;
+  letter-spacing: 0;
+}
+.price-card p {
+  margin: 0 0 22px;
+  color: rgba(250,246,233,.78);
+}
+.price-card .button {
+  background: var(--surface);
+  color: var(--text);
+}
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+}
+.legal-links a {
+  color: var(--text-dim);
+  font-weight: 800;
+}
+
+.footer {
+  background: var(--surface2);
+  border-top: 1.5px solid var(--line);
+  padding: 38px 0;
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: start;
+}
+.footer strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.footer p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.5;
+  font-size: 14px;
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: flex-end;
+}
+.footer-links a {
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.reveal {
+  opacity: 1;
+  transform: none;
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (max-width: 900px) {
+  .nav-links a:not(.button) { display: none; }
+  .hero {
+    min-height: clamp(570px, 76svh, 700px);
+    background:
+      linear-gradient(0deg, rgba(243,238,223,.98) 0%, rgba(243,238,223,.88) 54%, rgba(243,238,223,.58) 100%),
+      url("media/ralb-poster.png") top 28px center / min(520px, 92vw) auto no-repeat,
+      var(--bg);
+  }
+  .hero-content {
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding-bottom: 44px;
+  }
+  .phone.main {
+    width: 210px;
+    right: 8px;
+    bottom: 244px;
+    opacity: .9;
+  }
+  .phone.sign {
+    width: 170px;
+    right: 154px;
+    bottom: 284px;
+    opacity: .76;
+  }
+  .phone.sealed { display: none; }
+  .proof-grid,
+  .feature-grid,
+  .chain-grid,
+  .product-grid,
+  .field-layout,
+  .pricing-box,
+  .footer-grid,
+  .split-head {
+    grid-template-columns: 1fr;
+  }
+  .footer-links { justify-content: flex-start; }
+  .stacked-panels {
+    display: grid;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 560px) {
+  .wrap { width: min(100% - 28px, 1160px); }
+  .nav { height: 62px; }
+  .brand-text span { display: none; }
+  .nav-links .button { min-height: 38px; padding: 0 12px; font-size: 12px; }
+  .hero h1 { font-size: clamp(48px, 15vw, 72px); }
+  .hero p:not(.eyebrow) { font-size: 16px; }
+  .hero-actions .button { width: 100%; }
+  .hero-proof span { font-size: 10px; }
+  .phone.main {
+    width: 214px;
+    right: -28px;
+    top: 84px;
+    bottom: auto;
+    opacity: .24;
+  }
+  .phone.sign {
+    width: 160px;
+    right: 122px;
+    top: 106px;
+    bottom: auto;
+    opacity: .18;
+  }
+  .proof-grid { grid-template-columns: 1fr 1fr; }
+  .proof-item { padding: 18px; }
+  .feature-card { min-height: auto; }
+  .request-line { grid-template-columns: 1fr; flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, .reveal { transition: none !important; animation: none !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="Rope Access Logbook home">
+      <span class="brand-mark">R</span>
+      <span class="brand-text">
+        <strong>Rope Access Logbook</strong>
+        <span>Heliotype x Oxblood</span>
+      </span>
+    </a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="#product">Product</a>
+      <a href="#chain">Proof</a>
+      <a href="#pricing">Pricing</a>
+      <a href="book.html">Book</a>
+      <a class="button" href="#pricing">Start trial</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-title">
+    <img class="phone sign" src="media/sign-heliotype-phone.png" alt="" />
+    <img class="phone sealed" src="media/sealed-heliotype-phone.png" alt="" />
+    <img class="phone main" src="media/today-heliotype-phone.png" alt="" />
+    <div class="wrap hero-content">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">Built for rope access technicians</p>
+        <h1 id="hero-title">Rope Access Logbook</h1>
+        <p>Log hours off-grid, collect supervisor signatures, track gear, and export a tamper-evident record when someone needs proof.</p>
+        <div class="hero-actions">
+          <a class="button" href="#pricing">Start free trial</a>
+          <a class="button secondary" href="#product">See the app</a>
+        </div>
+        <div class="hero-proof" aria-label="Key capabilities">
+          <span>Offline-first</span>
+          <span>Supervisor signatures</span>
+          <span>Gear inspections</span>
+          <span>Audit exports</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="proof-strip" aria-label="Product facts">
+    <div class="wrap proof-grid">
+      <div class="proof-item">
+        <strong>Local</strong>
+        <span>Works without signal</span>
+      </div>
+      <div class="proof-item">
+        <strong>Signed</strong>
+        <span>In-person or remote</span>
+      </div>
+      <div class="proof-item">
+        <strong>Chained</strong>
+        <span>Tamper-evident history</span>
+      </div>
+      <div class="proof-item">
+        <strong>Exported</strong>
+        <span>Records leave cleanly</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="content" id="product">
+    <div class="wrap">
+      <div class="section-head split-head reveal">
+        <div>
+          <p class="eyebrow">The field workflow</p>
+          <h2 class="section-title">The day gets logged before it disappears.</h2>
+        </div>
+        <p class="section-copy">Rope Access Logbook is built around the work: quick entries, signed records, gear state, NDT notes, and exports that can survive a skeptical review.</p>
+      </div>
+      <div class="product-grid">
+        <article class="product-panel featured reveal">
+          <img class="phone-image" src="media/today-heliotype-phone.png" alt="Rope Access Logbook dashboard showing career hours, chain head, and quick log actions." />
+          <div class="panel-copy">
+            <h3>Open the app. Finish the shift.</h3>
+            <p>The Today view keeps current hours, draft work, queued signatures, and next actions in one place.</p>
+          </div>
+        </article>
+        <div class="stacked-panels">
+          <article class="product-panel reveal">
+            <img class="phone-image" src="media/sign-heliotype-phone.png" alt="Sign entry screen with supervisor details and signature area." />
+            <div class="panel-copy">
+              <h3>Signatures stay attached.</h3>
+              <p>Capture who signed, what they reviewed, and the entry state at the moment of approval.</p>
+            </div>
+          </article>
+          <article class="product-panel reveal">
+            <img class="phone-image" src="media/sealed-heliotype-phone.png" alt="Sealed in chain confirmation screen." />
+            <div class="panel-copy">
+              <h3>Sealed means sealed.</h3>
+              <p>Once an entry is signed, corrections become amendments instead of silent edits.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content feature-band">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">What changed</p>
+        <h2 class="section-title">Less paperwork. More evidence.</h2>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card reveal">
+          <span class="num">01</span>
+          <h3>Offline by default</h3>
+          <p>Write entries from the trailer, tower, or platform. The device database is the source of truth; cloud backup is optional.</p>
+        </article>
+        <article class="feature-card reveal">
+          <span class="num">02</span>
+          <h3>Signatures that travel</h3>
+          <p>Capture a signature on your phone or send a one-time remote link when the supervisor is no longer beside you.</p>
+        </article>
+        <article class="feature-card reveal">
+          <span class="num">03</span>
+          <h3>Export without cleanup</h3>
+          <p>Hours, signatures, chain state, gear, and supporting records are ready to hand over when assessment or audit time arrives.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="content chain" id="chain">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Tamper-evident proof</p>
+        <h2 class="section-title">A signed entry becomes part of the chain.</h2>
+        <p class="section-copy">Corrections are amendments, not silent edits. Every signed entry folds in the previous hash, so the record can be checked instead of merely trusted.</p>
+      </div>
+      <div class="chain-grid">
+        <article class="chain-step reveal">
+          <span>Draft</span>
+          <h3>Capture the work</h3>
+          <p>Site, method, hours, height, notes, photos, gear, and NDT context get written while the details are still fresh.</p>
+          <code>status: draft<br />required_fields: complete</code>
+        </article>
+        <article class="chain-step reveal">
+          <span>Sign</span>
+          <h3>Witness the entry</h3>
+          <p>The signer reviews the actual entry, not a loose summary. Their signature seals a canonical version of the record.</p>
+          <code>signature: R. Calloway<br />hash: a3f9c1e4d702</code>
+        </article>
+        <article class="chain-step reveal">
+          <span>Verify</span>
+          <h3>Keep the trail intact</h3>
+          <p>If a signed entry changes later, every following link shows the break. That is the point.</p>
+          <code>#0147 -> #0146 -> #0145<br />chain_valid: true</code>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="content field-section" id="remote">
+    <div class="wrap field-layout">
+      <div class="reveal">
+        <p class="eyebrow">Remote signing</p>
+        <h2 class="section-title">When the signer leaves site, the record does not stall.</h2>
+        <p class="section-copy">Send a one-time signing link. The supervisor reviews the entry, signs from their phone, and the completed signature syncs back into your chain.</p>
+        <div class="workflow-list">
+          <div>
+            <b>1</b>
+            <p><strong>Create request.</strong> Choose the finished entry and the signer expected to witness it.</p>
+          </div>
+          <div>
+            <b>2</b>
+            <p><strong>Signer reviews.</strong> The link opens the real entry details before signature, including the work and hours.</p>
+          </div>
+          <div>
+            <b>3</b>
+            <p><strong>Sync it back.</strong> The completed signature lands in the same tamper-evident history.</p>
+          </div>
+        </div>
+      </div>
+      <aside class="workflow-card reveal" aria-label="Example remote signing queue">
+        <div class="request-line">
+          <div>
+            <strong>BP Whiting - Tank 47B</strong>
+            <span>6.5 hrs - NDT inspection support</span>
+          </div>
+          <em>Ready</em>
+        </div>
+        <div class="request-line">
+          <div>
+            <strong>Cypress Wind - WTG-14</strong>
+            <span>Rig and rope access repair</span>
+          </div>
+          <em>Signed</em>
+        </div>
+        <div class="request-line">
+          <div>
+            <strong>Sky Tower 1</strong>
+            <span>Facade cleaning - amendment linked</span>
+          </div>
+          <em>Chained</em>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="content pricing" id="pricing">
+    <div class="wrap">
+      <div class="pricing-box reveal">
+        <div class="pricing-copy">
+          <p class="eyebrow">Subscription</p>
+          <h2>Full access for the price of not losing a single hour.</h2>
+          <p>Includes signed logbook entries, cloud backup and restore, remote signing, gear records, NDT records, and audit exports.</p>
+          <div class="legal-links">
+            <a href="/privacy.html">Privacy Policy</a>
+            <a href="/terms.html">Terms of Use</a>
+          </div>
+        </div>
+        <aside class="price-card">
+          <span class="eyebrow">14-day free trial</span>
+          <div class="price">$2.99</div>
+          <p>per month after trial. Cancel from App Store subscription settings.</p>
+          <a class="button" href="mailto:chaddubuisson@gmail.com?subject=Rope%20Access%20Logbook">Request access</a>
+        </aside>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-grid">
+    <div>
+      <strong>Rope Access Logbook</strong>
+      <p>Independent software for audit-ready rope access recordkeeping. Not endorsed by, affiliated with, or officially accepted by SPRAT or IRATA. SPRAT and IRATA are trademarks of their respective organizations.</p>
+    </div>
+    <nav class="footer-links" aria-label="Footer navigation">
+      <a href="#product">Product</a>
+      <a href="#chain">Proof</a>
+      <a href="book.html">Book</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>
