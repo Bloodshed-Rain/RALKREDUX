@@ -1,7 +1,11 @@
 import React from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient, isSupabaseConfigured } from '@/src/cloud/supabase/client';
-import { configureGoogleSignIn, signOut as authSignOut } from '@/src/cloud/supabase/auth';
+import {
+  configureGoogleSignIn,
+  deleteAccount as authDeleteAccount,
+  signOut as authSignOut,
+} from '@/src/cloud/supabase/auth';
 import { PrefKeys, readPref, writePref } from '@/src/storage/local-prefs';
 
 export type AuthStatus = 'loading' | 'signed_in' | 'signed_out';
@@ -13,6 +17,8 @@ interface AuthContextValue {
   session: Session | null;
   user: User | null;
   signOut: () => Promise<void>;
+  /** Permanently delete the cloud account (server-side), then clear the local session. */
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -47,7 +53,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.session) {
         setSession(data.session);
         setStatus('signed_in');
-        void writePref(PrefKeys.authedBefore, true);
+        void Promise.all([
+          writePref(PrefKeys.authedBefore, true),
+          writePref(PrefKeys.lastAuthUserId, data.session.user.id),
+        ]);
       } else {
         setSession(null);
         setStatus(authedBefore ? 'signed_in' : 'signed_out');
@@ -58,7 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (nextSession) {
         setSession(nextSession);
         setStatus('signed_in');
-        void writePref(PrefKeys.authedBefore, true);
+        void Promise.all([
+          writePref(PrefKeys.authedBefore, true),
+          writePref(PrefKeys.lastAuthUserId, nextSession.user.id),
+        ]);
       } else if (event === 'SIGNED_OUT') {
         // Definitive: explicit sign-out, or the server rejected the refresh
         // token (revoked / expired). Network failures do NOT emit this.
@@ -86,13 +98,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // server can't be reached, while a successful revoke still clears the flag.
     await authSignOut();
     await writePref(PrefKeys.authedBefore, false);
+    await writePref(PrefKeys.lastAuthUserId, null);
+    // PrefKeys.subscriptionCache is deliberately KEPT: it is the offline
+    // entitlement evidence for a paid user who signs back in without
+    // connectivity. The cache is user-scoped (cacheMatches rejects it if a
+    // different account signs in) and deleteAccount still clears it.
+    setSession(null);
+    setStatus('signed_out');
+  }, []);
+
+  const deleteAccount = React.useCallback(async () => {
+    // Server-side delete first — it throws on failure (offline, auth), leaving
+    // the session and offline access fully intact, mirroring signOut's ordering
+    // rationale. Only after the account is confirmed gone do we clear flags.
+    await authDeleteAccount();
+    await writePref(PrefKeys.authedBefore, false);
+    await writePref(PrefKeys.lastAuthUserId, null);
+    await writePref(PrefKeys.subscriptionCache, null);
     setSession(null);
     setStatus('signed_out');
   }, []);
 
   const value = React.useMemo<AuthContextValue>(
-    () => ({ configured, status, session, user: session?.user ?? null, signOut }),
-    [configured, status, session, signOut],
+    () => ({ configured, status, session, user: session?.user ?? null, signOut, deleteAccount }),
+    [configured, status, session, signOut, deleteAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -43,3 +43,12 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/deno.json"
 entrypoint = "./functions/remote-signing-cancel/index.ts"
+
+[functions.delete-account]
+enabled = true
+# Unlike the remote-signing verifier endpoints (token-based, no session), every
+# legitimate delete-account caller has a Supabase session — so gateway JWT
+# verification stays ON as a first layer; getAuthenticatedUser still runs in-function.
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/delete-account/index.ts"

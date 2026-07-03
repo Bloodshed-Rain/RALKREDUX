@@ -166,7 +166,7 @@ This is the difference between "a logbook" and "a paid app," and it is almost en
 - 🔴 **Apple/Google policy:** subscriptions for app functionality **must** use native IAP (no Stripe/web billing for the unlock). Plan for the 30/15% cut in the $3 price.
 - 🟠 **Submission assets missing:** no Privacy Policy URL, no Support URL, no data-safety / privacy-nutrition-label content anywhere in the repo. Required to submit.
 - 🟠 **Orphan permission = review rejection risk:** `NSLocationWhenInUseUsageDescription` is declared (`app.config.ts:20`) but `expo-location` is **not** a dependency and is used nowhere. Declared-but-unused location strings get apps bounced (Guideline 5.1.1). Remove it until the feature ships. (Camera/Photos permissions *are* justified — keep them.)
-- 🟡 Bundle-ID drift: iOS `com.ropeaccess.logbook` vs Android `com.ropeaccess.logbook.codex`. CLAUDE.md justifies the iOS id but not the Android `.codex` suffix — confirm it's intentional before store identity is locked.
+- ✅ Bundle/package drift resolved after store setup: iOS uses `com.ropeaccess.logbook.app` (bound to ASC app record 6775173582 — see CLAUDE.md for the `.signin`/Services-ID detour) and Android keeps `com.ropeaccess.logbook` for the existing Play Console app.
 
 ---
 

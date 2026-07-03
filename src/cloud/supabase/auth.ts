@@ -201,6 +201,37 @@ export async function signInWithGoogle(): Promise<Session> {
 }
 
 /**
+ * Permanently delete the signed-in user's cloud account via the
+ * `delete-account` Edge Function (App Store guideline 5.1.1(v)). The function
+ * removes the user's backups (rows + storage objects), remote-signing rows,
+ * and the auth user itself. Local SQLite data is intentionally untouched —
+ * the logbook on the device belongs to the technician.
+ *
+ * After the server-side delete, only the LOCAL session is cleared: a global
+ * revoke would fail because the user no longer exists.
+ */
+export async function deleteAccount(): Promise<void> {
+  const supabase = requireSupabaseClient();
+
+  const { data, error } = await supabase.functions.invoke('delete-account', {
+    body: { confirm: 'delete_my_account' },
+  });
+  if (error) throw error;
+  if (!data || (data as { ok?: unknown }).ok !== true) {
+    throw new Error('account_deletion_failed');
+  }
+
+  await supabase.auth.signOut({ scope: 'local' });
+
+  try {
+    const google = getGoogleSignin();
+    if (google) await google.GoogleSignin.signOut();
+  } catch {
+    // Best-effort: ignore failures clearing the native Google session.
+  }
+}
+
+/**
  * Sign out of the Supabase session. The native Google session is cleared on a
  * best-effort basis so a stale native session can't silently re-authenticate.
  */

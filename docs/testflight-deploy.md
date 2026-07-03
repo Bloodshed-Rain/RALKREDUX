@@ -6,7 +6,8 @@ from CI without secrets, so they're documented here.
 
 ## Readiness state (verified)
 
-- `app.config.ts`: bundle id `com.ropeaccess.logbook`, marketing `version` 0.1.0,
+- `app.config.ts`: bundle id `com.ropeaccess.logbook.app` (matches the ASC app
+  record that owns the `RALBSub` subscription; see CLAUDE.md), marketing `version` 0.1.0,
   `ITSAppUsesNonExemptEncryption: false` (skips the export-compliance prompt),
   `NSCameraUsageDescription` + `NSPhotoLibraryUsageDescription` (required by the
   evidence-photo feature), `usesAppleSignIn`, EAS `projectId`.
@@ -18,11 +19,11 @@ from CI without secrets, so they're documented here.
 
 ## Prerequisites (one-time)
 
-- Apple Developer Program membership for the team that owns `com.ropeaccess.logbook`.
+- Apple Developer Program membership for the team that owns `com.ropeaccess.logbook.app`.
 - Expo account with access to EAS project `ralb-codex-edition`
   (`33d8a7e1-907a-4e57-b61e-3c9a818c6c1f`).
-- An App Store Connect app record for `com.ropeaccess.logbook` (EAS can create it
-  during submit, or make it manually first).
+- An App Store Connect app record for `com.ropeaccess.logbook.app` (exists:
+  "Rope Access Logbook", Apple ID 6775173582).
 - `npm i -g eas-cli` (or prefix the commands with `npx`).
 
 ## Build + submit (each release)

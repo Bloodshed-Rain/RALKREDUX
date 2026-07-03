@@ -9,10 +9,16 @@ export default (): ExpoConfig => ({
   scheme: 'ralb',
   userInterfaceStyle: 'light',
   newArchEnabled: true,
+  updates: {
+    url: 'https://u.expo.dev/33d8a7e1-907a-4e57-b61e-3c9a818c6c1f',
+  },
   runtimeVersion: { policy: 'fingerprint' },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.ropeaccess.logbook',
+    // App Store Connect app record 6775173582 is bound to this bundle id. The bare
+    // `com.ropeaccess.logbook` is unavailable to ASC app records, and `.signin` was a
+    // Services ID (no provisioning possible). Android keeps `com.ropeaccess.logbook`.
+    bundleIdentifier: 'com.ropeaccess.logbook.app',
     usesAppleSignIn: true,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -21,9 +27,10 @@ export default (): ExpoConfig => ({
     },
   },
   android: {
-    package: 'com.ropeaccess.logbook.codex',
+    package: 'com.ropeaccess.logbook',
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    permissions: ['com.android.vending.BILLING'],
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#F5F1E7',
@@ -42,6 +49,7 @@ export default (): ExpoConfig => ({
     'expo-sqlite',
     'expo-font',
     'expo-apple-authentication',
+    './plugins/with-android-billing-launch-mode',
     // Local-notifications-only: strip the iOS `aps-environment` (push) entitlement.
     // Expo SDK 54 AUTO-APPLIES every installed package's config plugin, so
     // `expo-notifications` runs `withNotificationsIOS` (which unconditionally adds
@@ -65,9 +73,49 @@ export default (): ExpoConfig => ({
           'com.googleusercontent.apps.PLACEHOLDER',
       },
     ],
+    [
+      'expo-build-properties',
+      {
+        ios: {
+          // GoogleSignIn's AppCheckCore (Swift) imports these ObjC pods; under
+          // static-library linking they must generate module maps or pod install
+          // fails with "cannot yet be integrated as static libraries".
+          extraPods: [
+            { name: 'GoogleUtilities', modular_headers: true },
+            { name: 'RecaptchaInterop', modular_headers: true },
+          ],
+        },
+      },
+    ],
   ],
   extra: {
     appFlavor: 'codex-edition',
+    revenueCat: {
+      appleApiKey:
+        process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY?.trim() ||
+        process.env.REVENUECAT_APPLE_KEY?.trim() ||
+        '',
+      googleApiKey:
+        process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY?.trim() ||
+        process.env.REVENUECAT_GOOGLE_KEY?.trim() ||
+        '',
+      entitlementId:
+        process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() ||
+        process.env.REVENUECAT_ENTITLEMENT_ID?.trim() ||
+        'pro',
+      offeringId:
+        process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID?.trim() ||
+        process.env.REVENUECAT_OFFERING_ID?.trim() ||
+        '',
+      iosProductIds:
+        process.env.EXPO_PUBLIC_REVENUECAT_IOS_PRODUCT_IDS?.trim() ||
+        process.env.REVENUECAT_IOS_PRODUCT_IDS?.trim() ||
+        'RALBSub',
+      androidProductIds:
+        process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_PRODUCT_IDS?.trim() ||
+        process.env.REVENUECAT_ANDROID_PRODUCT_IDS?.trim() ||
+        'monthly_subscription',
+    },
     eas: {
       projectId: '33d8a7e1-907a-4e57-b61e-3c9a818c6c1f',
     },

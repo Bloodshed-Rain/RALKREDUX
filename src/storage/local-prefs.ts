@@ -25,6 +25,14 @@ export const PrefKeys = {
   authedBefore: 'authed-before',
   // Last email used for OTP sign-in, to prefill the field next time.
   lastAuthEmail: 'last-auth-email',
+  // Last durable Supabase user id. Used to identify RevenueCat on offline boots
+  // where Supabase knows the device was authenticated but cannot refresh enough
+  // to hydrate a Session object.
+  lastAuthUserId: 'last-auth-user-id',
+  // Last known subscription entitlement from RevenueCat. This lets a paid user
+  // keep opening their offline-first logbook during transient billing/network
+  // failures while RevenueCat refreshes from its own cache/server when it can.
+  subscriptionCache: 'subscription-cache',
   // Per-category local-notification toggles ({ gear, signing, backup }).
   notificationPrefs: 'notification-prefs',
 } as const;

@@ -6,6 +6,8 @@ import { AppLock } from '@/src/providers/app-lock';
 import { TamperGuard } from '@/src/providers/tamper-guard';
 import { NotificationReconciler } from '@/src/notifications/notification-reconciler';
 import { useTheme } from '@/src/ui/theme/theme-provider';
+import { SubscriptionGate } from '@/src/domain/subscription/subscription-gate';
+import { SubscriptionProvider } from '@/src/domain/subscription/subscription-provider';
 
 function ThemedStack() {
   const { tokens } = useTheme();
@@ -96,13 +98,17 @@ export default function RootLayout() {
     <AppProviders>
       <AuthProvider>
         <AuthGate>
-          <NotificationReconciler>
-            <AppLock>
-              <TamperGuard>
-                <ThemedStack />
-              </TamperGuard>
-            </AppLock>
-          </NotificationReconciler>
+          <SubscriptionProvider>
+            <SubscriptionGate>
+              <NotificationReconciler>
+                <AppLock>
+                  <TamperGuard>
+                    <ThemedStack />
+                  </TamperGuard>
+                </AppLock>
+              </NotificationReconciler>
+            </SubscriptionGate>
+          </SubscriptionProvider>
         </AuthGate>
       </AuthProvider>
     </AppProviders>

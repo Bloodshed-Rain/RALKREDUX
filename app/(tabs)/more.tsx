@@ -357,7 +357,7 @@ export default function ProfileScreen() {
           <SettingsRow
             icon={IconProfile}
             title="Account"
-            sub="Sign-in and sign out"
+            sub="Sign-in, billing, and sign out"
             onPress={() => router.push('/account' as never)}
           />
           <SettingsRow

@@ -17,7 +17,7 @@ The client code is implemented (`src/cloud/supabase/auth.ts`, `src/providers/aut
 
 **Apple**
 - Enable the **Apple** provider.
-- Add the app bundle id `com.ropeaccess.logbook` to **Authorized Client IDs** (so Supabase accepts the identity token minted by native iOS sign-in).
+- Add the app bundle id `com.ropeaccess.logbook.app` to **Authorized Client IDs** (so Supabase accepts the identity token minted by native iOS sign-in). ⚠️ 2026-06-10: iOS bundle id changed from `com.ropeaccess.logbook` — keep both listed during the transition, then drop the old one.
 - For token verification, add the Services ID + Sign in with Apple key (see §3).
 
 **Google**
@@ -31,12 +31,12 @@ Create OAuth client IDs and an OAuth consent screen:
 | Client type | Used for | Maps to |
 |---|---|---|
 | **Web application** | Supabase Google provider Client ID + Secret; SDK `webClientId` | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` |
-| **iOS** (bundle `com.ropeaccess.logbook`) | native iOS sign-in | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + reversed form → `EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME` (`com.googleusercontent.apps.…`) |
-| **Android** (package `com.ropeaccess.logbook.codex` + signing SHA-1) | native Android sign-in — **required** or sign-in fails on-device with `DEVELOPER_ERROR` (see §6) | no code value; idToken mints against the **Web** client. SHA-1 from `eas credentials` |
+| **iOS** (bundle `com.ropeaccess.logbook.app`) | native iOS sign-in | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + reversed form → `EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME` (`com.googleusercontent.apps.…`) |
+| **Android** (package `com.ropeaccess.logbook` + signing SHA-1) | native Android sign-in — **required** or sign-in fails on-device with `DEVELOPER_ERROR` (see §6) | no code value; idToken mints against the **Web** client. SHA-1 from `eas credentials` |
 
 ## 3. Apple Developer
 
-- App ID `com.ropeaccess.logbook` → enable the **Sign in with Apple** capability. (`usesAppleSignIn: true` + the `expo-apple-authentication` plugin add the entitlement at build time.)
+- App ID `com.ropeaccess.logbook.app` → enable the **Sign in with Apple** capability (done at registration, 2026-06-10). (`usesAppleSignIn: true` + the `expo-apple-authentication` plugin add the entitlement at build time.)
 - For Supabase to verify tokens: create a **Services ID** + a **Sign in with Apple key (.p8)**, then enter the Key ID, Team ID, and Services ID in the Supabase Apple provider.
 - **App Store Guideline 4.8**: Sign in with Apple is **required because we offer Google**. The Apple button shows on iOS only; if you ever drop Google you can drop Apple.
 - **First-sign-in only:** Apple returns the user's name/email only on the *very first* authorization; later sign-ins return `null` name and a private-relay email. We don't capture the name today — if you add display names later, persist them on first sign-in or they're gone for good.
@@ -63,7 +63,7 @@ Then verify: Apple (iOS), Google (iOS + Android), and email OTP (check inbox for
 Android identifies the app by **package name + signing-key SHA-1**, not a client ID (unlike iOS). If no **Android OAuth client** in the Google Cloud project (`665912221058`) matches, `GoogleSignin.signIn()` fails *on-device* with `DEVELOPER_ERROR` — Google's auth server returns *"This android application is not registered to use OAuth2.0…"* (visible in `adb logcat`, tag `Auth`/`GetTokenResponseHandler`). The token never mints, so **nothing reaches Supabase** and the auth logs stay silent — that silence is the tell that the failure is on-device, not an audience rejection.
 
 Two things Android needs that iOS didn't:
-1. **Android OAuth client** — Console-only (no public API to create OAuth client IDs): APIs & Services → Credentials → Create → OAuth client ID → **Android**, package `com.ropeaccess.logbook.codex`, SHA-1 of the installed build's signing key. No secret, no `.env`/code change.
+1. **Android OAuth client** — Console-only (no public API to create OAuth client IDs): APIs & Services → Credentials → Create → OAuth client ID → **Android**, package `com.ropeaccess.logbook`, SHA-1 of the installed build's signing key. No secret, no `.env`/code change.
 2. **Supabase → Auth → Providers → Google → Authorized Client IDs** must include the **Web** client ID — on Android the idToken's `aud` is the Web client (iOS uses the iOS client). List both iOS + Web, comma-separated, or Android gets past the device and is rejected with `bad_id_token`.
 
 **Verified SHA-1 for the current EAS-managed keystore** (signs every `eas build` dev/preview/internal APK — confirmed against installed preview build #8, 2026-06-01; full Google→Supabase chain verified working on Android):
@@ -82,6 +82,32 @@ Re-derive only if the EAS keystore is ever regenerated: `eas credentials -p andr
 - **Local data is device-local + single-profile.** Signing in is identity/billing only — it never swaps the local logbook.
 - **Preview-stage fresh start.** Existing anonymous rows are not migrated/linked to new accounts (no production users yet).
 
-## RevenueCat (when billing lands)
+## 7. RevenueCat subscriptions
 
-Create the Supabase user **first**, then `Purchases.logIn(supabaseUser.id)`. `user.id` is the durable identifier subscriptions bind to — don't pick a different one.
+The client integration is implemented with `react-native-purchases`:
+
+- `SubscriptionProvider` configures RevenueCat after Supabase auth resolves.
+- The RevenueCat app user id is the Supabase `user.id` and is cached for offline boots.
+- `SubscriptionGate` unlocks the app when entitlement `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID` is active.
+- The paywall reads RevenueCat's current offering, shows every package in it, supports purchase, and exposes **Restore purchases**.
+- Account → Subscription shows status plus **Restore** and **Manage** links for store review.
+
+Dashboard/store setup still has to match the code:
+
+1. RevenueCat → Apps: add the iOS app (`com.ropeaccess.logbook.app`) and Android app (`com.ropeaccess.logbook`).
+2. RevenueCat → API keys: set `EXPO_PUBLIC_REVENUECAT_APPLE_KEY` and `EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY` locally and as EAS secrets. RevenueCat SDK keys are public client identifiers, not server secrets.
+3. RevenueCat → Entitlements: create the entitlement id used by `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID` (`pro` by default).
+4. App Store Connect / Play Console: create the auto-renewing subscription products, including the intended free trial and price. Current store IDs are App Store `RALBSub` and Play Store `monthly_subscription:monthly-subscriptions` with offer `trial14`.
+5. RevenueCat → Products: attach the App Store and Play Store subscription products, then add them to the entitlement.
+6. RevenueCat → Offerings: publish a current offering containing the subscription package(s). If you use a non-current offering, set `EXPO_PUBLIC_REVENUECAT_OFFERING_ID`.
+7. Google Play: make sure the Play app uses the production package `com.ropeaccess.logbook`; RevenueCat and Play products must use that package.
+
+Native module note: Expo Go will not work for billing. Use an EAS development build for sandbox verification and a production EAS build for TestFlight / Play internal testing.
+
+```bash
+eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_APPLE_KEY --value <apple_sdk_key>
+eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY --value <google_sdk_key>
+eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID --value pro
+```
+
+Before release, verify on real store/sandbox accounts: first purchase, trial start, cold launch while active, restore after reinstall, Account → Manage, expired/cancelled subscription behavior, and offline launch after a previously verified active entitlement.
