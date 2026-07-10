@@ -3,15 +3,22 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   SectionList,
   Text,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { GearCategory, GearItemDetail } from '@/src/domain/gear/types';
-import { useCreateGearItem, useGearItems, useGearSummary } from '@/src/domain/gear/use-gear';
+import type { GearCatalogEntry, GearCategory, GearItemDetail } from '@/src/domain/gear/types';
+import {
+  useCreateGearItem,
+  useGearCatalogSearch,
+  useGearItems,
+  useGearSummary,
+} from '@/src/domain/gear/use-gear';
 import { DUE_SOON_DAYS } from '@/src/domain/gear/gear-service';
 import { groupGearByStatus } from '@/src/domain/gear/gear-derivations';
 import { consumeGearCatalogPick } from '@/src/storage/gear-catalog-pick';
@@ -132,12 +139,12 @@ export default function GearScreen() {
   const [newName, setNewName] = React.useState('');
   const [newSerial, setNewSerial] = React.useState('');
   const [newNextDue, setNewNextDue] = React.useState('');
-  // When the catalog screen sends back a pick, we hold onto the structured
-  // manufacturer/model alongside the combined `newName` so the resulting
-  // gear row gets all three fields populated (not just a concatenated
-  // display string).
-  const [pickedManufacturer, setPickedManufacturer] = React.useState<string | null>(null);
-  const [pickedModel, setPickedModel] = React.useState<string | null>(null);
+  const [newManufacturer, setNewManufacturer] = React.useState('');
+  const [newModel, setNewModel] = React.useState('');
+  // Last catalog suggestion applied to the Name field — while `newName`
+  // still equals it, the typeahead stays hidden (the user got what they
+  // asked for); typing anything else re-opens it.
+  const [appliedSuggestion, setAppliedSuggestion] = React.useState<string | null>(null);
 
   // Consume a catalog pick on focus — `useFocusEffect` fires whenever
   // navigation lands on this tab, including after `router.back()` from
@@ -148,15 +155,41 @@ export default function GearScreen() {
       void (async () => {
         const pick = await consumeGearCatalogPick();
         if (!pick) return;
-        setNewName(`${pick.manufacturer} ${pick.model}`);
+        const combined = `${pick.manufacturer} ${pick.model}`;
+        setNewName(combined);
         setNewCategory(pick.category);
-        setPickedManufacturer(pick.manufacturer);
-        setPickedModel(pick.model);
+        setNewManufacturer(pick.manufacturer);
+        setNewModel(pick.model);
+        setAppliedSuggestion(combined);
         setShowAdd(true);
         haptics.selection();
       })();
     }, []),
   );
+
+  // Debounce the typeahead query so each keystroke doesn't fire a fresh
+  // SQL search (same 200ms coalescing as the catalog browser screen).
+  const [debouncedName, setDebouncedName] = React.useState('');
+  React.useEffect(() => {
+    const id = setTimeout(() => setDebouncedName(newName), 200);
+    return () => clearTimeout(id);
+  }, [newName]);
+
+  const suggestionsVisible =
+    showAdd && debouncedName.trim().length >= 2 && debouncedName !== appliedSuggestion;
+  const catalogSearch = useGearCatalogSearch(suggestionsVisible ? debouncedName : '', null, 8);
+  const suggestions = suggestionsVisible ? (catalogSearch.data ?? []) : [];
+
+  function applySuggestion(entry: GearCatalogEntry) {
+    const combined = `${entry.manufacturer} ${entry.model}`;
+    setNewName(combined);
+    setDebouncedName(combined);
+    setNewManufacturer(entry.manufacturer);
+    setNewModel(entry.model);
+    setNewCategory(entry.category);
+    setAppliedSuggestion(combined);
+    haptics.selection();
+  }
 
   const today = React.useMemo(() => new Date(), []);
   const allItems = gearItems.data ?? [];
@@ -174,8 +207,8 @@ export default function GearScreen() {
       {
         name: newName.trim(),
         category: newCategory,
-        manufacturer: pickedManufacturer,
-        model: pickedModel,
+        manufacturer: newManufacturer.trim() || null,
+        model: newModel.trim() || null,
         serial_number: newSerial.trim() || null,
         next_inspection_due: newNextDue.trim() || null,
       },
@@ -185,8 +218,9 @@ export default function GearScreen() {
           setNewName('');
           setNewSerial('');
           setNewNextDue('');
-          setPickedManufacturer(null);
-          setPickedModel(null);
+          setNewManufacturer('');
+          setNewModel('');
+          setAppliedSuggestion(null);
           setShowAdd(false);
         },
         onError: (err) => {
@@ -248,23 +282,46 @@ export default function GearScreen() {
                       full
                       onPress={() => router.push('/gear/catalog' as never)}
                     >
-                      {pickedManufacturer
-                        ? `From catalog · ${pickedManufacturer}`
-                        : 'Browse catalog'}
+                      Browse catalog
                     </Button>
                     <Field
                       label="Name"
                       value={newName}
-                      onChangeText={(v) => {
-                        setNewName(v);
-                        if (pickedManufacturer || pickedModel) {
-                          setPickedManufacturer(null);
-                          setPickedModel(null);
-                        }
-                      }}
+                      onChangeText={setNewName}
                       placeholder="Petzl Avao Bod"
                       autoCapitalize="words"
                     />
+                    {suggestions.length > 0 ? (
+                      <View style={{ gap: 6 }}>
+                        {suggestions.map((entry) => (
+                          <CatalogSuggestionRow
+                            key={entry.id}
+                            entry={entry}
+                            onPress={() => applySuggestion(entry)}
+                          />
+                        ))}
+                      </View>
+                    ) : null}
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <View style={{ flex: 1 }}>
+                        <Field
+                          label="Manufacturer"
+                          value={newManufacturer}
+                          onChangeText={setNewManufacturer}
+                          placeholder="Optional"
+                          autoCapitalize="words"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Field
+                          label="Model"
+                          value={newModel}
+                          onChangeText={setNewModel}
+                          placeholder="Optional"
+                          autoCapitalize="words"
+                        />
+                      </View>
+                    </View>
                     <View>
                       <Text style={{ ...type.monoKicker, color: tokens.textFaint, marginBottom: 6 }}>
                         CATEGORY
@@ -372,6 +429,7 @@ export default function GearScreen() {
                 sub={gearRowSub(detail)}
                 days={cycle.days}
                 status={detail.status}
+                category={detail.item.category}
                 onPress={() => router.push(`/gear/${detail.item.id}` as never)}
               />
             </Reveal>
@@ -379,6 +437,52 @@ export default function GearScreen() {
         }}
       />
     </KeyboardAvoidingView>
+  );
+}
+
+// Compact typeahead row under the Name field — CatalogRow's anatomy from
+// /gear/catalog minus the product image (no room for it inline in the form).
+function CatalogSuggestionRow({
+  entry,
+  onPress,
+}: {
+  entry: GearCatalogEntry;
+  onPress: () => void;
+}) {
+  const { tokens } = useTheme();
+
+  const containerStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: tokens.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: tokens.lineSoft,
+  };
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Use ${entry.manufacturer} ${entry.model}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        containerStyle,
+        pressed ? { transform: [{ scale: 0.99 }] } : null,
+      ]}
+    >
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+          {entry.manufacturer}{' '}
+          <Text style={{ color: tokens.textDim }}>{entry.model}</Text>
+        </Text>
+      </View>
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>
+        {entry.category.toUpperCase()}
+      </Text>
+    </Pressable>
   );
 }
 

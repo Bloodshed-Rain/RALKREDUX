@@ -235,7 +235,7 @@ export default function NdtInspectionDetailScreen() {
     }
     chainLinks.push({
       hash: signature.chain_hash,
-      label: `${inspection.site} · sealed ${formatDate(signature.signed_at)}`,
+      label: `${inspection.site} · verified ${formatDate(signature.signed_at)}`,
       head: true,
     });
   }

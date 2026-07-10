@@ -28,7 +28,7 @@ function gearItem(over: Partial<GearItem> = {}): GearItem {
 }
 
 function gearDetail(status: GearStatus, over: Partial<GearItem> = {}): GearItemDetail {
-  return { item: gearItem(over), latest_inspection: null, status };
+  return { item: gearItem(over), latest_inspection: null, status, last_used_at: null };
 }
 
 function req(over: Partial<RemoteSignatureRequest> = {}): RemoteSignatureRequest {

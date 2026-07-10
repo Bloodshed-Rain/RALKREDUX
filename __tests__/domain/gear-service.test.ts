@@ -284,7 +284,7 @@ describe('gear service', () => {
     await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_not_found');
   });
 
-  it('blocks deleting gear with inspection history', async () => {
+  it('deletes gear along with its inspection history', async () => {
     const db = await createTestClient();
     const service = createGearService(db);
     const item = await service.createGearItem({ name: 'Harness', category: 'harness' });
@@ -297,29 +297,67 @@ describe('gear service', () => {
       inspector_name: 'Casey Park',
     });
 
-    await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_has_inspection_history');
-    expect(await service.listGearItems()).toHaveLength(1);
+    await expect(service.deleteGearItem(item.id)).resolves.toEqual({ id: item.id });
+    expect(await service.listGearItems()).toHaveLength(0);
+    expect(
+      await db.getAll('SELECT * FROM gear_inspections WHERE gear_id = ?', [item.id]),
+    ).toHaveLength(0);
   });
 
-  it('blocks deleting gear referenced by an entry, then allows it after detaching', async () => {
+  it('deletes gear referenced by an entry while the entry keeps its gear record', async () => {
     const db = await createTestClient();
     const service = createGearService(db);
     const logbook = createLogbookService(db);
 
     const entry = await logbook.createDraft(draftInput());
-    const item = await service.createGearItem({ name: 'Petzl ID', category: 'descender' });
+    const item = await service.createGearItem({
+      name: 'Petzl ID',
+      category: 'descender',
+      manufacturer: 'Petzl',
+      serial_number: 'ID-123',
+    });
     await logbook.attachGearToEntry({ entry_id: entry.id, gear_id: item.id, role: 'descender' });
 
-    await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_used_in_entries');
-    expect(await service.listGearItems()).toHaveLength(1);
-
-    // A draft-time mis-attach can be detached, after which the orphaned item deletes cleanly.
-    await logbook.removeGearFromEntry({ entry_id: entry.id, gear_id: item.id });
     await expect(service.deleteGearItem(item.id)).resolves.toEqual({ id: item.id });
     expect(await service.listGearItems()).toHaveLength(0);
+
+    // The entry still shows the gear it recorded, rendered from the
+    // attach-time snapshot on entry_gear_usage.
+    const detail = await logbook.getEntryDetail(entry.id);
+    expect(detail?.gear_usage).toHaveLength(1);
+    expect(detail?.gear_usage[0].gear.name).toBe('Petzl ID');
+    expect(detail?.gear_usage[0].gear.manufacturer).toBe('Petzl');
+    expect(detail?.gear_usage[0].gear.serial_number).toBe('ID-123');
+    expect(detail?.gear_usage[0].gear.category).toBe('descender');
   });
 
-  it('blocks deleting retired gear — it is the record of removal from service', async () => {
+  it('reports last_used_at from entry gear usage so pickers can sort by relevance', async () => {
+    const db = await createTestClient();
+    const service = createGearService(db);
+    const logbook = createLogbookService(db);
+
+    const harness = await service.createGearItem({ name: 'Harness', category: 'harness' });
+    const rope = await service.createGearItem({ name: 'Rescue rope', category: 'rope' });
+    const entry = await logbook.createDraft(draftInput());
+    await logbook.attachGearToEntry({ entry_id: entry.id, gear_id: harness.id, role: 'harness' });
+
+    const items = await service.listGearItems();
+    const harnessDetail = items.find(({ item }) => item.id === harness.id);
+    const ropeDetail = items.find(({ item }) => item.id === rope.id);
+    expect(harnessDetail?.last_used_at).toEqual(expect.any(String));
+    expect(ropeDetail?.last_used_at).toBeNull();
+
+    // The single-item read path reports the same value as the list path.
+    const byId = await service.getGearItemDetailById(harness.id);
+    expect(byId?.last_used_at).toBe(harnessDetail?.last_used_at);
+
+    // Detaching clears it again.
+    await logbook.removeGearFromEntry({ entry_id: entry.id, gear_id: harness.id });
+    const after = await service.getGearItemDetailById(harness.id);
+    expect(after?.last_used_at).toBeNull();
+  });
+
+  it('deletes retired gear — inventory is deletable regardless of lifecycle state', async () => {
     const db = await createTestClient();
     const service = createGearService(db);
     const item = await service.createGearItem({ name: 'Old carabiner', category: 'carabiner' });
@@ -331,7 +369,7 @@ describe('gear service', () => {
       inspector_name: 'Casey Park',
     });
 
-    await expect(service.deleteGearItem(item.id)).rejects.toThrow('gear_retired');
-    expect(await service.listGearItems()).toHaveLength(1);
+    await expect(service.deleteGearItem(item.id)).resolves.toEqual({ id: item.id });
+    expect(await service.listGearItems()).toHaveLength(0);
   });
 });

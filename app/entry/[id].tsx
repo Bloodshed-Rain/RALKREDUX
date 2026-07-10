@@ -26,6 +26,7 @@ import {
   parseHazards,
   parseStringList,
   type LogbookEntry,
+  type RemoteSignatureRequestStatus,
 } from '@/src/domain/logbook/types';
 import {
   useAddEntryAttachment,
@@ -66,6 +67,15 @@ function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Human-readable labels for the raw remote-request status enum. Typed against
+// the union so adding a new status variant is a compile error until mapped.
+const REMOTE_REQUEST_STATUS_LABEL: Record<RemoteSignatureRequestStatus, string> = {
+  pending: 'Pending',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  expired: 'Expired',
+};
 
 function webVerifierOrigin(): string | null {
   if (Platform.OS === 'web') {
@@ -317,7 +327,7 @@ export default function EntryDetailScreen() {
     }
     chainLinks.push({
       hash: signature.chain_hash,
-      label: `${entry.site} · sealed ${formatDate(signature.signed_at)}`,
+      label: `${entry.site} · signed ${formatDate(signature.signed_at)}`,
       head: true,
     });
   }
@@ -405,9 +415,16 @@ export default function EntryDetailScreen() {
 
             {isDraft && readiness && !isReady ? (
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
-                <Pill tone="warn" size="sm">
-                  {`${readiness.missingFields.length} missing`}
-                </Pill>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${readiness.missingFields.length} required fields missing — edit entry`}
+                  onPress={() => router.push(`/entry/${entry.id}/edit?from=detail` as never)}
+                  hitSlop={6}
+                >
+                  <Pill tone="warn" size="sm">
+                    {`${readiness.missingFields.length} missing`}
+                  </Pill>
+                </Pressable>
               </View>
             ) : null}
             {chainValid.data === false && signature ? (
@@ -707,7 +724,7 @@ export default function EntryDetailScreen() {
                 }}
               >
                 <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>REMOTE REQUEST</Text>
-                <Pill tone="warn" size="sm">{remoteRequest.status}</Pill>
+                <Pill tone="warn" size="sm">{REMOTE_REQUEST_STATUS_LABEL[remoteRequest.status]}</Pill>
               </View>
               <DetailRow label="Verifier" value={remoteRequest.recipient_name} />
               <DetailRow

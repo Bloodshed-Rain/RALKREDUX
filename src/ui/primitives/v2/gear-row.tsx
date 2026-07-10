@@ -5,8 +5,8 @@ import { type } from '@/src/ui/theme/type';
 import { scaled } from '@/src/ui/scale';
 import { AnimatedPressable, usePressScale } from '@/src/ui/animation/use-press-scale';
 import { press } from '@/src/ui/animation/motion';
-import { IconChevron } from '@/src/ui/icons';
-import type { GearStatus } from '@/src/domain/gear/types';
+import { GEAR_ICON, IconChevron } from '@/src/ui/icons';
+import type { GearCategory, GearStatus } from '@/src/domain/gear/types';
 
 export interface GearRowProps {
   name: string;
@@ -15,6 +15,8 @@ export interface GearRowProps {
   // Days remaining (positive) / overdue (negative) / null when unscheduled.
   days: number | null;
   status: GearStatus;
+  // When present, renders the category glyph between the countdown and text.
+  category?: GearCategory;
   onPress?: () => void;
 }
 
@@ -30,9 +32,10 @@ const CAPTION: Record<GearStatus, string> = {
 // the identity/last-result line, and a left status rail. Urgency is carried by
 // the rail color + the caption label (never colored body text on a soft fill),
 // so it survives Heliotype's accent/danger hue collapse.
-export function GearRow({ name, sub, days, status, onPress }: GearRowProps) {
+export function GearRow({ name, sub, days, status, category, onPress }: GearRowProps) {
   const { tokens } = useTheme();
   const pressScale = usePressScale(press.scale.row);
+  const CategoryIcon = category ? GEAR_ICON[category] : null;
 
   const railColor =
     status === 'overdue'
@@ -85,6 +88,13 @@ export function GearRow({ name, sub, days, status, onPress }: GearRowProps) {
         <Text style={numeralStyle}>{numeral}</Text>
         <Text style={{ ...type.monoKicker, color: tokens.textFaint }}>{caption}</Text>
       </View>
+      {CategoryIcon ? (
+        <CategoryIcon
+          size={22}
+          color={muted ? tokens.textFaint : tokens.text}
+          fill={muted ? tokens.textFaint : tokens.accent}
+        />
+      ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
           {name}

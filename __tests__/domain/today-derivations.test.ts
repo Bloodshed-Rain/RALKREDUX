@@ -56,6 +56,7 @@ function gearDetail(overrides: Partial<GearItemDetail['item']> = {}, status: Gea
     },
     latest_inspection: null,
     status,
+    last_used_at: null,
   };
 }
 

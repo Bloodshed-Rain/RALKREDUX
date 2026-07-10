@@ -27,6 +27,7 @@ describe('database migrations', () => {
       { id: 17, name: 'legacy-logbook-archives' },
       { id: 18, name: 'entry-multi-classification' },
       { id: 19, name: 'ndt-ledger' },
+      { id: 20, name: 'gear-usage-snapshot' },
     ]);
   });
 
@@ -246,7 +247,19 @@ describe('database migrations', () => {
     const templates = await db.getAll<{ name: string }>('SELECT name FROM entry_templates ORDER BY name');
 
     expect(usageColumns.map((column) => column.name)).toEqual(
-      expect.arrayContaining(['entry_id', 'gear_id', 'role', 'created_at']),
+      expect.arrayContaining([
+        'entry_id',
+        'gear_id',
+        'role',
+        'created_at',
+        // Migration 20: attach-time identity snapshot so entries keep their
+        // gear record after the inventory item is hard-deleted.
+        'gear_name',
+        'gear_category',
+        'gear_manufacturer',
+        'gear_model',
+        'gear_serial_number',
+      ]),
     );
     expect(attachmentColumns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['entry_id', 'label', 'uri', 'mime_type', 'notes']),

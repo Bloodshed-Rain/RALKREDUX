@@ -166,7 +166,18 @@ export default function TodayScreen() {
     );
   }
 
-  if (!profile.data) return null;
+  if (!profile.data) {
+    // Cold launch: keep the branded shell (background + greeting bar) on screen
+    // instead of flashing an empty frame while the profile query resolves.
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+        <TopBar title={greetingFor(new Date())} large />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ ...type.cardSub, color: tokens.textDim }}>Loading…</Text>
+        </View>
+      </View>
+    );
+  }
 
   const today = new Date();
   const profileData = profile.data;
@@ -662,7 +673,7 @@ function ChainHeadCard({
 }) {
   const { tokens } = useTheme();
   const subText = lastSignedEntry
-    ? `Last sealed · ${lastSignedEntry.date_to} · ${lastSignedEntry.site}`
+    ? `Last signed · ${lastSignedEntry.date_to} · ${lastSignedEntry.site}`
     : 'No signed entries yet';
 
   return (

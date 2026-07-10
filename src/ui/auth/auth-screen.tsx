@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
+import { scaled } from '@/src/ui/scale';
 import { Button, Field } from '@/src/ui/primitives/v2';
 import { IconBrand } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
@@ -122,7 +123,7 @@ export function AuthScreen() {
   const titleStyle: TextStyle = {
     fontFamily: 'Manrope_800ExtraBold',
     fontWeight: '800',
-    fontSize: 26,
+    fontSize: scaled(26),
     letterSpacing: -0.5,
     color: tokens.text,
     textAlign: 'center',
@@ -131,7 +132,7 @@ export function AuthScreen() {
     ...type.cardSub,
     color: tokens.textDim,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: scaled(20),
   };
 
   return (

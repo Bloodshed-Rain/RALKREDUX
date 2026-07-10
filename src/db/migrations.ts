@@ -776,6 +776,46 @@ const migrations: Migration[] = [
       await db.exec('CREATE INDEX IF NOT EXISTS idx_ndt_remote_signature_requests_inspection_id ON ndt_remote_signature_requests(inspection_id);');
     },
   },
+  {
+    id: 20,
+    name: 'gear-usage-snapshot',
+    async up(db) {
+      // Rebuild entry_gear_usage without the gear_items FK and with an
+      // identity snapshot taken at attach time. Gear items are now hard-
+      // deletable regardless of usage/inspection history, so an entry's
+      // gear record must survive its inventory row: reads COALESCE the
+      // live gear row with the snapshot, and the ON DELETE CASCADE that
+      // used to strip gear off signed entries is gone.
+      await db.exec(`
+        CREATE TABLE entry_gear_usage_v2 (
+          entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+          gear_id TEXT NOT NULL,
+          role TEXT,
+          created_at TEXT NOT NULL,
+          gear_name TEXT,
+          gear_category TEXT,
+          gear_manufacturer TEXT,
+          gear_model TEXT,
+          gear_serial_number TEXT,
+          PRIMARY KEY (entry_id, gear_id)
+        );
+      `);
+      await db.exec(`
+        INSERT INTO entry_gear_usage_v2 (
+          entry_id, gear_id, role, created_at,
+          gear_name, gear_category, gear_manufacturer, gear_model, gear_serial_number
+        )
+        SELECT
+          egu.entry_id, egu.gear_id, egu.role, egu.created_at,
+          gi.name, gi.category, gi.manufacturer, gi.model, gi.serial_number
+        FROM entry_gear_usage egu
+        LEFT JOIN gear_items gi ON gi.id = egu.gear_id;
+      `);
+      await db.exec('DROP TABLE entry_gear_usage;');
+      await db.exec('ALTER TABLE entry_gear_usage_v2 RENAME TO entry_gear_usage;');
+      await db.exec('CREATE INDEX IF NOT EXISTS idx_entry_gear_usage_gear_id ON entry_gear_usage(gear_id);');
+    },
+  },
 ];
 
 // Total number of migrations defined. Surfaced in the About sheet so the

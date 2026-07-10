@@ -25,6 +25,7 @@ import type { CertScheme } from '@/src/domain/profile/types';
 import { ENTRY_HASH_VERSION } from '@/src/domain/logbook/entry-hash';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
+import { scaled } from '@/src/ui/scale';
 import {
   Button,
   Card,
@@ -111,9 +112,9 @@ export default function SetupScreen() {
   const heroTitleStyle: TextStyle = {
     fontFamily: 'Manrope_800ExtraBold',
     fontWeight: '800',
-    fontSize: 26,
+    fontSize: scaled(26),
     letterSpacing: -0.7,
-    lineHeight: 30,
+    lineHeight: scaled(30),
     color: tokens.text,
     marginTop: 4,
   };

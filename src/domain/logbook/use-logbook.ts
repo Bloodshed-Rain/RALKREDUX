@@ -264,6 +264,8 @@ export function useAttachGearToEntry() {
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['entries'] });
+      // Attaching bumps the item's last_used_at, which gear pickers sort by.
+      queryClient.invalidateQueries({ queryKey: ['gearItems'] });
     },
   });
 }
@@ -275,6 +277,7 @@ export function useRemoveGearFromEntry() {
       createLogbookService(getClient()).removeGearFromEntry(input),
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
+      queryClient.invalidateQueries({ queryKey: ['gearItems'] });
     },
   });
 }

@@ -284,7 +284,7 @@ export default function LocalSignScreen() {
       style={{ flex: 1, backgroundColor: tokens.bg }}
     >
       <TopBar
-        title="Seal in chain"
+        title="Sign entry"
         leading={
           <IconBtn
             icon={IconArrowLeft}
@@ -329,18 +329,24 @@ export default function LocalSignScreen() {
             <View
               style={{
                 marginTop: 12,
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 8,
+                gap: 10,
                 padding: 10,
                 borderRadius: 10,
                 backgroundColor: tokens.warnSoft,
               }}
             >
-              <IconWarn size={18} color={tokens.warn} />
-              <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
-                Finish required fields before signing: {readiness.missingFields.join(', ')}.
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                <IconWarn size={18} color={tokens.warn} />
+                <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
+                  Finish required fields before signing: {readiness.missingFields.join(', ')}.
+                </Text>
+              </View>
+              <Button
+                variant="outline"
+                onPress={() => router.push(`/entry/${entryId}/edit` as never)}
+              >
+                Edit entry
+              </Button>
             </View>
           ) : null}
         </Card>
@@ -614,8 +620,6 @@ export default function LocalSignScreen() {
 
       <View
         style={{
-          flexDirection: 'row',
-          gap: 10,
           paddingHorizontal: 20,
           paddingTop: 12,
           paddingBottom: 12 + insets.bottom,
@@ -624,16 +628,16 @@ export default function LocalSignScreen() {
           backgroundColor: tokens.bg,
         }}
       >
-        <Button variant="ghost" onPress={() => router.back()}>
-          Cancel
-        </Button>
+        {/* No bottom Cancel — a gloved mis-tap here at the device-handoff
+            moment would discard a just-drawn supervisor signature. The top-bar
+            back arrow + useUnsavedGuard cover exit. */}
         <Button
           variant="primary"
-          grow
+          full
           onPress={submit}
           disabled={!canSign || signEntry.isPending}
         >
-          {signEntry.isPending ? 'Sealing…' : 'Seal in chain'}
+          {signEntry.isPending ? 'Signing…' : 'Sign entry'}
         </Button>
       </View>
     </KeyboardAvoidingView>

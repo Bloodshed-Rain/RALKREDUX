@@ -60,6 +60,7 @@ import {
 } from '@/src/ui/primitives/v2';
 import {
   GEAR_ICON,
+  IconCheck,
   IconClose,
   IconDraft,
   IconExport,
@@ -93,12 +94,12 @@ const HEIGHT_UNIT_OPTIONS = [
 // height and the optional details never block Next.
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 const TOTAL_STEPS = 6;
-const STEP_TITLES = ['Where', 'Kind & hours', 'Task & access', 'Structure & height', 'Details', 'Review'];
+const STEP_TITLES = ['Where', 'Kind & hours', 'Task & access', 'Structure & height/depth', 'Details', 'Review'];
 const STEP_SUBS = [
   'Site · client · employer · dates',
   'What kind of work · hours',
   'What you did · how you got there',
-  'What you worked on · how high',
+  'What you worked on · how high or deep',
   'Work description, plus optional extras',
   'Choose what happens next',
 ];
@@ -208,7 +209,7 @@ function missingStepHint(step: Step, draft: DraftState): string | null {
     if (draft.accessMethod.length === 0) need.push('an access method');
   } else if (step === 4) {
     if (!draft.structureType.trim()) need.push('a structure');
-    if (!(Number(draft.maxHeight) > 0)) need.push('a maximum height');
+    if (!(Number(draft.maxHeight) > 0)) need.push('a max height / depth');
   } else if (step === 5) {
     if (!draft.description.trim()) need.push('a work description');
   }
@@ -882,13 +883,13 @@ function StepStructureHeight({
         />
       </View>
       <View>
-        <SectionKicker>MAXIMUM HEIGHT</SectionKicker>
+        <SectionKicker>MAX HEIGHT / DEPTH</SectionKicker>
         <Field
           value={draft.maxHeight}
           onChangeText={(v) => update({ maxHeight: v.replace(/[^\d.]/g, '') })}
           keyboardType="decimal-pad"
           placeholder="120"
-          accessibilityLabel="Maximum height"
+          accessibilityLabel="Max height / depth"
           invalid={!!showErrors && !(Number(draft.maxHeight) > 0)}
           suffix={
             <HeightUnitToggle value={draft.heightUnit} onChange={(u) => update({ heightUnit: u })} />
@@ -915,8 +916,41 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
   const attachments = detail.data?.attachments ?? [];
   const gearBusy = attachGear.isPending || removeGear.isPending;
 
+  // Order by relevance for attaching — most-recently-used first, unused
+  // items after, alphabetically. Never inspection urgency: that ordering
+  // (plus the old 8-tile cap) is what made people's kit "disappear" from
+  // this picker as due dates shifted.
+  const [gearSearch, setGearSearch] = React.useState('');
+  const sortedGear = [...selectableGear].sort((a, b) => {
+    const aUsed = a.last_used_at ?? '';
+    const bUsed = b.last_used_at ?? '';
+    if (aUsed !== bUsed) return aUsed > bUsed ? -1 : 1;
+    return a.item.name.localeCompare(b.item.name);
+  });
+  const gearQuery = gearSearch.trim().toLowerCase();
+  const visibleGear = gearQuery
+    ? sortedGear.filter(({ item }) =>
+        [item.name, item.manufacturer, item.serial_number, item.category]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(gearQuery),
+      )
+    : sortedGear;
+  const showGearSearch = selectableGear.length > 10;
+
   function toggleGear(gearId: string, category: string) {
-    if (!draft.entryId || gearBusy) return;
+    if (gearBusy) return;
+    if (!draft.entryId) {
+      // Page 1 creates the entry row; if it's somehow missing, a silent
+      // no-op here reads as "my gear won't attach". Say what happened.
+      haptics.error();
+      Alert.alert(
+        'Gear not attached',
+        'This draft hasn’t finished saving yet. Nothing was changed — please try again.',
+      );
+      return;
+    }
     haptics.selection();
     const onGearError = (attaching: boolean) => () => {
       haptics.error();
@@ -1018,48 +1052,69 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
             No active gear yet. Add gear from the Gear tab.
           </Text>
         ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {selectableGear.slice(0, 8).map(({ item }) => {
-              const active = attachedGearIds.has(item.id);
-              const Icon = GEAR_ICON[item.category as GearCategory];
-              return (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => toggleGear(item.id, item.category)}
-                  disabled={gearBusy}
-                  style={({ pressed }) => [
-                    {
-                      width: '22%',
-                      minWidth: 70,
-                      aspectRatio: 1,
-                      borderRadius: 14,
-                      borderWidth: active ? 2 : 1,
-                      borderColor: active ? tokens.accent : tokens.lineSoft,
-                      backgroundColor: active ? tokens.accentSoft : tokens.surface,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: 6,
-                      gap: 4,
-                    },
-                    pressed ? { transform: [{ scale: 0.97 }] } : null,
-                  ]}
-                >
-                  <Icon size={26} color={tokens.text} fill={tokens.accent} />
-                  <Text
-                    style={{
-                      ...type.cardSub,
-                      color: active ? tokens.text : tokens.textDim,
-                      textAlign: 'center',
-                    }}
-                    numberOfLines={1}
+          <View style={{ gap: 8 }}>
+            {showGearSearch ? (
+              <Field
+                value={gearSearch}
+                onChangeText={setGearSearch}
+                placeholder="Search name, serial or category…"
+                accessibilityLabel="Search gear"
+                autoCapitalize="none"
+              />
+            ) : null}
+            {visibleGear.length === 0 ? (
+              <Text style={{ ...type.cardSub, color: tokens.textDim }}>
+                Nothing matches “{gearSearch.trim()}”.
+              </Text>
+            ) : (
+              visibleGear.map(({ item }) => {
+                const active = attachedGearIds.has(item.id);
+                const Icon = GEAR_ICON[item.category as GearCategory];
+                const sub =
+                  [item.manufacturer, item.serial_number].filter(Boolean).join(' · ') ||
+                  item.category;
+                return (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`${active ? 'Detach' : 'Attach'} ${item.name}`}
+                    onPress={() => toggleGear(item.id, item.category)}
+                    disabled={gearBusy}
+                    style={({ pressed }) => [
+                      {
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        paddingVertical: 10,
+                        paddingHorizontal: 12,
+                        borderRadius: 14,
+                        borderWidth: active ? 2 : 1,
+                        borderColor: active ? tokens.accent : tokens.lineSoft,
+                        backgroundColor: active ? tokens.accentSoft : tokens.surface,
+                      },
+                      pressed ? { transform: [{ scale: 0.98 }] } : null,
+                    ]}
                   >
-                    {item.category}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Icon size={24} color={tokens.text} fill={tokens.accent} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ ...type.cardTitle, color: tokens.text }} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={{ ...type.monoSm, color: tokens.textDim, marginTop: 1 }}
+                        numberOfLines={1}
+                      >
+                        {sub}
+                      </Text>
+                    </View>
+                    {active ? (
+                      <IconCheck size={18} color={tokens.accent} fill={tokens.accent} />
+                    ) : null}
+                  </Pressable>
+                );
+              })
+            )}
           </View>
         )}
       </View>

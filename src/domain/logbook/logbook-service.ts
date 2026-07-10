@@ -382,26 +382,29 @@ export function createLogbookService(db: DbClient) {
   }
 
   async function getGearUsageForEntry(entryId: string): Promise<EntryGearUsageDetail[]> {
+    // LEFT JOIN + snapshot fallback: gear items are hard-deletable, so an
+    // entry's gear record renders from the attach-time snapshot when the
+    // inventory row is gone.
     return db.getAll<EntryGearUsageDetail>(
       `SELECT
         egu.entry_id AS "usage.entry_id",
         egu.gear_id AS "usage.gear_id",
         egu.role AS "usage.role",
         egu.created_at AS "usage.created_at",
-        gi.id AS "gear.id",
-        gi.name AS "gear.name",
-        gi.category AS "gear.category",
-        gi.manufacturer AS "gear.manufacturer",
-        gi.model AS "gear.model",
-        gi.serial_number AS "gear.serial_number",
+        egu.gear_id AS "gear.id",
+        COALESCE(gi.name, egu.gear_name, 'Deleted gear') AS "gear.name",
+        COALESCE(gi.category, egu.gear_category, 'other') AS "gear.category",
+        COALESCE(gi.manufacturer, egu.gear_manufacturer) AS "gear.manufacturer",
+        COALESCE(gi.model, egu.gear_model) AS "gear.model",
+        COALESCE(gi.serial_number, egu.gear_serial_number) AS "gear.serial_number",
         gi.next_inspection_due AS "gear.next_inspection_due",
         gi.retired_at AS "gear.retired_at",
-        gi.created_at AS "gear.created_at",
-        gi.updated_at AS "gear.updated_at"
+        COALESCE(gi.created_at, egu.created_at) AS "gear.created_at",
+        COALESCE(gi.updated_at, egu.created_at) AS "gear.updated_at"
        FROM entry_gear_usage egu
-       JOIN gear_items gi ON gi.id = egu.gear_id
+       LEFT JOIN gear_items gi ON gi.id = egu.gear_id
        WHERE egu.entry_id = ?
-       ORDER BY gi.category ASC, gi.name ASC`,
+       ORDER BY COALESCE(gi.category, egu.gear_category) ASC, COALESCE(gi.name, egu.gear_name) ASC`,
       [entryId],
     ).then((rows) =>
       rows.map((row) => {
@@ -1259,14 +1262,38 @@ export function createLogbookService(db: DbClient) {
       if (!entry) throw new Error('entry_not_found');
       if (entry.status !== 'draft') throw new Error('entry_locked');
 
-      const gear = await db.get<{ retired_at: string | null }>('SELECT retired_at FROM gear_items WHERE id = ?', [input.gear_id]);
+      const gear = await db.get<{
+        retired_at: string | null;
+        name: string;
+        category: string;
+        manufacturer: string | null;
+        model: string | null;
+        serial_number: string | null;
+      }>(
+        'SELECT retired_at, name, category, manufacturer, model, serial_number FROM gear_items WHERE id = ?',
+        [input.gear_id],
+      );
       if (!gear) throw new Error('gear_not_found');
       if (gear.retired_at) throw new Error('gear_retired');
 
+      // Snapshot the gear identity onto the usage row — gear items are hard-
+      // deletable, so this is what keeps the entry's gear record intact.
       await db.run(
-        `INSERT OR REPLACE INTO entry_gear_usage (entry_id, gear_id, role, created_at)
-         VALUES (?, ?, ?, ?)`,
-        [entry.id, input.gear_id, input.role?.trim() || null, new Date().toISOString()],
+        `INSERT OR REPLACE INTO entry_gear_usage (
+           entry_id, gear_id, role, created_at,
+           gear_name, gear_category, gear_manufacturer, gear_model, gear_serial_number
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          entry.id,
+          input.gear_id,
+          input.role?.trim() || null,
+          new Date().toISOString(),
+          gear.name,
+          gear.category,
+          gear.manufacturer,
+          gear.model,
+          gear.serial_number,
+        ],
       );
 
       const detail = await getEntryDetail(entry.id);
@@ -1379,20 +1406,20 @@ export function createLogbookService(db: DbClient) {
           egu.gear_id AS "usage.gear_id",
           egu.role AS "usage.role",
           egu.created_at AS "usage.created_at",
-          gi.id AS "gear.id",
-          gi.name AS "gear.name",
-          gi.category AS "gear.category",
-          gi.manufacturer AS "gear.manufacturer",
-          gi.model AS "gear.model",
-          gi.serial_number AS "gear.serial_number",
+          egu.gear_id AS "gear.id",
+          COALESCE(gi.name, egu.gear_name, 'Deleted gear') AS "gear.name",
+          COALESCE(gi.category, egu.gear_category, 'other') AS "gear.category",
+          COALESCE(gi.manufacturer, egu.gear_manufacturer) AS "gear.manufacturer",
+          COALESCE(gi.model, egu.gear_model) AS "gear.model",
+          COALESCE(gi.serial_number, egu.gear_serial_number) AS "gear.serial_number",
           gi.next_inspection_due AS "gear.next_inspection_due",
           gi.retired_at AS "gear.retired_at",
-          gi.created_at AS "gear.created_at",
-          gi.updated_at AS "gear.updated_at"
+          COALESCE(gi.created_at, egu.created_at) AS "gear.created_at",
+          COALESCE(gi.updated_at, egu.created_at) AS "gear.updated_at"
          FROM entry_gear_usage egu
-         JOIN gear_items gi ON gi.id = egu.gear_id
+         LEFT JOIN gear_items gi ON gi.id = egu.gear_id
          ${includeDrafts ? '' : "WHERE egu.entry_id IN (SELECT id FROM entries WHERE status IN ('signed', 'amended'))"}
-         ORDER BY gi.category ASC, gi.name ASC`
+         ORDER BY COALESCE(gi.category, egu.gear_category) ASC, COALESCE(gi.name, egu.gear_name) ASC`
       );
       const gearUsageByEntryId = new Map<string, EntryGearUsageDetail[]>();
       for (const row of gearUsagesRows) {

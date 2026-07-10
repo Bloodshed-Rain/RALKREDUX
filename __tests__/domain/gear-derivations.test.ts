@@ -17,6 +17,7 @@ function d(id: string, status: GearStatus): GearItemDetail {
     },
     latest_inspection: null,
     status,
+    last_used_at: null,
   };
 }
 

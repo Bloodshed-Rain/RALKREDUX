@@ -48,6 +48,14 @@ export function createGearService(db: DbClient) {
     );
   }
 
+  async function getLastUsedAt(gearId: string): Promise<string | null> {
+    const row = await db.get<{ last_used_at: string | null }>(
+      'SELECT MAX(created_at) AS last_used_at FROM entry_gear_usage WHERE gear_id = ?',
+      [gearId],
+    );
+    return row?.last_used_at ?? null;
+  }
+
   async function listGearItems(asOf: string = todayLocalIsoDate()): Promise<GearItemDetail[]> {
     const items = await db.getAll<GearItem>(
       `SELECT * FROM gear_items
@@ -71,10 +79,21 @@ export function createGearService(db: DbClient) {
       latestInspectionByGearId.set(inspection.gear_id, inspection);
     }
 
+    const usageRows = await db.getAll<{ gear_id: string; last_used_at: string }>(
+      `SELECT gear_id, MAX(created_at) AS last_used_at
+       FROM entry_gear_usage
+       GROUP BY gear_id`,
+    );
+    const lastUsedByGearId = new Map<string, string>();
+    for (const row of usageRows) {
+      lastUsedByGearId.set(row.gear_id, row.last_used_at);
+    }
+
     return items.map((item) => ({
       item,
       latest_inspection: latestInspectionByGearId.get(item.id) ?? null,
       status: getGearStatus(item, asOf),
+      last_used_at: lastUsedByGearId.get(item.id) ?? null,
     }));
   }
 
@@ -218,36 +237,21 @@ export function createGearService(db: DbClient) {
         item: updated,
         latest_inspection: await getLatestInspection(item.id),
         status: getGearStatus(updated),
+        last_used_at: await getLastUsedAt(item.id),
       };
     },
 
     async deleteGearItem(id: string): Promise<{ id: string }> {
       const item = await getGearItemById(id);
       if (!item) throw new Error('gear_not_found');
-      // Retired gear is the audit record of its removal from service.
-      if (item.retired_at) throw new Error('gear_retired');
 
-      // Hard delete is reserved for provably orphaned mis-adds. Gear referenced
-      // by any entry (drafts included — drafts become signed) or carrying
-      // inspection history is traceability evidence; retire it instead. This
-      // gate is what keeps the ON DELETE CASCADE on entry_gear_usage from
-      // silently stripping gear off signed entries — so the checks and the
-      // delete run in one transaction, closing the window where an in-flight
-      // attachGearToEntry could land between them and be cascade-deleted.
+      // Inventory is the tech's own list — deletable regardless of usage or
+      // inspection history. Entries keep their gear record via the attach-time
+      // snapshot on entry_gear_usage (migration 20), so removing the inventory
+      // row never changes what a signed entry shows.
       await db.exec('BEGIN');
       try {
-        const usage = await db.get<{ n: number }>(
-          'SELECT COUNT(*) AS n FROM entry_gear_usage WHERE gear_id = ?',
-          [id],
-        );
-        if ((usage?.n ?? 0) > 0) throw new Error('gear_used_in_entries');
-
-        const inspections = await db.get<{ n: number }>(
-          'SELECT COUNT(*) AS n FROM gear_inspections WHERE gear_id = ?',
-          [id],
-        );
-        if ((inspections?.n ?? 0) > 0) throw new Error('gear_has_inspection_history');
-
+        await db.run('DELETE FROM gear_inspections WHERE gear_id = ?', [id]);
         await db.run('DELETE FROM gear_items WHERE id = ?', [id]);
         await db.exec('COMMIT');
       } catch (error) {
@@ -264,6 +268,7 @@ export function createGearService(db: DbClient) {
         item,
         latest_inspection: await getLatestInspection(id),
         status: getGearStatus(item, asOf),
+        last_used_at: await getLastUsedAt(id),
       };
     },
 

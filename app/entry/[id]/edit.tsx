@@ -450,7 +450,7 @@ export default function EditDraftScreen() {
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-end' }}>
             <View style={{ flex: 2 }}>
               <Field
-                label="Maximum height"
+                label="Max height / depth"
                 value={maxHeight}
                 onChangeText={(v) => setMaxHeight(v.replace(/[^\d.]/g, ''))}
                 keyboardType="decimal-pad"

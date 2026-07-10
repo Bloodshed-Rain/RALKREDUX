@@ -286,6 +286,14 @@ export interface EntryGearUsage {
   gear_id: string;
   role: string | null;
   created_at: string;
+  // Attach-time identity snapshot — what the entry's gear record renders
+  // from once the inventory item is deleted. Null on pre-migration-20 rows
+  // whose gear no longer exists to backfill from.
+  gear_name?: string | null;
+  gear_category?: string | null;
+  gear_manufacturer?: string | null;
+  gear_model?: string | null;
+  gear_serial_number?: string | null;
 }
 
 export interface EntryGearUsageDetail {

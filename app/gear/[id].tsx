@@ -22,6 +22,7 @@ import {
 } from '@/src/domain/gear/use-gear';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
+import { scaled } from '@/src/ui/scale';
 import {
   Button,
   Card,
@@ -82,11 +83,14 @@ export default function GearDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const gearId = firstParam(id);
   const detail = useGearItemDetail(gearId);
-  const inspections = useGearInspections(gearId, 8);
+  // Fetch the service maximum (50) once and slice client-side — the
+  // "show all" toggle then never refetches.
+  const inspections = useGearInspections(gearId, 50);
   const recordInspection = useRecordGearInspection();
   const deleteGear = useDeleteGearItem();
 
   const [showInspect, setShowInspect] = React.useState(false);
+  const [showAllHistory, setShowAllHistory] = React.useState(false);
   const [inspResult, setInspResult] = React.useState<GearInspectionResult>('pass');
   const [inspDate, setInspDate] = React.useState(todayLocalIsoDate());
   const [inspNotes, setInspNotes] = React.useState('');
@@ -240,19 +244,11 @@ export default function GearDetailScreen() {
 
   function confirmDelete() {
     if (!gearId || !item) return;
-    // We already know locally whether inspection history exists — explain the
-    // block up front instead of confirming a delete that will be refused.
-    if (inspections.data && inspections.data.length > 0) {
-      Alert.alert(
-        'This item can’t be deleted',
-        'Its inspection history is kept for traceability. Retire the item instead — it stays on record but leaves active use.',
-      );
-      return;
-    }
     haptics.warning();
+    const hasHistory = (inspections.data?.length ?? 0) > 0;
     Alert.alert(
       'Delete this gear item?',
-      `${item.name} will be removed from your inventory. This can’t be undone.`,
+      `${item.name}${hasHistory ? ' and its inspection history' : ''} will be removed from your inventory. Logbook entries that used it keep their gear record. This can’t be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: performDelete },
@@ -271,15 +267,9 @@ export default function GearDetailScreen() {
         haptics.error();
         const code = err instanceof Error ? err.message : String(err);
         const friendly =
-          code === 'gear_used_in_entries'
-            ? 'This item is referenced by logbook entries, so deleting it would change what those entries record. It was not deleted — retire it instead.'
-            : code === 'gear_has_inspection_history'
-              ? 'This item has inspection history, which is kept for traceability. It was not deleted — retire it instead.'
-              : code === 'gear_retired'
-                ? 'Retired items are kept as the record of removal from service and can’t be deleted.'
-                : code === 'gear_not_found'
-                  ? 'This gear item could not be found — it may already have been removed on another device.'
-                  : 'Could not delete this item. Nothing was changed — please try again.';
+          code === 'gear_not_found'
+            ? 'This gear item could not be found — it may already have been removed on another device.'
+            : 'Could not delete this item. Nothing was changed — please try again.';
         Alert.alert('Item not deleted', friendly);
       },
     });
@@ -338,8 +328,8 @@ export default function GearDetailScreen() {
                 style={{
                   fontFamily: 'Manrope_700Bold',
                   fontWeight: '700',
-                  fontSize: 20,
-                  lineHeight: 24,
+                  fontSize: scaled(20),
+                  lineHeight: scaled(24),
                   letterSpacing: -0.4,
                   color: tokens.text,
                   marginTop: 2,
@@ -373,8 +363,8 @@ export default function GearDetailScreen() {
                 style={{
                   fontFamily: 'Manrope_700Bold',
                   fontWeight: '700',
-                  fontSize: 20,
-                  lineHeight: 24,
+                  fontSize: scaled(20),
+                  lineHeight: scaled(24),
                   color: tokens.text,
                   marginTop: 2,
                 }}
@@ -523,13 +513,22 @@ export default function GearDetailScreen() {
           }
         />
         {inspections.data && inspections.data.length > 0 ? (
-          <Card padding={14}>
-            <View style={{ gap: 12 }}>
-              {inspections.data.slice(0, 4).map((insp) => (
-                <InspectionRow key={insp.id} insp={insp} />
-              ))}
-            </View>
-          </Card>
+          <>
+            <Card padding={14}>
+              <View style={{ gap: 12 }}>
+                {(showAllHistory ? inspections.data : inspections.data.slice(0, 4)).map((insp) => (
+                  <InspectionRow key={insp.id} insp={insp} />
+                ))}
+              </View>
+            </Card>
+            {inspections.data.length > 4 ? (
+              <Button variant="outline" full onPress={() => setShowAllHistory((v) => !v)}>
+                {showAllHistory
+                  ? 'Show fewer'
+                  : `Show all ${inspections.data.length} inspections`}
+              </Button>
+            ) : null}
+          </>
         ) : (
           <Card padding={16}>
             <Text style={{ ...type.cardSub, color: tokens.textDim }}>
@@ -540,21 +539,19 @@ export default function GearDetailScreen() {
           </Card>
         )}
 
-        {/* Hard delete is only for mis-adds: the service refuses once the item
-            has inspection history or is referenced by an entry (retire covers
-            those). Retired items keep their removal-from-service record. */}
-        {!isRetired ? (
-          <View style={{ marginTop: 10 }}>
-            <Button
-              variant="danger"
-              full
-              onPress={confirmDelete}
-              disabled={deleteGear.isPending}
-            >
-              {deleteGear.isPending ? 'Deleting…' : 'Delete item'}
-            </Button>
-          </View>
-        ) : null}
+        {/* Inventory is the tech's own list — always deletable (retired items
+            included). Entries keep their gear record via the attach-time
+            snapshot, so deleting never changes what a signed entry shows. */}
+        <View style={{ marginTop: 10 }}>
+          <Button
+            variant="danger"
+            full
+            onPress={confirmDelete}
+            disabled={deleteGear.isPending}
+          >
+            {deleteGear.isPending ? 'Deleting…' : 'Delete item'}
+          </Button>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

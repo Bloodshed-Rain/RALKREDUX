@@ -790,7 +790,7 @@ function ChainIntegrityPanel({ chainHead, signedCount, amendedCount }: ChainInte
           <Text style={valueStyle}>{amendedCount}</Text>
         </View>
         <View style={rowStyle}>
-          <Text style={labelStyle}>SEALED TOTAL</Text>
+          <Text style={labelStyle}>CHAIN TOTAL</Text>
           <Text style={valueStyle}>{total}</Text>
         </View>
       </View>

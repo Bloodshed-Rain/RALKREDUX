@@ -14,3 +14,4 @@
 - [Restore-vs-chain-continuity ruling](restore-vs-chain-continuity.md) — Snapshot restore breaks chain continuity; must be surfaced honestly
 - [Signer authority: site vs scheme](signer-authority-site-vs-scheme.md) — Signers don't have to be SPRAT/IRATA certified; site-authorised witness is a third category. No hash bump.
 - [Export PDF/CSV lose v3 + site-signer fields](export-human-readable-loses-v3-and-site-signer.md) — JSON complete; human-readable artifacts drop entry_kind/hazards/rescue_cover + scheme/role/employer. Render gap, P1, no hash bump.
+- [Workflow field-reality findings](workflow-field-reality-findings.md) — batch-signing gap (P1, no hash bump), confined-space height, "seal in chain" jargon, gear ownership/manufacture-date gap

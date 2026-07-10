@@ -160,9 +160,20 @@ export default function RemoteSignatureRequestScreen() {
             </Text>
             <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
               <Pill tone="chip">{entry ? `${entry.work_hours.toFixed(1)} hr` : '— hr'}</Pill>
-              <Pill tone={readiness?.ready ? 'ok' : 'warn'}>
-                {readiness?.ready ? 'Entry ready' : `${readiness?.missingFields.length ?? 0} missing`}
-              </Pill>
+              {entry?.status === 'draft' && readiness && !readiness.ready ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${readiness.missingFields.length} required fields missing — edit entry`}
+                  onPress={() => router.push(`/entry/${entryId}/edit` as never)}
+                  hitSlop={6}
+                >
+                  <Pill tone="warn">{`${readiness.missingFields.length} missing`}</Pill>
+                </Pressable>
+              ) : (
+                <Pill tone={readiness?.ready ? 'ok' : 'warn'}>
+                  {readiness?.ready ? 'Entry ready' : `${readiness?.missingFields.length ?? 0} missing`}
+                </Pill>
+              )}
               {detail.data?.remote_request ? <Pill tone="warn">Request pending</Pill> : null}
             </View>
             {blockingMessage ? (
@@ -172,15 +183,26 @@ export default function RemoteSignatureRequestScreen() {
                   padding: 12,
                   borderRadius: 10,
                   backgroundColor: tokens.warnSoft,
-                  flexDirection: 'row',
                   gap: 10,
-                  alignItems: 'flex-start',
                 }}
               >
-                <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
-                <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
-                  {blockingMessage}
-                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                  <IconWarn size={21} color={tokens.warn} fill={tokens.warn} />
+                  <Text style={{ ...type.cardSub, color: tokens.text, flex: 1 }}>
+                    {blockingMessage}
+                  </Text>
+                </View>
+                {entry?.status === 'draft' &&
+                !detail.data?.remote_request &&
+                readiness &&
+                !readiness.ready ? (
+                  <Button
+                    variant="outline"
+                    onPress={() => router.push(`/entry/${entryId}/edit` as never)}
+                  >
+                    Edit entry
+                  </Button>
+                ) : null}
               </View>
             ) : null}
           </Card>

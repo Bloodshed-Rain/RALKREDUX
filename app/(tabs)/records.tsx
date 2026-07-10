@@ -18,6 +18,7 @@ import { isHeliotypeFamily } from '@/src/ui/theme/themes';
 import { type } from '@/src/ui/theme/type';
 import {
   Button,
+  Card,
   ChipSelect,
   EmptyState,
   EntryRow,
@@ -231,7 +232,7 @@ export default function RecordsScreen() {
         subtitle={
           entriesData.length === 0
             ? 'No entries yet'
-            : `${counts.signed + counts.amended} sealed · ${counts.drafts} ${counts.drafts === 1 ? 'draft' : 'drafts'}`
+            : `${counts.signed + counts.amended} signed · ${counts.drafts} ${counts.drafts === 1 ? 'draft' : 'drafts'}`
         }
         large
         trailing={
@@ -419,7 +420,17 @@ function RopeAccessTab({
             />
           </View>
         </ScrollView>
-      ) : !entries.data ? null : filteredEntries.length === 0 ? (
+      ) : !entries.data ? (
+        // Mirrors the gear tab's loading card — an explicit "still working"
+        // state instead of a blank frame while the entries query resolves.
+        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+          <Card padding={20}>
+            <Text style={{ ...type.cardTitle, color: tokens.textDim, textAlign: 'center' }}>
+              Loading records…
+            </Text>
+          </Card>
+        </View>
+      ) : filteredEntries.length === 0 ? (
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 132 }}

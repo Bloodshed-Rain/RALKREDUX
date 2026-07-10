@@ -27,6 +27,7 @@ import { IconBrand, IconCheck, IconCloudBackup, IconLock, IconVerified } from '@
 import { haptics } from '@/src/ui/haptics';
 import { Button, Card, Pill } from '@/src/ui/primitives/v2';
 import { type } from '@/src/ui/theme/type';
+import { scaled } from '@/src/ui/scale';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 
 function formatDate(iso: string | null | undefined): string | null {
@@ -346,8 +347,8 @@ export function SubscriptionPaywall() {
 
   const heroTitleStyle: TextStyle = {
     fontFamily: 'Manrope_800ExtraBold',
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: scaled(30),
+    lineHeight: scaled(36),
     fontWeight: '800',
     color: tokens.text,
     textAlign: 'center',
@@ -466,7 +467,7 @@ export function SubscriptionPaywall() {
           ) : null}
         </View>
 
-        <Text style={{ ...type.cardSub, color: tokens.textFaint, textAlign: 'center', lineHeight: 18 }}>
+        <Text style={{ ...type.cardSub, color: tokens.textFaint, textAlign: 'center', lineHeight: scaled(18) }}>
           {renewalLine(selectedPackage)} You can cancel from your store subscription settings.
         </Text>
         <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 14 }}>

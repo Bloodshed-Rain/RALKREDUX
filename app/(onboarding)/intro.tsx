@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { useReducedMotion } from '@/src/ui/animation/use-reduced-motion';
 import { type } from '@/src/ui/theme/type';
+import { scaled } from '@/src/ui/scale';
 import { Button } from '@/src/ui/primitives/v2';
 import {
   IconBrand,
@@ -155,26 +156,23 @@ export default function OnboardingIntroScreen() {
   const skipStyle: TextStyle = {
     fontFamily: 'Manrope_600SemiBold',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: scaled(13),
     color: tokens.text,
     padding: 8,
     marginRight: -8,
   };
 
   const titleStyle: TextStyle = {
-    fontFamily: 'Manrope_800ExtraBold',
-    fontWeight: '800',
-    fontSize: 32,
-    letterSpacing: -1.1,
-    lineHeight: 34,
+    ...type.screenTitle,
+    lineHeight: scaled(34),
     color: tokens.text,
   };
 
   const subStyle: TextStyle = {
     fontFamily: 'Manrope_500Medium',
     fontWeight: '500',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: scaled(15),
+    lineHeight: scaled(22),
     color: tokens.text,
     marginTop: 14,
   };

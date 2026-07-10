@@ -43,6 +43,10 @@ export interface GearItemDetail {
   item: GearItem;
   latest_inspection: GearInspection | null;
   status: GearStatus;
+  // When this item was last attached to an entry (max entry_gear_usage
+  // created_at), null if never used. Lets pickers order by relevance
+  // instead of inspection urgency.
+  last_used_at: string | null;
 }
 
 export interface CreateGearItemInput {

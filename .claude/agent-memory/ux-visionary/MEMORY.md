@@ -20,3 +20,4 @@
 - [Project: missing-fields inline-red pattern](project_missing_fields_inline_pattern.md) — gate-vs-input split; only 3 of 5 screens have fields to redden; Heliotype danger==accent; 4 sources of "required" truth
 - [Project: entry-wizard Step 2 collapse](project_entry_wizard_step2_collapse.md) — DetailsDisclosure collapses 5 optional fields; Review card never echoes them; disclosure remounts open-state from detailsSeeded (excludes gear/photos)
 - [Project: entry-wizard 6-page tile redesign](project_entry_wizard_6page_redesign.md) — 3-step→6-page big-tile rewrite (feature/redesign-entry-wizard); tile primitives settled; tileLabelStyle ignores UI_SCALE
+- [Project: 2026-07-05 full-workflow audit](project_workflow_audit_2026_07_05.md) — core loop ~20 taps; 2 persistent structural findings: create-vs-edit surfaces diverge, NDT undiscoverable

@@ -21,3 +21,10 @@ desktop.ini
 # Session artifacts (screenshots, browser-automation cache)
 output/
 .playwright-cli/
+
+# EAS local credentials (downloaded keystores/certs) — never commit
+credentials.json
+credentials/
+*.jks
+*.keystore
+upload_certificate.pem
