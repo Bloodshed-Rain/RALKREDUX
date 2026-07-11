@@ -38,8 +38,12 @@ export function DatePickerSheet({
   clearable = false,
   initialView = 'day',
 }: DatePickerSheetProps) {
-  const { tokens } = useTheme();
-  const defaultStyles = useDefaultStyles();
+  const { theme, tokens } = useTheme();
+  // Pass the app's own theme mode explicitly — the library's hook otherwise
+  // falls back to the device OS color scheme, which can disagree with the
+  // in-app theme (e.g. phone set to dark mode, app set to Heliotype light)
+  // and render illegible mismatched text/background colors.
+  const defaultStyles = useDefaultStyles(theme.mode);
   const [draftIso, setDraftIso] = React.useState<string | null>(value);
 
   // Seed the draft from `value` only when the sheet opens — keying on `value`

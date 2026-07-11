@@ -3,7 +3,7 @@ import type { ExpoConfig } from 'expo/config';
 export default (): ExpoConfig => ({
   name: 'Rope Access Logbook',
   slug: 'ralb-codex-edition',
-  version: '0.2.0',
+  version: '1.1.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   scheme: 'ralb',
