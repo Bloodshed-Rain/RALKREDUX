@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FAQ — Rope Access Logbook</title>
+<meta name="description" content="Straight answers about IRATA/SPRAT recognition, fraud prevention, signatures, and what this app is — and is not." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #F3EEDF;
+  --surface: #FAF6E9;
+  --surface2: #EBE5D3;
+  --line: #1A1410;
+  --line-soft: #CBC2A8;
+  --text: #1A1410;
+  --text-dim: #574E40;
+  --text-faint: #8C8270;
+  --accent: #8B1F1A;
+  --accent-ink: #FAF6E9;
+  --stamp: 0 1px 0 var(--surface) inset, 0 2px 0 var(--line), 0 0 0 1.5px var(--line);
+  --font-display: 'Manrope', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font-display);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 28px; }
+header {
+  border-bottom: 1.5px solid var(--line);
+  padding: 18px 0;
+}
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); }
+.brand-mark {
+  width: 34px; height: 34px;
+  background: var(--accent);
+  border-radius: 8px;
+  box-shadow: var(--stamp);
+  display: grid; place-items: center;
+}
+.brand-mark svg { width: 20px; height: 20px; }
+.brand-name { font-weight: 800; font-size: 16px; letter-spacing: -0.02em; }
+main { padding: 64px 0 80px; }
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent);
+}
+h1 { font-size: clamp(32px, 5vw, 44px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; margin: 14px 0 10px; }
+.updated { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 40px; }
+h2 { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; margin: 44px 0 10px; }
+p, li { color: var(--text-dim); font-weight: 500; font-size: 15.5px; }
+p + p { margin-top: 12px; }
+ul { margin: 12px 0 0 0; padding-left: 0; list-style: none; display: grid; gap: 10px; }
+ul li { display: flex; gap: 10px; align-items: baseline; }
+ul li::before { content: '■'; color: var(--accent); font-size: 8px; flex-shrink: 0; transform: translateY(-2px); }
+ul li b, p b { color: var(--text); font-weight: 700; }
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--stamp);
+  padding: 20px 22px;
+  margin-top: 16px;
+}
+a { color: var(--accent); font-weight: 600; }
+footer { border-top: 1.5px solid var(--line); background: var(--surface2); padding: 28px 0; }
+footer p { font-size: 12.5px; color: var(--text-faint); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FAF6E9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 4.5 C5.5 5.5 4 8.5 4 12 c0 4.5 3 7.5 8 7.5 s8 -3 8 -7.5 c0 -3.5 -1.5 -6.5 -5 -7.5" />
+          <path d="M9 4.5 L15 4.5" />
+          <path d="M15 4.5 L15 9" />
+        </svg>
+      </span>
+      <span class="brand-name">Rope Access Logbook</span>
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <span class="kicker">Straight answers</span>
+    <h1>Frequently asked questions</h1>
+    <div class="updated">UPDATED JULY 13, 2026</div>
+
+    <p>Rope-access technicians are right to be skeptical of anything that touches their logbook. These are the questions we get asked most — including the hard ones — answered honestly.</p>
+
+    <h2 id="sanctioned">Is this app sanctioned, endorsed, or accepted by IRATA or SPRAT?</h2>
+    <p><b>No.</b> Rope Access Logbook is an independent product. It is not endorsed by, affiliated with, or officially accepted by SPRAT or IRATA, and we do not claim otherwise anywhere in the app, its exports, or its marketing. If a certification body ever confirms acceptance in writing, we'll say so — until then, assume the answer is no.</p>
+
+    <h2 id="replacement">Does it replace my official IRATA or SPRAT logbook?</h2>
+    <p><b>No.</b> Your scheme-issued logbook remains the official record of your working hours. IRATA's TACS sets specific requirements for how hours are recorded and verified, and those requirements are satisfied by the official logbook — not by this app. Keep maintaining your official logbook exactly as your scheme requires. This app is a supplementary record that sits alongside it.</p>
+
+    <h2 id="point">If it isn't official, what's the point?</h2>
+    <p>There is a real layer of value below official recognition, because the paper logbook fails in specific, well-known ways:</p>
+    <ul>
+      <li><b>Loss and damage.</b> A paper logbook is a single copy. If it's lost or destroyed, reconstruction depends on employer records that are often incomplete. A signed, exportable duplicate record is the strongest reconstruction evidence you can have.</li>
+      <li><b>Employer and site audits.</b> Most audits of your hours and gear never go through a certification body. Employers, clients, and site managers ask for records constantly — exports handle that without mailing your only logbook around.</li>
+      <li><b>Running totals.</b> Hours per scheme, per level, per task type — computed live instead of tallied by hand before an assessment.</li>
+      <li><b>Everything the paper logbook doesn't hold.</b> Gear inspection records, NDT records, photos, and per-entry detail.</li>
+    </ul>
+
+    <h2 id="editing">Can entries be edited after they're signed?</h2>
+    <p><b>No — and not as a policy, as a structural property.</b> An entry is a draft until it's signed. Once signed, it is never modified. Corrections are made through amendments: new entries that link back to the original, with the original preserved and visible. Every signature commits to a cryptographic fingerprint of the exact content that was reviewed, and signatures chain together — each one links to the one before it. Alter anything after the fact and verification fails visibly.</p>
+
+    <h2 id="verification">How does supervisor verification work?</h2>
+    <p>The technician drafts the entry. It cannot be signed at all until the required fields are complete — date, task, access method, location, hours, and certification details. The supervisor then reviews the specific entry and signs it: either in person with a drawn signature and written attestation, or remotely on their own device through a one-time signing link. SPRAT and IRATA supervisors must supply their certification number as part of the signature. Because the signature is bound to the exact content reviewed, neither party can adjust the hours afterward without breaking the record.</p>
+
+    <h2 id="fraud">What stops someone from logging fraudulent hours?</h2>
+    <p>Honest answer: fraud prevention splits into two problems, and only one of them can be solved by software alone.</p>
+    <p><b>What the app can prove:</b> that a record has not been altered since it was signed, who claimed to sign it, exactly what they attested to, and when. Every hour traces to a specific, individually attested entry — there is no way to bulk back-fill hours without leaving a visible trail, which is more than paper can say.</p>
+    <p><b>What the app cannot prove:</b> that a signer's certification number is genuine and current. Only IRATA and SPRAT hold the member registries that can validate that. This is precisely why the official logbook remains the canonical record, and why recognition of digital records is a decision that belongs to the certification bodies.</p>
+
+    <h2 id="commented">Has IRATA or SPRAT commented on this app?</h2>
+    <p>Not yet. Requesting written feedback from both bodies is a planned step in our compliance roadmap, after scheme-specific field coverage and review-ready export packages are complete. Until there is a written response, we make no claims about their position — and we'd encourage you to treat any third-party logbook app that does claim acceptance with suspicion.</p>
+
+    <h2 id="irata-builds">Couldn't IRATA just build this themselves?</h2>
+    <p>They could, and if they do it well, that's good for every technician. The app itself is the easy part. The hard part is what only a scheme can do: binding every signature to a verified, current member identity in their own registry, and committing to run the service — support, data custody, retention, dispute handling — indefinitely. If IRATA or SPRAT launch an official digital logbook, your records here export to open formats, and the app remains useful for everything that sits outside scheme certification: employer records, gear and NDT inspection logs, and your personal archive.</p>
+
+    <h2 id="upgrades">Do hours logged in this app count toward my next level?</h2>
+    <p><b>No.</b> Only hours recorded and verified the way your scheme requires count toward assessments and upgrades. The app can help you keep that official record accurate — live totals, complete entry details, and backup evidence if your logbook is ever questioned or lost — but it is not a substitute for it.</p>
+
+    <h2 id="data">Where is my data stored, and who controls it?</h2>
+    <p>On your device. The local database is the source of truth and the app works fully offline — no signal on site, no problem. Cloud backup is optional, tied to your account, and private to you. You can export your complete records as PDF, CSV, or JSON at any time, and you can delete your account and its cloud data from inside the app. There is no lock-in: your records leave with you.</p>
+
+    <h2 id="lost-phone">What happens if I lose my phone?</h2>
+    <p>Restore from a cloud backup or a saved snapshot onto a new device, with signatures and their verification chain intact. Compare that with the paper logbook, where loss is close to unrecoverable — which is exactly why we think every technician should keep a rigorous duplicate record. Losing the official logbook is still a serious problem you must handle through your scheme; this app just makes sure you don't lose the evidence along with it.</p>
+
+    <h2 id="trust">Why should I trust a small independent app with my career records?</h2>
+    <p>You shouldn't have to trust us — that's the design. Records live on your device first, export to open formats you can read without us, and carry a verification chain that anyone can check independently. If we disappeared tomorrow, your data would still be yours, readable, and verifiable.</p>
+
+    <h2>Still skeptical?</h2>
+    <div class="card">
+      <p>Good — skepticism is the correct default for anything that touches your logbook. If you have a question this page doesn't answer, ask us directly:<br />
+      <a href="mailto:chaddubuisson@gmail.com">chaddubuisson@gmail.com</a></p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Rope Access Logbook is an independent product — not endorsed by, affiliated with, or officially accepted by SPRAT or IRATA. SPRAT and IRATA are trademarks of their respective organizations.</p>
+  </div>
+</footer>
+
+</body>
+</html>
