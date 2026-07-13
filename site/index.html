@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Rope Access Logbook - Verified hours, signatures, and gear records.</title>
-<meta name="description" content="Rope Access Logbook is an offline-first iPhone app for rope-access technicians. Log hours, capture signatures, track gear, back up records, and export a tamper-evident audit trail." />
+<meta name="description" content="Rope Access Logbook is an offline-first app for rope-access technicians on iPhone and Android. Log hours, capture supervisor signatures, track gear, back up records, and export a tamper-evident audit trail. Now on the App Store and Google Play." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Newsreader:ital,wght@1,600&display=swap" rel="stylesheet" />
@@ -101,8 +101,18 @@ a { color: inherit; }
   text-decoration: none;
   min-width: 0;
 }
-
-
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 800 16px/1 var(--font);
+  box-shadow: var(--stamp);
+}
 .brand-text {
   display: grid;
   gap: 2px;
@@ -161,78 +171,80 @@ a { color: inherit; }
   color: var(--text);
 }
 
+/* Store badges — glyphs adapted from Font Awesome Free (CC BY 4.0) */
+.store-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.store-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 9px 20px 9px 15px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--line);
+  color: var(--bg);
+  text-decoration: none;
+  box-shadow: 0 2px 0 rgba(26,20,16,.55), 0 0 0 1.5px var(--line);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.store-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 rgba(26,20,16,.55), 0 0 0 1.5px var(--line);
+}
+.store-badge svg {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  fill: currentColor;
+}
+.store-badge .badge-text {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+.store-badge .badge-text span {
+  font: 700 9px/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: .75;
+}
+.store-badge .badge-text strong {
+  font-size: 17px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
 .hero {
-  position: relative;
-  min-height: clamp(540px, 74svh, 740px);
-  overflow: hidden;
-  isolation: isolate;
+  border-bottom: 1.5px solid var(--line);
   background:
-    linear-gradient(90deg, rgba(243,238,223,.98) 0%, rgba(243,238,223,.93) 38%, rgba(243,238,223,.54) 76%, rgba(243,238,223,.92) 100%),
-    url("media/ralb-poster.png") center right / min(760px, 72vw) auto no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0, transparent 47px, rgba(26,20,16,.07) 48px),
     var(--bg);
 }
-.hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent 47px,
-    rgba(26,20,16,.095) 48px
-  );
-}
-.phone {
-  position: absolute;
-  z-index: -1;
-  width: min(28vw, 270px);
-  filter: drop-shadow(0 20px 28px rgba(26,20,16,.18));
-}
-.phone.main {
-  right: clamp(42px, 10vw, 150px);
-  bottom: -46px;
-}
-.phone.sign {
-  right: clamp(218px, 28vw, 360px);
-  bottom: 46px;
-  width: min(23vw, 218px);
-  transform: rotate(-4deg);
-}
-.phone.sealed {
-  right: clamp(-18px, 2vw, 34px);
-  top: 72px;
-  width: min(21vw, 196px);
-  transform: rotate(4deg);
-}
-.hero-content {
-  min-height: inherit;
-  display: flex;
+.hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, .75fr);
+  gap: clamp(32px, 5vw, 72px);
   align-items: center;
-  padding: 58px 0 54px;
-}
-.hero-copy {
-  width: min(690px, 100%);
+  padding: clamp(56px, 8vw, 104px) 0;
 }
 .hero h1 {
   margin: 0;
-  font-size: clamp(50px, 8vw, 110px);
-  line-height: .86;
+  font-size: clamp(48px, 7.2vw, 96px);
+  line-height: .9;
   letter-spacing: 0;
 }
 .hero p:not(.eyebrow) {
   margin: 24px 0 0;
-  max-width: 590px;
+  max-width: 560px;
   color: var(--text-dim);
-  font-size: clamp(17px, 2.1vw, 22px);
+  font-size: clamp(17px, 2.1vw, 21px);
   line-height: 1.5;
 }
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 30px;
-}
+.hero .store-badges { margin-top: 32px; }
 .hero-proof {
   display: flex;
   flex-wrap: wrap;
@@ -248,10 +260,34 @@ a { color: inherit; }
   text-transform: uppercase;
   background: rgba(250,246,233,.76);
 }
+.poster-frame {
+  justify-self: center;
+  width: min(380px, 100%);
+  padding: 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--surface) inset, 0 6px 0 var(--line), 0 0 0 1.5px var(--line);
+  transform: rotate(1.6deg);
+}
+.poster-frame img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line-soft);
+}
+.poster-frame figcaption {
+  padding: 12px 4px 2px;
+  font: 700 10px/1.4 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
 
 .proof-strip {
   background: var(--surface);
-  border-top: 1.5px solid var(--line);
   border-bottom: 1.5px solid var(--line);
 }
 .proof-grid {
@@ -297,6 +333,7 @@ section.content {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
+  align-items: stretch;
 }
 .product-panel {
   border: 1.5px solid var(--line);
@@ -304,26 +341,19 @@ section.content {
   background: var(--surface);
   overflow: hidden;
   box-shadow: var(--stamp);
+  display: flex;
+  flex-direction: column;
 }
 .product-panel.featured {
-  display: block;
   background: var(--surface2);
-}
-.product-panel img {
-  width: 100%;
-  display: block;
-}
-.phone-image {
-  width: min(260px, 78%);
-  margin: 24px auto 0;
-  filter: drop-shadow(0 18px 20px rgba(26,20,16,.16));
 }
 .panel-copy {
   padding: 24px;
+  margin-top: auto;
 }
 .panel-copy h3 {
   margin: 0;
-  font-size: clamp(22px, 3vw, 34px);
+  font-size: clamp(22px, 3vw, 30px);
   line-height: 1.05;
   letter-spacing: 0;
 }
@@ -332,8 +362,206 @@ section.content {
   color: var(--text-dim);
   line-height: 1.55;
 }
-.stacked-panels {
-  display: contents;
+
+/* Hand-set phone mocks — drawn in HTML so they stay crisp at any size */
+.mock-phone {
+  width: min(272px, 84%);
+  margin: 30px auto 0;
+  border: 2px solid var(--line);
+  border-radius: 26px;
+  background: var(--bg);
+  box-shadow: 0 18px 22px rgba(26,20,16,.16);
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.mock-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 4px;
+  font: 700 10px/1 var(--mono);
+  color: var(--text-dim);
+}
+.mock-status i {
+  font-style: normal;
+  letter-spacing: 2px;
+}
+.mock-title {
+  padding: 8px 16px 12px;
+  font-weight: 800;
+  font-size: 14px;
+  text-align: center;
+  border-bottom: 1px solid var(--line-soft);
+}
+.mock-body { padding: 14px; display: grid; gap: 10px; }
+.mock-card {
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 12px;
+}
+.mock-label {
+  font: 700 8px/1 var(--mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.mock-stat {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+.mock-stat small {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.mock-hash {
+  margin-top: 8px;
+  display: inline-block;
+  padding: 4px 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--surface2);
+  font: 600 9px/1 var(--mono);
+  color: var(--text-dim);
+}
+.mock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.mock-row:last-child { border-bottom: 0; }
+.mock-row strong { font-size: 11.5px; display: block; }
+.mock-row span { color: var(--text-dim); font-size: 10px; display: block; margin-top: 1px; }
+.mock-pill {
+  flex: none;
+  border-radius: 999px;
+  padding: 4px 7px;
+  font: 700 8px/1 var(--mono);
+  text-transform: uppercase;
+}
+.mock-pill.draft { color: var(--warn); background: var(--warn-soft); }
+.mock-pill.signed { color: var(--ok); background: var(--ok-soft); }
+.mock-pill.sealed { color: var(--accent); background: var(--accent-soft); }
+.mock-btn {
+  display: block;
+  text-align: center;
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  padding: 10px;
+  font-weight: 800;
+  font-size: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.mock-btn.ghost { background: var(--surface); color: var(--text); }
+.mock-chips { display: flex; gap: 6px; }
+.mock-chip {
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 800;
+  font-size: 10px;
+  background: var(--surface);
+}
+.mock-chip.on { background: var(--accent); color: var(--accent-ink); }
+.mock-field {
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  padding: 9px 11px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.mock-sigbox {
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  min-height: 74px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.mock-sigbox em {
+  font: italic 600 26px/1 var(--scrawl);
+  transform: rotate(-3deg);
+  color: var(--text);
+}
+.mock-sigbox::after {
+  content: 'SIGN HERE';
+  position: absolute;
+  left: 12px;
+  bottom: 7px;
+  font: 700 7px/1 var(--mono);
+  letter-spacing: .16em;
+  color: var(--text-faint);
+}
+.mock-attest {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  align-items: start;
+  font-size: 9.5px;
+  color: var(--text-dim);
+}
+.mock-attest b {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: 10px;
+}
+.mock-seal {
+  width: 120px;
+  height: 120px;
+  margin: 14px auto 4px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    repeating-conic-gradient(var(--accent) 0 1.6deg, transparent 1.6deg 30deg);
+}
+.mock-seal b {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+}
+.mock-seal b span {
+  width: 52px;
+  height: 52px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--accent-2);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  font: 800 26px/1 var(--font);
+}
+.mock-sealed-title {
+  text-align: center;
+  font-weight: 800;
+  font-size: 16px;
+}
+.mock-sealed-hash {
+  text-align: center;
+  font: 600 9px/1 var(--mono);
+  color: var(--text-faint);
+  margin-bottom: 6px;
 }
 
 .feature-band {
@@ -534,9 +762,15 @@ section.content {
   margin: 0 0 22px;
   color: rgba(250,246,233,.78);
 }
-.price-card .button {
+.price-card .store-badges {
+  flex-direction: column;
+  align-items: stretch;
+}
+.price-card .store-badge {
+  justify-content: center;
   background: var(--surface);
   color: var(--text);
+  box-shadow: 0 2px 0 rgba(26,20,16,.55), 0 0 0 1.5px var(--line);
 }
 .legal-links {
   display: flex;
@@ -594,31 +828,14 @@ section.content {
 
 @media (max-width: 900px) {
   .nav-links a:not(.button) { display: none; }
-  .hero {
-    min-height: clamp(570px, 76svh, 700px);
-    background:
-      linear-gradient(0deg, rgba(243,238,223,.98) 0%, rgba(243,238,223,.88) 54%, rgba(243,238,223,.58) 100%),
-      url("media/ralb-poster.png") top 28px center / min(520px, 92vw) auto no-repeat,
-      var(--bg);
+  .hero-layout {
+    grid-template-columns: 1fr;
+    padding: 48px 0 56px;
   }
-  .hero-content {
-    align-items: flex-end;
-    justify-content: flex-end;
-    padding-bottom: 44px;
+  .poster-frame {
+    width: min(320px, 82%);
+    transform: rotate(1.2deg);
   }
-  .phone.main {
-    width: 210px;
-    right: 8px;
-    bottom: 244px;
-    opacity: .9;
-  }
-  .phone.sign {
-    width: 170px;
-    right: 154px;
-    bottom: 284px;
-    opacity: .76;
-  }
-  .phone.sealed { display: none; }
   .proof-grid,
   .feature-grid,
   .chain-grid,
@@ -630,10 +847,6 @@ section.content {
     grid-template-columns: 1fr;
   }
   .footer-links { justify-content: flex-start; }
-  .stacked-panels {
-    display: grid;
-    gap: 18px;
-  }
 }
 
 @media (max-width: 560px) {
@@ -641,24 +854,11 @@ section.content {
   .nav { height: 62px; }
   .brand-text span { display: none; }
   .nav-links .button { min-height: 38px; padding: 0 12px; font-size: 12px; }
-  .hero h1 { font-size: clamp(48px, 15vw, 72px); }
+  .hero h1 { font-size: clamp(44px, 14vw, 64px); }
   .hero p:not(.eyebrow) { font-size: 16px; }
-  .hero-actions .button { width: 100%; }
+  .store-badges { width: 100%; }
+  .store-badge { flex: 1 1 100%; justify-content: center; }
   .hero-proof span { font-size: 10px; }
-  .phone.main {
-    width: 214px;
-    right: -28px;
-    top: 84px;
-    bottom: auto;
-    opacity: .24;
-  }
-  .phone.sign {
-    width: 160px;
-    right: 122px;
-    top: 106px;
-    bottom: auto;
-    opacity: .18;
-  }
   .proof-grid { grid-template-columns: 1fr 1fr; }
   .proof-item { padding: 18px; }
   .feature-card { min-height: auto; }
@@ -687,24 +887,27 @@ section.content {
       <a href="#chain">Proof</a>
       <a href="#pricing">Pricing</a>
       <a href="book.html">Book</a>
-      <a class="button" href="#pricing">Start trial</a>
+      <a class="button" href="#pricing">Download</a>
     </nav>
   </div>
 </header>
 
 <main id="top">
   <section class="hero" aria-labelledby="hero-title">
-    <img class="phone sign" src="media/sign-heliotype-phone.png" alt="" />
-    <img class="phone sealed" src="media/sealed-heliotype-phone.png" alt="" />
-    <img class="phone main" src="media/today-heliotype-phone.png" alt="" />
-    <div class="wrap hero-content">
+    <div class="wrap hero-layout">
       <div class="hero-copy reveal">
-        <p class="eyebrow">Built for rope access technicians</p>
-        <h1 id="hero-title">Rope Access Logbook</h1>
-        <p>Log hours off-grid, collect supervisor signatures, track gear, and export a tamper-evident record when someone needs proof.</p>
-        <div class="hero-actions">
-          <a class="button" href="#pricing">Start free trial</a>
-          <a class="button secondary" href="#product">See the app</a>
+        <p class="eyebrow">Now on the App Store &amp; Google Play</p>
+        <h1 id="hero-title">Hours you can prove.</h1>
+        <p>Log rope-access hours off-grid, collect supervisor signatures, track gear, and export a tamper-evident record when someone needs proof.</p>
+        <div class="store-badges">
+          <a class="store-badge" href="https://apps.apple.com/app/id6775173582" aria-label="Download on the App Store">
+            <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+            <span class="badge-text"><span>Download on the</span><strong>App Store</strong></span>
+          </a>
+          <a class="store-badge" href="https://play.google.com/store/apps/details?id=com.ropeaccess.logbook" aria-label="Get it on Google Play">
+            <svg viewBox="0 0 512 512" aria-hidden="true"><path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z"/></svg>
+            <span class="badge-text"><span>Get it on</span><strong>Google Play</strong></span>
+          </a>
         </div>
         <div class="hero-proof" aria-label="Key capabilities">
           <span>Offline-first</span>
@@ -713,6 +916,10 @@ section.content {
           <span>Audit exports</span>
         </div>
       </div>
+      <figure class="poster-frame reveal">
+        <img src="media/ralb-poster.png" alt="Rope Access Logbook poster: a technician rappelling from a carabiner shaped like the letter R." />
+        <figcaption><span>RALB - Field records</span><span>iPhone + Android</span></figcaption>
+      </figure>
     </div>
   </section>
 
@@ -748,28 +955,80 @@ section.content {
       </div>
       <div class="product-grid">
         <article class="product-panel featured reveal">
-          <img class="phone-image" src="media/today-heliotype-phone.png" alt="Rope Access Logbook dashboard showing career hours, chain head, and quick log actions." />
+          <div class="mock-phone" role="img" aria-label="Today screen showing career hours, chain head, quick actions, and recent entries.">
+            <div class="mock-status"><span>9:41</span><i>&#9679;&#9679;&#9679;</i></div>
+            <div class="mock-title">Today</div>
+            <div class="mock-body">
+              <div class="mock-card">
+                <div class="mock-label">Career hours</div>
+                <div class="mock-stat">1,284.5 <small>hrs</small></div>
+                <span class="mock-hash">chain head &#183; a3f9c1e4d702</span>
+              </div>
+              <span class="mock-btn">+ Log entry</span>
+              <span class="mock-btn ghost">Request signature</span>
+              <div class="mock-card">
+                <div class="mock-row">
+                  <div><strong>BP Whiting &#183; Tank 47B</strong><span>7.5 hrs &#183; NDT support</span></div>
+                  <span class="mock-pill draft">Draft</span>
+                </div>
+                <div class="mock-row">
+                  <div><strong>Cypress Wind &#183; WTG-14</strong><span>6.0 hrs &#183; Rig &amp; repair</span></div>
+                  <span class="mock-pill signed">Signed</span>
+                </div>
+                <div class="mock-row">
+                  <div><strong>Sky Tower 1</strong><span>5.5 hrs &#183; Facade clean</span></div>
+                  <span class="mock-pill sealed">Sealed</span>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="panel-copy">
             <h3>Open the app. Finish the shift.</h3>
             <p>The Today view keeps current hours, draft work, queued signatures, and next actions in one place.</p>
           </div>
         </article>
-        <div class="stacked-panels">
-          <article class="product-panel reveal">
-            <img class="phone-image" src="media/sign-heliotype-phone.png" alt="Sign entry screen with supervisor details and signature area." />
-            <div class="panel-copy">
-              <h3>Signatures stay attached.</h3>
-              <p>Capture who signed, what they reviewed, and the entry state at the moment of approval.</p>
+        <article class="product-panel reveal">
+          <div class="mock-phone" role="img" aria-label="Sign entry screen with supervisor details, signature area, and attestation.">
+            <div class="mock-status"><span>9:41</span><i>&#9679;&#9679;&#9679;</i></div>
+            <div class="mock-title">Sign entry</div>
+            <div class="mock-body">
+              <div class="mock-card">
+                <div class="mock-row" style="border-bottom:0;padding:0;">
+                  <div><strong>BP Whiting &#183; Tank 47B</strong><span>May 15, 2026 &#183; 7.5 hrs &#183; NDT</span></div>
+                  <span class="mock-pill draft">Draft</span>
+                </div>
+              </div>
+              <div class="mock-label" style="margin:2px 0 0;">Who is signing?</div>
+              <div class="mock-chips">
+                <span class="mock-chip on">SPRAT</span>
+                <span class="mock-chip">IRATA</span>
+              </div>
+              <div class="mock-field">Marisol Kerr</div>
+              <div class="mock-sigbox"><em>Marisol Kerr</em></div>
+              <div class="mock-attest"><b>&#10003;</b><span>I directly supervised the work above and this record is accurate to my knowledge.</span></div>
             </div>
-          </article>
-          <article class="product-panel reveal">
-            <img class="phone-image" src="media/sealed-heliotype-phone.png" alt="Sealed in chain confirmation screen." />
-            <div class="panel-copy">
-              <h3>Sealed means sealed.</h3>
-              <p>Once an entry is signed, corrections become amendments instead of silent edits.</p>
+          </div>
+          <div class="panel-copy">
+            <h3>Signatures stay attached.</h3>
+            <p>Capture who signed, what they reviewed, and the entry state at the moment of approval.</p>
+          </div>
+        </article>
+        <article class="product-panel reveal">
+          <div class="mock-phone" role="img" aria-label="Sealed in chain confirmation screen with seal and entry hash.">
+            <div class="mock-status"><span>9:41</span><i>&#9679;&#9679;&#9679;</i></div>
+            <div class="mock-title">Sealing chain</div>
+            <div class="mock-body">
+              <div class="mock-seal"><b><span>R</span></b></div>
+              <div class="mock-sealed-title">Sealed in chain</div>
+              <div class="mock-sealed-hash">3f9a1c54a7b1d220</div>
+              <span class="mock-btn">&#10003; View signed entry</span>
             </div>
-          </article>
-        </div>
+          </div>
+          <div class="panel-copy">
+            <h3>Sealed means sealed.</h3>
+            <p>Once an entry is signed, corrections become amendments instead of silent edits.</p>
+          </div>
+        </article>
       </div>
     </div>
   </section>
@@ -883,7 +1142,7 @@ section.content {
         <div class="pricing-copy">
           <p class="eyebrow">Subscription</p>
           <h2>Full access for the price of not losing a single hour.</h2>
-          <p>Includes signed logbook entries, cloud backup and restore, remote signing, gear records, NDT records, and audit exports.</p>
+          <p>Includes signed logbook entries, cloud backup and restore, remote signing, gear records, NDT records, and audit exports. Available on iPhone and Android.</p>
           <div class="legal-links">
             <a href="/privacy.html">Privacy Policy</a>
             <a href="/terms.html">Terms of Use</a>
@@ -892,8 +1151,17 @@ section.content {
         <aside class="price-card">
           <span class="eyebrow">14-day free trial</span>
           <div class="price">$2.99</div>
-          <p>per month after trial. Cancel from App Store subscription settings.</p>
-          <a class="button" href="mailto:chaddubuisson@gmail.com?subject=Rope%20Access%20Logbook">Request access</a>
+          <p>per month after trial. Cancel anytime in your app store's subscription settings.</p>
+          <div class="store-badges">
+            <a class="store-badge" href="https://apps.apple.com/app/id6775173582" aria-label="Download on the App Store">
+              <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+              <span class="badge-text"><span>Download on the</span><strong>App Store</strong></span>
+            </a>
+            <a class="store-badge" href="https://play.google.com/store/apps/details?id=com.ropeaccess.logbook" aria-label="Get it on Google Play">
+              <svg viewBox="0 0 512 512" aria-hidden="true"><path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z"/></svg>
+              <span class="badge-text"><span>Get it on</span><strong>Google Play</strong></span>
+            </a>
+          </div>
         </aside>
       </div>
     </div>
@@ -904,12 +1172,14 @@ section.content {
   <div class="wrap footer-grid">
     <div>
       <strong>Rope Access Logbook</strong>
-      <p>Independent software for audit-ready rope access recordkeeping. Not endorsed by, affiliated with, or officially accepted by SPRAT or IRATA. SPRAT and IRATA are trademarks of their respective organizations.</p>
+      <p>Independent software for audit-ready rope access recordkeeping. Not endorsed by, affiliated with, or officially accepted by SPRAT or IRATA. SPRAT and IRATA are trademarks of their respective organizations. Apple and the App Store are trademarks of Apple Inc. Google Play is a trademark of Google LLC.</p>
     </div>
     <nav class="footer-links" aria-label="Footer navigation">
       <a href="#product">Product</a>
       <a href="#chain">Proof</a>
       <a href="book.html">Book</a>
+      <a href="https://apps.apple.com/app/id6775173582">App Store</a>
+      <a href="https://play.google.com/store/apps/details?id=com.ropeaccess.logbook">Google Play</a>
       <a href="/privacy.html">Privacy</a>
       <a href="/terms.html">Terms</a>
     </nav>
