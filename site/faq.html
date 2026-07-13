@@ -110,8 +110,8 @@ footer p { font-size: 12.5px; color: var(--text-faint); }
     <h2 id="point">If it isn't official, what's the point?</h2>
     <p>There is a real layer of value below official recognition, because the paper logbook fails in specific, well-known ways:</p>
     <ul>
-      <li><b>Loss and damage.</b> A paper logbook is a single copy. If it's lost or destroyed, reconstruction depends on employer records that are often incomplete. A signed, exportable duplicate record is the strongest reconstruction evidence you can have.</li>
-      <li><b>Employer and site audits.</b> Most audits of your hours and gear never go through a certification body. Employers, clients, and site managers ask for records constantly — exports handle that without mailing your only logbook around.</li>
+      <li><b>Loss and damage.</b> A paper logbook is a single copy. If it's lost or destroyed, reconstruction depends on employer records that are often incomplete. A signed, exportable duplicate record is strong independent evidence for reconstructing your history.</li>
+      <li><b>Employer and site audits.</b> Many audits of your hours and gear never go through a certification body. Employers, clients, and site managers ask for records constantly — exports handle that without mailing your only logbook around.</li>
       <li><b>Running totals.</b> Hours per scheme, per level, per task type — computed live instead of tallied by hand before an assessment.</li>
       <li><b>Everything the paper logbook doesn't hold.</b> Gear inspection records, NDT records, photos, and per-entry detail.</li>
     </ul>
@@ -120,11 +120,11 @@ footer p { font-size: 12.5px; color: var(--text-faint); }
     <p><b>No — and not as a policy, as a structural property.</b> An entry is a draft until it's signed. Once signed, it is never modified. Corrections are made through amendments: new entries that link back to the original, with the original preserved and visible. Every signature commits to a cryptographic fingerprint of the exact content that was reviewed, and signatures chain together — each one links to the one before it. Alter anything after the fact and verification fails visibly.</p>
 
     <h2 id="verification">How does supervisor verification work?</h2>
-    <p>The technician drafts the entry. It cannot be signed at all until the required fields are complete — date, task, access method, location, hours, and certification details. The supervisor then reviews the specific entry and signs it: either in person with a drawn signature and written attestation, or remotely on their own device through a one-time signing link. SPRAT and IRATA supervisors must supply their certification number as part of the signature. Because the signature is bound to the exact content reviewed, neither party can adjust the hours afterward without breaking the record.</p>
+    <p>The technician drafts the entry. It cannot be signed at all until the required fields are complete — work dates, employer, client, site, work task, access method, structure type, hours, maximum height, and a work description. The supervisor then reviews the specific entry and signs it: either in person with a drawn signature and written attestation, or remotely on their own device through a one-time signing link. IRATA and SPRAT supervisors must supply their IRATA number or SPRAT certification number as part of the signature. Because the signature is bound to the exact content reviewed, neither party can adjust the hours afterward without breaking the record.</p>
 
     <h2 id="fraud">What stops someone from logging fraudulent hours?</h2>
     <p>Honest answer: fraud prevention splits into two problems, and only one of them can be solved by software alone.</p>
-    <p><b>What the app can prove:</b> that a record has not been altered since it was signed, who claimed to sign it, exactly what they attested to, and when. Every hour traces to a specific, individually attested entry — there is no way to bulk back-fill hours without leaving a visible trail, which is more than paper can say.</p>
+    <p><b>What the app can prove:</b> that a record has not been altered since it was signed, who claimed to sign it, exactly what they attested to, and when. Every hour traces to a specific, individually attested entry, and no entry's hours or details can be altered after signing without breaking verification — which is more than paper can say.</p>
     <p><b>What the app cannot prove:</b> that a signer's certification number is genuine and current. Only IRATA and SPRAT hold the member registries that can validate that. This is precisely why the official logbook remains the canonical record, and why recognition of digital records is a decision that belongs to the certification bodies.</p>
 
     <h2 id="commented">Has IRATA or SPRAT commented on this app?</h2>
@@ -134,13 +134,13 @@ footer p { font-size: 12.5px; color: var(--text-faint); }
     <p>They could, and if they do it well, that's good for every technician. The app itself is the easy part. The hard part is what only a scheme can do: binding every signature to a verified, current member identity in their own registry, and committing to run the service — support, data custody, retention, dispute handling — indefinitely. If IRATA or SPRAT launch an official digital logbook, your records here export to open formats, and the app remains useful for everything that sits outside scheme certification: employer records, gear and NDT inspection logs, and your personal archive.</p>
 
     <h2 id="upgrades">Do hours logged in this app count toward my next level?</h2>
-    <p><b>No.</b> Only hours recorded and verified the way your scheme requires count toward assessments and upgrades. The app can help you keep that official record accurate — live totals, complete entry details, and backup evidence if your logbook is ever questioned or lost — but it is not a substitute for it.</p>
+    <p><b>No.</b> Only hours recorded and verified the way your scheme requires count toward assessments and upgrades. The app can help you keep that official record accurate — live totals, complete entry details, and a corroborating record if your logbook is ever questioned or lost — but it is not a substitute for it.</p>
 
     <h2 id="data">Where is my data stored, and who controls it?</h2>
     <p>On your device. The local database is the source of truth and the app works fully offline — no signal on site, no problem. Cloud backup is optional, tied to your account, and private to you. You can export your complete records as PDF, CSV, or JSON at any time, and you can delete your account and its cloud data from inside the app. There is no lock-in: your records leave with you.</p>
 
     <h2 id="lost-phone">What happens if I lose my phone?</h2>
-    <p>Restore from a cloud backup or a saved snapshot onto a new device, with signatures and their verification chain intact. Compare that with the paper logbook, where loss is close to unrecoverable — which is exactly why we think every technician should keep a rigorous duplicate record. Losing the official logbook is still a serious problem you must handle through your scheme; this app just makes sure you don't lose the evidence along with it.</p>
+    <p>If you turned on cloud backup or saved an export off your device, you can restore onto a new device with signatures and their verification chain intact. Compare that with the paper logbook, where loss is close to unrecoverable — which is exactly why we think every technician should keep a rigorous duplicate record. Losing the official logbook is still a serious problem you must handle through your scheme; this app just makes sure you don't lose the evidence along with it.</p>
 
     <h2 id="trust">Why should I trust a small independent app with my career records?</h2>
     <p>You shouldn't have to trust us — that's the design. Records live on your device first, export to open formats you can read without us, and carry a verification chain that anyone can check independently. If we disappeared tomorrow, your data would still be yours, readable, and verifiable.</p>
