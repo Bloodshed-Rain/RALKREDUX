@@ -817,6 +817,46 @@ section.content {
   text-decoration: none;
 }
 
+.faq-list {
+  margin-top: 36px;
+  display: grid;
+  gap: 14px;
+  max-width: 880px;
+}
+.faq-item {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--stamp);
+}
+.faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 22px;
+  font-weight: 800;
+  font-size: clamp(16px, 2vw, 19px);
+  line-height: 1.3;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-mark {
+  flex: none;
+  font: 700 18px/1 var(--mono);
+  color: var(--accent);
+  transition: transform .18s ease;
+}
+.faq-item[open] .faq-mark { transform: rotate(45deg); }
+.faq-item > p {
+  margin: 0;
+  padding: 0 22px 20px;
+  max-width: 72ch;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
 .reveal {
   opacity: 1;
   transform: none;
@@ -885,6 +925,7 @@ section.content {
     <nav class="nav-links" aria-label="Primary navigation">
       <a href="#product">Product</a>
       <a href="#chain">Proof</a>
+      <a href="#faq">FAQ</a>
       <a href="#pricing">Pricing</a>
       <a href="book.html">Book</a>
       <a class="button" href="#pricing">Download</a>
@@ -1136,6 +1177,46 @@ section.content {
     </div>
   </section>
 
+  <section class="content faq" id="faq">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Hard questions</p>
+        <h2 class="section-title">Go ahead — poke holes.</h2>
+        <p class="section-copy">A logbook app deserves skepticism. The record is your career. Straight answers to the questions people actually ask:</p>
+      </div>
+      <div class="faq-list reveal">
+        <details class="faq-item">
+          <summary>Is this an official SPRAT or IRATA logbook?<span class="faq-mark">+</span></summary>
+          <p>No — and we won't pretend otherwise. Your paper logbook remains the official record for certification. Rope Access Logbook is independent software built for audit-readiness: a signed, tamper-evident record of your hours that doesn't fade, tear, or get left in a truck. It backs your paper book; it doesn't replace it.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Why would an auditor trust an app over ink on paper?<span class="faq-mark">+</span></summary>
+          <p>They don't have to trust it — they can check it. Every signed entry is hashed, and every signature folds in the hash of the signature before it. Change one field after the fact and the chain stops verifying. Ink can be altered quietly; this can't be.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Couldn't I just type in fake hours?<span class="faq-mark">+</span></summary>
+          <p>You can write fake hours in a paper book too — a logbook has always been claims plus a supervisor's signature. The difference here is that the signature is bound to the exact content of the entry at the moment of signing. What the app removes is the quiet after-the-fact edit, which is where padded logbooks actually come from.</p>
+        </details>
+        <details class="faq-item">
+          <summary>I made a mistake in a signed entry. Now what?<span class="faq-mark">+</span></summary>
+          <p>You amend it — a new entry that points back at the original, with both kept in the record. Same discipline as a corrected paper logbook: cross out and initial, never erase. A record that can be silently rewritten isn't worth signing.</p>
+        </details>
+        <details class="faq-item">
+          <summary>My supervisor won't sign on someone else's phone.<span class="faq-mark">+</span></summary>
+          <p>They don't have to. Send a one-time signing link and they review and sign from their own phone in a browser — no app install, no account. If they leave site before your paperwork is done, the record doesn't stall.</p>
+        </details>
+        <details class="faq-item">
+          <summary>What about zero signal on site?<span class="faq-mark">+</span></summary>
+          <p>The app is offline-first. Logging, on-device signing, gear records, and exports all work with no connectivity. Only remote-signing links and cloud backup need a connection, and both catch up when you're back in coverage.</p>
+        </details>
+        <details class="faq-item">
+          <summary>What happens to my hours if I stop paying — or you disappear?<span class="faq-mark">+</span></summary>
+          <p>Your records live in a database on your device — the source of truth is local, not our servers. Cloud backup is a convenience on top, and every export is a file you keep. Your career history shouldn't be hostage to any company's uptime, including ours.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
   <section class="content pricing" id="pricing">
     <div class="wrap">
       <div class="pricing-box reveal">
@@ -1177,6 +1258,7 @@ section.content {
     <nav class="footer-links" aria-label="Footer navigation">
       <a href="#product">Product</a>
       <a href="#chain">Proof</a>
+      <a href="#faq">FAQ</a>
       <a href="book.html">Book</a>
       <a href="https://apps.apple.com/app/id6775173582">App Store</a>
       <a href="https://play.google.com/store/apps/details?id=com.ropeaccess.logbook">Google Play</a>
