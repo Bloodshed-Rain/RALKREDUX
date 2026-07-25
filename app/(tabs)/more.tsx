@@ -48,6 +48,7 @@ import {
   type TerminalActionPref,
 } from '@/src/storage/local-prefs';
 import { haptics, setHapticsEnabled } from '@/src/ui/haptics';
+import { shareTextAsFile } from '@/src/ui/share-file';
 
 const TERMINAL_ACTION_OPTIONS: Array<{ value: TerminalActionPref; label: string }> = [
   { value: 'sign', label: 'Sign now' },
@@ -158,9 +159,13 @@ export default function ProfileScreen() {
     try {
       const snapshot = await createBackup.mutateAsync();
       haptics.success();
-      await Share.share({
-        title: 'Rope Access Logbook recovery snapshot',
-        message: JSON.stringify(snapshot, null, 2),
+      // A file. The whole point of a recovery snapshot is that it survives to be
+      // handed back later — a message body is the one place it can't.
+      await shareTextAsFile({
+        fileName: `ralb-recovery-${new Date().toISOString().slice(0, 10)}.json`,
+        contents: JSON.stringify(snapshot, null, 2),
+        format: 'json',
+        dialogTitle: 'Share Rope Access Logbook recovery snapshot',
       });
     } catch (err) {
       // A failed snapshot build (DB read error) previously threw an unhandled
@@ -315,10 +320,21 @@ export default function ProfileScreen() {
             sub="Generate auditor-ready packet (PDF / JSON / CSV)"
             onPress={() => router.push('/export' as never)}
           />
+          {/* Cloud backup/restore is the real recovery path and it lives on the
+              Account screen. This row used to be the one labelled "Sync & backup",
+              so someone who'd lost a phone read these two labels and picked the
+              manual paste-a-snapshot panel. Name each row for what it actually
+              does, and point the offline one at the automatic one. */}
           <SettingsRow
             icon={IconCloudBackup}
-            title="Sync & backup"
-            sub={showBackup ? 'Tap to close' : 'Share or restore a recovery snapshot'}
+            title="Cloud backup & restore"
+            sub="Automatic snapshots — restore onto a new device"
+            onPress={() => router.push('/account' as never)}
+          />
+          <SettingsRow
+            icon={IconExport}
+            title="Manual recovery snapshot"
+            sub={showBackup ? 'Tap to close' : 'Export or paste a snapshot file by hand'}
             onPress={() => setShowBackup((v) => !v)}
           />
           {showBackup ? (
@@ -357,7 +373,7 @@ export default function ProfileScreen() {
           <SettingsRow
             icon={IconProfile}
             title="Account"
-            sub="Sign-in, billing, and sign out"
+            sub="Sign-in, billing, cloud backup, and sign out"
             onPress={() => router.push('/account' as never)}
           />
           <SettingsRow

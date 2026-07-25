@@ -314,7 +314,7 @@ export function buildEntryExportFileName(packet: LogbookExportPacket, extension:
 
 export function buildLogbookExportFileName(
   bundle: LogbookExportBundle,
-  extension: 'json' | 'pdf',
+  extension: 'json' | 'pdf' | 'csv',
 ): string {
   const date = (bundle.exported_at || nowIso()).slice(0, 10);
   return `ralb-logbook-${date}-${filenamePart(bundle.profile?.full_name)}.${extension}`;

@@ -62,6 +62,7 @@ import {
   IconWarn,
 } from '@/src/ui/icons';
 import { haptics } from '@/src/ui/haptics';
+import { shareTextAsFile } from '@/src/ui/share-file';
 
 function firstParam(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -210,9 +211,12 @@ export default function EntryDetailScreen() {
     if (!entryId) return;
     try {
       const packet = await exportEntry.mutateAsync(entryId);
-      await Share.share({
-        title: 'Rope Access Logbook entry audit packet',
-        message: JSON.stringify(packet, null, 2),
+      // A file, not a message body — same reasoning as the PDF path below.
+      await shareTextAsFile({
+        fileName: buildEntryExportFileName(packet, 'json'),
+        contents: JSON.stringify(packet, null, 2),
+        format: 'json',
+        dialogTitle: 'Share Rope Access Logbook entry audit packet',
       });
     } catch (err) {
       // A failed packet build (e.g. an evicted offline photo) previously threw

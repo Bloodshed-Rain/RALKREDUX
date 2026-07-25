@@ -32,6 +32,7 @@ import {
 import { useNdtExportData } from '@/src/domain/ndt/use-ndt';
 import { buildNdtCsv, buildNdtCsvRows, buildNdtPdfHtml } from '@/src/domain/ndt/ndt-export';
 import { isValidIsoDateRange } from '@/src/domain/date-utils';
+import { shareTextAsFile } from '@/src/ui/share-file';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { type } from '@/src/ui/theme/type';
 import {
@@ -200,9 +201,14 @@ export default function ExportScreen() {
             records: buildNdtCsvRows(ndt.inspections, ndt.signaturesById),
           },
         };
-        await Share.share({
-          title: 'Rope Access Logbook export',
-          message: JSON.stringify(jsonBundle, null, 2),
+        // Goes out as a FILE, like the PDF branch above. Handing an auditor a
+        // multi-megabyte JSON string pasted into a message body isn't an audit
+        // packet.
+        await shareTextAsFile({
+          fileName: buildLogbookExportFileName(sanitizedBundle, 'json'),
+          contents: JSON.stringify(jsonBundle, null, 2),
+          format: 'json',
+          dialogTitle: 'Share Rope Access Logbook audit packet',
         });
       } else {
         const ropeCsv = buildLogbookCsv(sanitizedBundle);
@@ -210,7 +216,12 @@ export default function ExportScreen() {
         // Two clearly-delimited blocks in one CSV. The NDT block carries its own
         // ndt_-prefixed headers and is never interleaved with rope rows.
         const csv = `${ropeCsv}\n\n# NDT experience (self-maintained) — not summed with rope-access totals\n${ndtCsv}`;
-        await Share.share({ title: 'Rope Access Logbook CSV', message: csv });
+        await shareTextAsFile({
+          fileName: buildLogbookExportFileName(sanitizedBundle, 'csv'),
+          contents: csv,
+          format: 'csv',
+          dialogTitle: 'Share Rope Access Logbook CSV',
+        });
       }
       haptics.success();
     } catch {
