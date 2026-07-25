@@ -6,6 +6,7 @@ import { scaled } from '@/src/ui/scale';
 import type { IconProps } from '@/src/ui/icons';
 import {
   IconDraft,
+  IconEdit,
   IconVerified,
   IconVoid,
   IconPending,
@@ -107,7 +108,12 @@ const STATUS_CONFIG: Record<
 > = {
   draft: { label: 'Draft', tone: 'warn', icon: IconDraft },
   signed: { label: 'Signed', tone: 'ok', icon: IconVerified },
-  amended: { label: 'Amended', tone: 'danger', icon: IconVoid },
+  // Archival, NOT an alarm. An amended entry is a correctly-signed record that
+  // a later amendment supersedes — it's the outcome of the one correction path
+  // the app offers (signed entries can't be edited), so painting it `danger` +
+  // IconVoid told the tech their record was damaged and made it indistinguishable
+  // from a genuine `void`. Neutral chip tone; the word carries the meaning.
+  amended: { label: 'Amended', tone: 'chip', icon: IconEdit },
   pending: { label: 'Pending', tone: 'warn', icon: IconPending },
   void: { label: 'Void', tone: 'danger', icon: IconVoid },
 };

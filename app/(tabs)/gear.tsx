@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   SectionList,
   Text,
   View,
@@ -365,17 +364,16 @@ export default function GearScreen() {
             ) : null}
 
             <View style={{ paddingHorizontal: 20, paddingTop: showAdd ? 0 : 14 }}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 6 }}
-              >
-                <ChipSelect<CategoryFilter>
-                  value={filter}
-                  options={CATEGORY_FILTERS}
-                  onChange={setFilter}
-                />
-              </ScrollView>
+              {/* `scroll` replaces a hand-rolled horizontal ScrollView wrapper —
+                  same result, but now the same primitive and the same behaviour
+                  as the Records filter bar. (The old wrapper's contentContainer
+                  `gap` was dead anyway: single child.) */}
+              <ChipSelect<CategoryFilter>
+                value={filter}
+                scroll
+                options={CATEGORY_FILTERS}
+                onChange={setFilter}
+              />
             </View>
 
             <View style={{ height: 4 }} />

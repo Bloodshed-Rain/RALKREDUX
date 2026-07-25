@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Pressable,
   TextInput,
   View,
   Text,
@@ -7,8 +8,10 @@ import {
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
+import { IconClose } from '@/src/ui/icons';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import { isHeliotypeFamily } from '@/src/ui/theme/themes';
+import { scaled, scaledF } from '@/src/ui/scale';
 
 export interface FieldProps {
   label?: string;
@@ -29,6 +32,10 @@ export interface FieldProps {
   // both are set. Announced to screen readers via the input's a11y label so the
   // state is not conveyed by color alone.
   invalid?: boolean;
+  // When set and the field is non-empty, a clear (×) button occupies the
+  // trailing slot. For search fields, where backspacing a site name one glove-tap
+  // at a time is the alternative. Takes precedence over `suffix` while visible.
+  onClear?: () => void;
   readOnly?: boolean;
   keyboardType?: TextInputProps['keyboardType'];
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -49,6 +56,7 @@ export function Field({
   helper,
   error,
   invalid,
+  onClear,
   readOnly,
   keyboardType,
   autoCapitalize,
@@ -61,11 +69,15 @@ export function Field({
   const [focused, setFocused] = React.useState(false);
   const isHeliotype = isHeliotypeFamily(theme.key);
 
+  // Label and helper run through `scaled()` like the rest of the type system.
+  // Left unscaled they rendered ~18% smaller than the input text they describe —
+  // and the helper line is where "Required — the signer's SPRAT card number."
+  // lives, so it's the last text in the app that should shrink.
   const labelStyle: TextStyle = {
     fontFamily: 'JetBrainsMono_600SemiBold',
     fontWeight: '600',
-    fontSize: 11,
-    letterSpacing: 1.5,
+    fontSize: scaled(11),
+    letterSpacing: scaledF(1.5),
     color: tokens.textDim,
     textTransform: 'uppercase',
   };
@@ -113,15 +125,15 @@ export function Field({
   const helperStyle: TextStyle = {
     fontFamily: 'Manrope_500Medium',
     fontWeight: '500',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: scaled(11),
+    lineHeight: scaled(14),
     color: tokens.textFaint,
     paddingLeft: 2,
   };
 
   const suffixStyle: TextStyle = {
     fontFamily: 'JetBrainsMono_400Regular',
-    fontSize: 12,
+    fontSize: scaled(12),
     color: tokens.textDim,
   };
 
@@ -149,7 +161,16 @@ export function Field({
           style={inputStyle}
           numberOfLines={multiline ? 3 : 1}
         />
-        {suffix ? (
+        {onClear && value.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear"
+            onPress={onClear}
+            hitSlop={10}
+          >
+            <IconClose size={17} color={tokens.textDim} />
+          </Pressable>
+        ) : suffix ? (
           typeof suffix === 'string' ? (
             <Text style={suffixStyle}>{suffix}</Text>
           ) : (

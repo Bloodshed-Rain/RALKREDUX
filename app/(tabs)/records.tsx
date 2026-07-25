@@ -212,17 +212,15 @@ export default function RecordsScreen() {
     );
   }
 
+  // Padding lives on the header CONTAINER (see renderSectionHeader), never here.
+  // Carrying paddingTop/Bottom in the TextStyle stacked it on top of the row's
+  // own padding AND, because the row centres its children, floated the count Pill
+  // above the month word — the pill was centring against a padded text box whose
+  // glyphs sat at its bottom.
   const sectionKickerStyle: TextStyle = {
-    fontFamily: 'JetBrainsMono_600SemiBold',
-    fontWeight: '600',
-    fontSize: 10,
-    lineHeight: 12,
-    letterSpacing: 1.5,
+    ...type.monoKicker,
     color: tokens.textFaint,
     textTransform: 'uppercase',
-    paddingTop: 18,
-    paddingBottom: 6,
-    backgroundColor: tokens.bg,
   };
 
   return (
@@ -380,10 +378,17 @@ function RopeAccessTab({
           value={query}
           onChangeText={setQuery}
           placeholder="Search site, client, task…"
-          suffix={<IconSearch size={19} color={tokens.textDim} />}
+          accessibilityLabel="Search records"
+          autoCapitalize="none"
+          // Magnifier leads (where every search field the tech has ever used
+          // puts it); the trailing slot carries the clear button once there's
+          // something to clear.
+          prefix={<IconSearch size={19} color={tokens.textDim} />}
+          onClear={() => setQuery('')}
         />
         <ChipSelect<FilterKey>
           value={filter}
+          scroll
           options={[
             { value: 'all', label: 'All', count: counts.all },
             { value: 'drafts', label: 'Drafts', count: counts.drafts },
@@ -522,8 +527,11 @@ function RecordsList({ groups, kickerStyle, onEntryPress, onDeleteDraft }: Recor
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingTop: 14,
-            paddingBottom: 6,
+            // Was 14 here + 18 baked into the kicker's TextStyle. Now the single
+            // source of the header's rhythm, tuned to sit between SectionH's
+            // 16/10 and the old stacked total.
+            paddingTop: 18,
+            paddingBottom: 8,
             backgroundColor: tokens.bg,
           }}
         >

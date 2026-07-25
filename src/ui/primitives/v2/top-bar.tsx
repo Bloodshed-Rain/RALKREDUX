@@ -25,6 +25,14 @@ export function TopBar({ title, subtitle, large, leading, trailing, style }: Top
     ...style,
   };
 
+  // A `large` bar with neither action slot filled (e.g. the Profile tab) used to
+  // reserve the full 36pt action row anyway, opening that one screen with an
+  // empty band and dropping its title lower than every other tab's. Reserve the
+  // row only when something actually occupies it — compact mode always needs it,
+  // since the centred title lives there.
+  const hasActions = !!leading || !!trailing;
+  const showActionRow = !large || hasActions;
+
   const rowStyle: ViewStyle = {
     flexDirection: 'row',
     alignItems: 'center',
@@ -66,23 +74,25 @@ export function TopBar({ title, subtitle, large, leading, trailing, style }: Top
 
   return (
     <View style={containerStyle}>
-      <View style={rowStyle}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {leading ?? null}
+      {showActionRow ? (
+        <View style={rowStyle}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {leading ?? null}
+          </View>
+          {!large ? (
+            <Text style={compactTitleStyle} numberOfLines={1}>
+              {title}
+            </Text>
+          ) : (
+            <View />
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {trailing ?? null}
+          </View>
         </View>
-        {!large ? (
-          <Text style={compactTitleStyle} numberOfLines={1}>
-            {title}
-          </Text>
-        ) : (
-          <View />
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {trailing ?? null}
-        </View>
-      </View>
+      ) : null}
       {large ? (
-        <View style={{ paddingTop: 6, paddingBottom: 16 }}>
+        <View style={{ paddingTop: showActionRow ? 6 : 0, paddingBottom: 16 }}>
           <Text style={heroTitleStyle}>{title}</Text>
           {subtitle ? <Text style={heroSubStyle}>{subtitle}</Text> : null}
         </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View, type ViewStyle, type TextStyle } from 'react-native';
+import { Pressable, ScrollView, Text, View, type ViewStyle, type TextStyle } from 'react-native';
 import { useTheme } from '@/src/ui/theme/theme-provider';
 import type { IconProps } from '@/src/ui/icons';
 
@@ -14,6 +14,13 @@ export interface ChipSelectProps<T extends string = string> {
   value: T | null;
   options: Array<ChipOption<T> | T>;
   onChange: (value: T) => void;
+  // Lay the chips out on ONE horizontally-scrolling line instead of wrapping.
+  // Use for long filter bars (Records, Gear): wrapping there costs a second row
+  // and, because the row's height tracks the chip counts, makes the list below
+  // jump as those counts gain or lose a digit. Short in-form selects (scheme,
+  // level, on/off) stay wrapped — they fit, and a scroll view inside a form
+  // competes with the page scroll for the gesture.
+  scroll?: boolean;
   style?: ViewStyle;
 }
 
@@ -25,18 +32,19 @@ export function ChipSelect<T extends string = string>({
   value,
   options,
   onChange,
+  scroll,
   style,
 }: ChipSelectProps<T>) {
   const { tokens } = useTheme();
 
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: scroll ? 'nowrap' : 'wrap',
     gap: 6,
     ...style,
   };
 
-  return (
+  const chips = (
     <View style={containerStyle}>
       {options.map((raw) => {
         const o = normalize(raw);
@@ -105,5 +113,16 @@ export function ChipSelect<T extends string = string>({
         );
       })}
     </View>
+  );
+
+  if (!scroll) return chips;
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      {chips}
+    </ScrollView>
   );
 }
