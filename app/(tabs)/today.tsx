@@ -81,10 +81,15 @@ function parseDateTo(iso: string): number {
   return Date.parse(iso);
 }
 
+// Signed-only, deliberately. An amendment is a FULL replacement entry: signing
+// one inserts a fresh `signed` row and flips the original to `amended`, so both
+// rows carry the same hours. Counting `amended` here double-counted every
+// amended job — and left these figures disagreeing with the career total on the
+// same card, which is computed signed-only in SQL (`getCareerStats`).
 function signedHoursInLastDays(entries: LogbookEntry[], today: Date, days: number): number {
   const cutoff = startOfLocalDay(today) - days * MS_PER_DAY;
   return entries
-    .filter((e) => e.status === 'signed' || e.status === 'amended')
+    .filter((e) => e.status === 'signed')
     .filter((e) => {
       const ts = parseDateTo(e.date_to);
       return Number.isFinite(ts) && ts >= cutoff;

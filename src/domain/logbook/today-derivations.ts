@@ -62,10 +62,14 @@ function dateFromLocalIso(localIso: string): number {
   return Date.parse(localIso);
 }
 
+// Signed-only. An amendment is a full replacement entry — signing one inserts a
+// new `signed` row and flips the original to `amended` — so summing both statuses
+// counts an amended job's hours twice. (`distinctOpDaysLast30` below DOES keep
+// `amended`: it dedupes by date, and the work day happened either way.)
 export function signedHoursLast30Days(entries: LogbookEntry[], today: Date): number {
   const cutoff = startOfLocalDay(today) - 30 * MS_PER_DAY;
   return entries
-    .filter((entry) => entry.status === 'signed' || entry.status === 'amended')
+    .filter((entry) => entry.status === 'signed')
     .filter((entry) => {
       const ts = dateFromLocalIso(entry.date_to);
       return Number.isFinite(ts) && ts >= cutoff;

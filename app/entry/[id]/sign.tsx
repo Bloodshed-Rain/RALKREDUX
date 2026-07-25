@@ -193,6 +193,27 @@ export default function LocalSignScreen() {
     signatureReady &&
     attestationAccepted;
 
+  // Name the ONE thing still blocking the signature, in the button itself.
+  // A supervisor holding someone else's phone has never seen this screen; a
+  // grey button with no reason is where in-person signing dies. Ordered the way
+  // the screen reads top-to-bottom, so the label always points at the next thing
+  // to do rather than the last one checked.
+  const signBlocker = ((): string | null => {
+    if (!entryId || !entry) return 'Loading entry…';
+    if (!isDraft) return 'Already signed';
+    if (!isReady) return 'Entry is missing required fields';
+    if (supervisorName.trim().length <= 1) return 'Add the supervisor’s name';
+    if (!certNumberReady) {
+      return requiresCertNumber
+        ? 'IRATA number must be 5 digits'
+        : 'Add the supervisor’s SPRAT number';
+    }
+    if (!siteFieldsReady) return 'Add the signer’s role and employer';
+    if (!signatureReady) return 'Draw the signature above';
+    if (!attestationAccepted) return 'Tick the attestation to sign';
+    return null;
+  })();
+
   async function submit() {
     if (!canSign || !entryId) return;
     // Optional biometric/passcode confirmation just before sealing into the
@@ -637,7 +658,7 @@ export default function LocalSignScreen() {
           onPress={submit}
           disabled={!canSign || signEntry.isPending}
         >
-          {signEntry.isPending ? 'Signing…' : 'Sign entry'}
+          {signEntry.isPending ? 'Signing…' : (signBlocker ?? 'Sign entry')}
         </Button>
       </View>
     </KeyboardAvoidingView>
@@ -705,13 +726,16 @@ function Row({
       <Text style={{ ...type.monoKicker, color: tokens.textFaint, width: 92 }}>
         {label.toUpperCase()}
       </Text>
+      {/* Deliberately NOT truncated. Task and access are multi-select and join
+          with ", ", so a 2-line clamp could hide part of what the supervisor is
+          attesting to — the row would ellipsize exactly the detail that makes the
+          attestation false. The long-form fields below already render in full. */}
       <Text
         selectable
         style={[
           mono ? type.mono : type.body,
           { color: tokens.text, flex: 1 },
         ]}
-        numberOfLines={2}
       >
         {value}
       </Text>

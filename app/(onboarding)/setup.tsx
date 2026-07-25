@@ -61,6 +61,17 @@ export default function SetupScreen() {
     !secondaryEnabled || secondaryScheme === 'sprat' || isIrataNumberValid(secondaryEntry.number);
   const canSubmit = nameValid && primaryNumberValid && secondaryNumberValid;
 
+  // The button label carries whatever is blocking submission. Previously only
+  // the name gate was named, so a valid name plus a short IRATA number left the
+  // button reading "Create logbook" and silently doing nothing.
+  const submitBlocker = !nameValid
+    ? 'Add your name'
+    : !primaryNumberValid
+      ? `${primaryScheme.toUpperCase()} number must be 5 digits`
+      : !secondaryNumberValid
+        ? `${secondaryScheme.toUpperCase()} number must be 5 digits`
+        : null;
+
   function enableSecondary() {
     haptics.selection();
     setSecondaryEnabled(true);
@@ -243,11 +254,7 @@ export default function SetupScreen() {
           onPress={submit}
           disabled={!canSubmit || createProfile.isPending}
         >
-          {createProfile.isPending
-            ? 'Creating logbook…'
-            : nameValid
-              ? 'Create logbook'
-              : 'Add your name'}
+          {createProfile.isPending ? 'Creating logbook…' : (submitBlocker ?? 'Create logbook')}
         </Button>
       </View>
     </KeyboardAvoidingView>

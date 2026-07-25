@@ -103,9 +103,19 @@ describe('signedHoursLast30Days and distinctOpDaysLast30', () => {
     const entries = [
       entry({ id: 'a', date_to: '2026-05-10', work_hours: 8, status: 'signed' }),
       entry({ id: 'b', date_to: '2026-05-05', work_hours: 6, status: 'signed' }),
-      entry({ id: 'c', date_to: '2026-05-01', work_hours: 4, status: 'amended' }),
     ];
-    expect(signedHoursLast30Days(entries, today)).toBeCloseTo(18, 5);
+    expect(signedHoursLast30Days(entries, today)).toBeCloseTo(14, 5);
+  });
+
+  // An amendment is a full replacement: the superseding entry is `signed` and
+  // the original flips to `amended`, both carrying the hours. Only the live one
+  // may be summed, or every amended job counts twice.
+  it('excludes superseded (amended) entries so hours are not double-counted', () => {
+    const entries = [
+      entry({ id: 'original', date_to: '2026-05-01', work_hours: 4, status: 'amended' }),
+      entry({ id: 'amendment', date_to: '2026-05-01', work_hours: 5, status: 'signed' }),
+    ];
+    expect(signedHoursLast30Days(entries, today)).toBeCloseTo(5, 5);
   });
 
   it('excludes drafts from signed hours', () => {

@@ -14,6 +14,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureOrPickPhoto } from '@/src/ui/photo-picker';
 import { deleteAttachmentFile, persistAttachmentFile } from '@/src/ui/attachment-storage';
+import { formatDateRange } from '@/src/domain/date-format';
 import { isValidIsoDateRange, todayLocalIsoDate } from '@/src/domain/date-utils';
 import type {
   CreateEntryInput,
@@ -61,6 +62,7 @@ import {
 import {
   GEAR_ICON,
   IconCheck,
+  IconChevron,
   IconClose,
   IconDraft,
   IconExport,
@@ -141,7 +143,11 @@ function initialDraft(): DraftState {
     maxHeight: '',
     heightUnit: 'ft',
     description: '',
-    hours: '8',
+    // Deliberately blank. A pre-filled "8" always satisfied this page's
+    // `Number(hours) > 0` gate, so hours was the one required field that could
+    // never challenge the tech — tapping Next attested to eight hours nobody
+    // entered. The placeholder still shows the common value as a hint.
+    hours: '',
     spratLevel: null,
     irataLevel: null,
     selectedSupervisorId: null,
@@ -278,6 +284,16 @@ export default function NewEntryWizard() {
     React.useState<TerminalActionPref>(DEFAULT_TERMINAL_ACTION);
   const prefilledCertLevels = React.useRef(false);
   const seededFromLast = React.useRef(false);
+  // One ScrollView hosts every page, so its offset survives a page change unless
+  // we reset it — scroll down page 3's tiles, tap Next, and page 4 rendered
+  // mid-page with its heading already above the fold.
+  const scrollRef = React.useRef<ScrollView>(null);
+
+  const goToStep = React.useCallback((next: Step) => {
+    setShowErrors(false);
+    setStep(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
 
   React.useEffect(() => {
     readPref<TerminalActionPref>(PrefKeys.defaultTerminalAction, DEFAULT_TERMINAL_ACTION).then(
@@ -377,10 +393,9 @@ export default function NewEntryWizard() {
       // page 1 creates it (giving the Details page an entryId for gear/photos),
       // later pages update it.
       await commitDraft();
-      // Clear synchronously with the advance so the next page never renders a
-      // frame with the previous page's red still on.
-      setShowErrors(false);
-      setStep((step + 1) as Step);
+      // Clears showErrors synchronously with the advance so the next page never
+      // renders a frame with the previous page's red still on.
+      goToStep((step + 1) as Step);
     } catch (err) {
       Alert.alert('Could not save draft', err instanceof Error ? err.message : String(err));
     }
@@ -390,9 +405,24 @@ export default function NewEntryWizard() {
     if (step === 1) {
       handleClose();
     } else {
-      setShowErrors(false);
-      setStep((step - 1) as Step);
+      goToStep((step - 1) as Step);
     }
+  }
+
+  // Review → jump straight to the page that owns a field. Without this, fixing a
+  // typo from the last page meant tapping Back up to five times, standing next
+  // to the supervisor — which is where a wrong entry gets signed instead of fixed.
+  async function handleEditStep(target: Step) {
+    haptics.selection();
+    try {
+      // Commit first: Review may hold edits (supervisor pick) and the draft row
+      // must not fall behind the screen when we navigate backwards.
+      await commitDraft();
+    } catch {
+      // A failed commit here is not worth blocking navigation — the page the
+      // tech lands on re-reads from `draft`, which is still in memory.
+    }
+    goToStep(target);
   }
 
   function handleClose() {
@@ -497,6 +527,7 @@ export default function NewEntryWizard() {
       />
 
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -529,6 +560,7 @@ export default function NewEntryWizard() {
             supervisors={supervisors.data ?? []}
             defaultTerminalAction={defaultTerminalAction}
             busy={busy}
+            onEditStep={handleEditStep}
             onSignNow={handleSignNow}
             onRequestRemote={handleRequestRemote}
             onSaveDraft={handleSaveDraft}
@@ -819,8 +851,9 @@ function StepKindHours({ draft, update, showErrors }: StepProps & { showErrors?:
         <SectionKicker>HOURS ON ROPE</SectionKicker>
         <Field
           value={draft.hours}
-          onChangeText={(v) => update({ hours: v })}
+          onChangeText={(v) => update({ hours: v.replace(/[^\d.]/g, '') })}
           keyboardType="decimal-pad"
+          placeholder="8"
           suffix="hrs"
           accessibilityLabel="Hours on rope"
           invalid={!!showErrors && !(Number(draft.hours) > 0)}
@@ -1199,10 +1232,18 @@ interface TileOption<T extends string = string> {
   label: string;
 }
 
-function tileStyle(tokens: ReturnType<typeof useTheme>['tokens'], active: boolean): ViewStyle {
+// `full` stretches a tile across the row. Used for the last tile when the grid
+// holds an odd number: at 48% the straggler sat alone on the left with a 52%
+// void beside it, which read as a layout bug on 3 of the 5 grids (work task and
+// structure resolve to 6 inline + More = 7; hazards to 10 + More = 11).
+function tileStyle(
+  tokens: ReturnType<typeof useTheme>['tokens'],
+  active: boolean,
+  full?: boolean,
+): ViewStyle {
   return {
-    width: '48%',
-    minHeight: 78,
+    width: full ? '100%' : '48%',
+    minHeight: full ? 56 : 78,
     borderRadius: 14,
     borderWidth: active ? 2 : 1,
     borderColor: active ? tokens.accent : tokens.lineSoft,
@@ -1245,6 +1286,10 @@ function TileGrid<T extends string = string>({
 }) {
   const { tokens } = useTheme();
   const selected = new Set(selectedValues.map((s) => s.trim().toLowerCase()));
+  // The "More / custom" tile, when present, is the last cell — so it's the one
+  // that goes full-width to square off an odd grid.
+  const totalTiles = options.length + (onMore ? 1 : 0);
+  const oddGrid = totalTiles % 2 === 1;
   const grid = (
     <View
       style={{
@@ -1254,8 +1299,10 @@ function TileGrid<T extends string = string>({
         rowGap: 10,
       }}
     >
-      {options.map((o) => {
+      {options.map((o, i) => {
         const active = selected.has(o.value.trim().toLowerCase());
+        // Without a "More" tile the last OPTION is the straggler.
+        const full = oddGrid && !onMore && i === options.length - 1;
         return (
           <Pressable
             key={o.value}
@@ -1267,7 +1314,7 @@ function TileGrid<T extends string = string>({
               onPress(o.value);
             }}
             style={({ pressed }) => [
-              tileStyle(tokens, active),
+              tileStyle(tokens, active, full),
               pressed ? { transform: [{ scale: 0.98 }] } : null,
             ]}
           >
@@ -1286,7 +1333,7 @@ function TileGrid<T extends string = string>({
             onMore();
           }}
           style={({ pressed }) => [
-            tileStyle(tokens, false),
+            tileStyle(tokens, false, oddGrid),
             { borderStyle: 'dashed' },
             pressed ? { transform: [{ scale: 0.98 }] } : null,
           ]}
@@ -1444,6 +1491,7 @@ function StepReview({
   supervisors,
   defaultTerminalAction,
   busy,
+  onEditStep,
   onSignNow,
   onRequestRemote,
   onSaveDraft,
@@ -1451,6 +1499,7 @@ function StepReview({
   supervisors: SupervisorContact[];
   defaultTerminalAction: TerminalActionPref;
   busy: null | 'draft' | 'sign' | 'request';
+  onEditStep: (step: Step) => void;
   onSignNow: () => void;
   onRequestRemote: () => void;
   onSaveDraft: () => void;
@@ -1526,25 +1575,50 @@ function StepReview({
           {draft.site || 'Untitled site'}
         </Text>
         <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={2}>
-          {[draft.client, draft.workTask.join(', '), draft.structureType].filter(Boolean).join(' · ') ||
-            '—'}
+          {draft.client || '—'}
         </Text>
-        <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 14 }} />
-        <View style={{ flexDirection: 'row', gap: 14 }}>
-          <Stat label="Hours" value={(Number(draft.hours) || 0).toFixed(1)} />
-          <Stat
-            label="Height"
-            value={
-              draft.maxHeight.trim() === ''
-                ? '—'
-                : `${draft.maxHeight} ${draft.heightUnit}`
-            }
-          />
-          <Stat label="Access" value={draft.accessMethod.join(', ') || '—'} />
-        </View>
-        <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 12 }} numberOfLines={2}>
-          {detailBits.length > 0 ? `Details · ${detailBits.join(' · ')}` : 'No extra details added'}
-        </Text>
+        <View style={{ height: 1, backgroundColor: tokens.lineSoft, marginVertical: 12 }} />
+        {/* Every group names its page and jumps to it. The DATES row exists
+            because dates default to today and were previously absent from this
+            card entirely — so "logged yesterday's job, never touched the date"
+            was invisible at the last checkpoint before an irreversible signature. */}
+        <ReviewRow
+          label="Dates"
+          value={formatDateRange(draft.dateFrom, draft.dateTo || draft.dateFrom)}
+          onPress={() => onEditStep(1)}
+        />
+        <ReviewRow
+          label="Hours"
+          value={`${(Number(draft.hours) || 0).toFixed(1)} hrs · ${kindLabel}`}
+          onPress={() => onEditStep(2)}
+        />
+        <ReviewRow
+          label="Task"
+          value={
+            [draft.workTask.join(', '), draft.accessMethod.join(', ')]
+              .filter(Boolean)
+              .join(' · ') || '—'
+          }
+          onPress={() => onEditStep(3)}
+        />
+        <ReviewRow
+          label="Structure"
+          value={
+            [
+              draft.structureType,
+              draft.maxHeight.trim() === '' ? '' : `${draft.maxHeight} ${draft.heightUnit}`,
+            ]
+              .filter(Boolean)
+              .join(' · ') || '—'
+          }
+          onPress={() => onEditStep(4)}
+        />
+        <ReviewRow
+          label="Details"
+          value={detailBits.length > 0 ? detailBits.join(' · ') : 'No extra details added'}
+          onPress={() => onEditStep(5)}
+          last
+        />
       </Card>
 
       {supervisors.length > 0 ? (
@@ -1723,17 +1797,45 @@ function ChoiceRow({
 
 // ──────────────────────────────────────────────────────────────────────────
 
-function Stat({ label, value }: { label: string; value: string }) {
+// One tappable summary line on the Review page: kicker label, the value, and a
+// chevron. Pressing it returns to the wizard page that owns those fields.
+function ReviewRow({
+  label,
+  value,
+  onPress,
+  last,
+}: {
+  label: string;
+  value: string;
+  onPress: () => void;
+  last?: boolean;
+}) {
   const { tokens } = useTheme();
   return (
-    <View style={{ flex: 1 }}>
-      <Text style={{ ...type.detailStat, color: tokens.text }} numberOfLines={1}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}. Tap to edit.`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingVertical: 10,
+          borderBottomWidth: last ? 0 : 1,
+          borderBottomColor: tokens.lineSoft,
+        },
+        pressed ? { opacity: 0.6 } : null,
+      ]}
+    >
+      <Text style={{ ...type.monoKicker, color: tokens.textFaint, width: 78 }}>
+        {label.toUpperCase()}
+      </Text>
+      <Text style={{ ...type.body, color: tokens.text, flex: 1 }} numberOfLines={2}>
         {value}
       </Text>
-      <Text style={{ ...type.cardSub, color: tokens.textDim, marginTop: 2 }} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
+      <IconChevron size={18} color={tokens.textFaint} />
+    </Pressable>
   );
 }
 
