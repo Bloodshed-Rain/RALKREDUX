@@ -39,6 +39,7 @@ import {
   useEntries,
   useEntryDetail,
   useRecentClassificationValues,
+  useRecentGearSet,
   useRecentHazardValues,
   useRemoveEntryAttachment,
   useRemoveGearFromEntry,
@@ -91,9 +92,10 @@ const HEIGHT_UNIT_OPTIONS = [
   { value: 'm' as HeightUnit, label: 'm' },
 ];
 
-// The wizard is a 6-page flow, each page deliberately light. The required spine
-// is split across the first three pages (where → hours → task); structure,
-// height and the optional details never block Next.
+// The wizard is a 6-page flow, each page deliberately light. Pages 1–5 each gate
+// on their own required fields (see `stepReady`); only the extras on page 5 —
+// hazards, rescue cover, gear, photos — are genuinely optional. Page 6 is the
+// review/terminal-action page and never gates.
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 const TOTAL_STEPS = 6;
 const STEP_TITLES = ['Where', 'Kind & hours', 'Task & access', 'Structure & height/depth', 'Details', 'Review'];
@@ -102,7 +104,7 @@ const STEP_SUBS = [
   'What kind of work · hours',
   'What you did · how you got there',
   'What you worked on · how high or deep',
-  'Work description, plus optional extras',
+  'Work description, plus optional gear & photos',
   'Choose what happens next',
 ];
 
@@ -190,6 +192,26 @@ function stepReady(step: Step, draft: DraftState): boolean {
   return true;
 }
 
+// Where a "skip ahead" from `from` should land: the next page that still needs
+// input, or Review when everything after here is already satisfied. Returns null
+// when there's nothing to skip — either the current page still blocks, or the
+// next page is the very next one (which Next already reaches).
+//
+// This is what makes a seeded/duplicated entry fast. On a duplicate, pages 3 and
+// 4 arrive pre-filled while hours and description are deliberately blank, so the
+// tech would otherwise tap Next through two untouched pages. It also covers the
+// now-common return trip: Review's rows jump back to a page, and this carries
+// you straight back to Review instead of tapping Next three times.
+function jumpTargetFrom(from: Step, draft: DraftState): Step | null {
+  if (!stepReady(from, draft)) return null;
+  for (let s = from + 1; s < TOTAL_STEPS; s += 1) {
+    if (!stepReady(s as Step, draft)) {
+      return s > from + 1 ? (s as Step) : null;
+    }
+  }
+  return TOTAL_STEPS > from + 1 ? (TOTAL_STEPS as Step) : null;
+}
+
 // "a, b and c" — grammatical join for the missing-field summary.
 function listToText(items: string[]): string {
   if (items.length <= 1) return items[0] ?? '';
@@ -266,10 +288,13 @@ export default function NewEntryWizard() {
   const updateDraft = useUpdateDraftEntry();
   const deleteDraft = useDeleteDraftEntry();
 
-  // QuickLogCard's "Same as last" chip routes here with ?seed=last so the
-  // wizard pre-fills site/client/employer/work context from the most recent
-  // entry. We intentionally don't seed dates, hours, or description — those
-  // are the "what happened today" fields the tech still needs to enter.
+  // `?seed=` pre-fills site/client/employer/work context from a previous entry:
+  //   seed=last        → the most recent entry (Today's "Same as last" chip)
+  //   seed=<entryId>   → that specific entry (entry detail's "Duplicate")
+  // Duplicating a *specific* entry matters on multi-day work — on a five-day
+  // shutdown the entry you want to repeat is rarely the newest one.
+  // We intentionally never seed dates, hours, or description — those are the
+  // "what happened today" fields the tech still has to enter.
   const { seed } = useLocalSearchParams<{ seed?: string | string[] }>();
   const seedKind = Array.isArray(seed) ? seed[0] : seed;
 
@@ -321,11 +346,14 @@ export default function NewEntryWizard() {
   // the user's edits aren't clobbered.
   React.useEffect(() => {
     if (seededFromLast.current) return;
-    if (seedKind !== 'last') return;
+    if (!seedKind) return;
     const list = entries.data;
     if (!list || list.length === 0) return;
+    const last = seedKind === 'last' ? list[0] : list.find((e) => e.id === seedKind);
+    // An unknown id means the entry was deleted between tapping and landing
+    // here. Leave the wizard blank rather than silently seeding the wrong job.
+    if (!last) return;
     seededFromLast.current = true;
-    const last = list[0];
     update({
       employer: last.employer,
       site: last.site,
@@ -407,6 +435,22 @@ export default function NewEntryWizard() {
     } else {
       goToStep((step - 1) as Step);
     }
+  }
+
+  // Only ever skips pages that already pass their own gate, so the shortcut can
+  // never bypass a required field. Suppressed while errors are showing and on
+  // Review itself.
+  const jumpTarget = step < TOTAL_STEPS && !showErrors ? jumpTargetFrom(step, draft) : null;
+
+  async function handleJump(target: Step) {
+    haptics.selection();
+    try {
+      await commitDraft();
+    } catch (err) {
+      Alert.alert('Could not save draft', err instanceof Error ? err.message : String(err));
+      return;
+    }
+    goToStep(target);
   }
 
   // Review → jump straight to the page that owns a field. Without this, fixing a
@@ -583,6 +627,34 @@ export default function NewEntryWizard() {
           <Text style={{ ...type.cardSub, color: tokens.danger }}>
             {missingStepHint(step, draft)}
           </Text>
+        ) : null}
+        {jumpTarget ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              jumpTarget === TOTAL_STEPS
+                ? 'Jump to review'
+                : `Skip to ${STEP_TITLES[jumpTarget - 1]}`
+            }
+            accessibilityHint="The pages in between are already filled in"
+            onPress={() => handleJump(jumpTarget)}
+            hitSlop={8}
+            style={{ alignSelf: 'center', paddingVertical: 2 }}
+          >
+            <Text
+              style={{
+                ...type.cardSub,
+                color: tokens.accent,
+                fontFamily: 'Manrope_600SemiBold',
+                fontWeight: '600',
+              }}
+              numberOfLines={1}
+            >
+              {jumpTarget === TOTAL_STEPS
+                ? 'Everything else is filled in · Jump to review'
+                : `Already filled in · Skip to ${STEP_TITLES[jumpTarget - 1]}`}
+            </Text>
+          </Pressable>
         ) : null}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {step < TOTAL_STEPS ? (
@@ -939,6 +1011,7 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
   const recentHazards = useRecentHazardValues();
   const gearItems = useGearItems();
   const detail = useEntryDetail(draft.entryId);
+  const recentGearSet = useRecentGearSet();
   const attachGear = useAttachGearToEntry();
   const removeGear = useRemoveGearFromEntry();
   const addAttachment = useAddEntryAttachment();
@@ -971,6 +1044,32 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
       )
     : sortedGear;
   const showGearSearch = selectableGear.length > 10;
+
+  // Gear from the tech's last kitted-up entry that isn't already on this one.
+  // Hidden once there's nothing left to add, so the button never sits there
+  // doing nothing.
+  const reattachable = (recentGearSet.data?.items ?? []).filter(
+    (g) => !attachedGearIds.has(g.gear_id) && selectableGear.some(({ item }) => item.id === g.gear_id),
+  );
+
+  function attachRecentGearSet() {
+    if (!draft.entryId || gearBusy || reattachable.length === 0) return;
+    haptics.selection();
+    for (const g of reattachable) {
+      attachGear.mutate(
+        { entry_id: draft.entryId, gear_id: g.gear_id, role: g.category },
+        {
+          onError: () => {
+            haptics.error();
+            Alert.alert(
+              'Gear not attached',
+              `Could not attach ${g.name}. Any other items were still added — check the list below.`,
+            );
+          },
+        },
+      );
+    }
+  }
 
   function toggleGear(gearId: string, category: string) {
     if (gearBusy) return;
@@ -1086,6 +1185,19 @@ function StepDetails({ draft, update, showErrors }: StepProps & { showErrors?: b
           </Text>
         ) : (
           <View style={{ gap: 8 }}>
+            {/* Most techs attach the same kit every day, which was one tap per
+                item on every entry. One tap for the whole set instead. */}
+            {reattachable.length > 0 ? (
+              <Button
+                variant="outline"
+                full
+                icon={IconCheck}
+                onPress={attachRecentGearSet}
+                disabled={gearBusy || !draft.entryId}
+              >
+                {`Same gear as last (${reattachable.length})`}
+              </Button>
+            ) : null}
             {showGearSearch ? (
               <Field
                 value={gearSearch}

@@ -26,6 +26,7 @@ import {
   LogbookEntry,
   LogbookExportBundle,
   LogbookExportPacket,
+  RecentGearSet,
   RemoteSignatureRequest,
   RemoteSignatureAccessInput,
   RemoteSignatureRequestDetail,
@@ -492,6 +493,32 @@ export function createLogbookService(db: DbClient) {
         'SELECT * FROM entries WHERE amends_entry_id = ? ORDER BY created_at ASC',
         [entryId],
       );
+    },
+
+    // The gear set attached to the most recent entry that had any — the tech's
+    // "usual kit". Most techs attach the same items every day, which cost one tap
+    // per item per entry; this backs a single re-attach action in the wizard.
+    //
+    // INNER JOIN on gear_items is deliberate: `entry_gear_usage` keeps a name
+    // snapshot so a deleted item still prints on old entries, but you can't
+    // re-attach gear that no longer exists. Retired items are excluded for the
+    // same reason the picker hides them.
+    async getRecentGearSet(): Promise<RecentGearSet | null> {
+      const rows = await db.getAll<{ gear_id: string; name: string; category: string }>(
+        `SELECT egu.gear_id AS gear_id, gi.name AS name, gi.category AS category
+         FROM entry_gear_usage egu
+         JOIN gear_items gi ON gi.id = egu.gear_id
+         WHERE egu.entry_id = (
+           SELECT e.id FROM entries e
+           WHERE EXISTS (SELECT 1 FROM entry_gear_usage x WHERE x.entry_id = e.id)
+           ORDER BY e.date_to DESC, e.created_at DESC
+           LIMIT 1
+         )
+         AND gi.retired_at IS NULL
+         ORDER BY gi.category ASC, gi.name ASC`,
+      );
+      if (rows.length === 0) return null;
+      return { items: rows };
     },
 
     // Distinct prior values of a classification column, most-recent-first.

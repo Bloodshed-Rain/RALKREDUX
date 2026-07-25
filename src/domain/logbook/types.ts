@@ -400,6 +400,19 @@ export interface CareerStatsBucket {
   entries: number;
 }
 
+// The gear attached to the most recent entry that had any — the tech's "usual
+// kit", used to offer a one-tap re-attach instead of a tap per item per entry.
+// Only gear that still exists and isn't retired appears here.
+export interface RecentGearSetItem {
+  gear_id: string;
+  name: string;
+  category: string;
+}
+
+export interface RecentGearSet {
+  items: RecentGearSetItem[];
+}
+
 export interface CareerStats {
   totalEntries: number;
   signedEntries: number;

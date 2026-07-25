@@ -19,6 +19,7 @@ import {
   EntrySignature,
   ExportLogbookOptions,
   LogbookEntry,
+  RecentGearSet,
   RemoveEntryAttachmentInput,
   RemoveGearFromEntryInput,
   SignEntryInput,
@@ -266,6 +267,9 @@ export function useAttachGearToEntry() {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       // Attaching bumps the item's last_used_at, which gear pickers sort by.
       queryClient.invalidateQueries({ queryKey: ['gearItems'] });
+      // "Same gear as last" reads the most recent gear-bearing entry, which this
+      // write can change.
+      queryClient.invalidateQueries({ queryKey: ['recentGearSet'] });
     },
   });
 }
@@ -278,6 +282,7 @@ export function useRemoveGearFromEntry() {
     onSuccess: (detail) => {
       queryClient.invalidateQueries({ queryKey: ['entryDetail', detail.entry.id] });
       queryClient.invalidateQueries({ queryKey: ['gearItems'] });
+      queryClient.invalidateQueries({ queryKey: ['recentGearSet'] });
     },
   });
 }
@@ -369,6 +374,15 @@ export function useRecentClassificationValues(field: ClassificationField) {
       const raw = await createLogbookService(getClient()).listRecentClassificationValues(field);
       return filterRecentValues(field, raw, RECENTS_CAP);
     },
+  });
+}
+
+// The gear set from the most recent entry that had any. Backs the wizard's
+// one-tap "same gear as last" action.
+export function useRecentGearSet() {
+  return useQuery<RecentGearSet | null>({
+    queryKey: ['recentGearSet'],
+    queryFn: () => createLogbookService(getClient()).getRecentGearSet(),
   });
 }
 

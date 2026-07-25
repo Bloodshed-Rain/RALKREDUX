@@ -1091,6 +1091,20 @@ function FooterActions({
             Audit packet
           </Button>
         </View>
+        {/* Duplicate seeds a NEW draft from this entry's site/client/employer/
+            work context — nothing about this signed record changes. On
+            multi-day work the entry worth repeating is rarely the newest one,
+            which is all Today's "Same as last" chip can reach. */}
+        <Button
+          variant="ghost"
+          full
+          onPress={() => {
+            haptics.selection();
+            router.push(`/entry/new?seed=${encodeURIComponent(entryId)}` as never);
+          }}
+        >
+          Duplicate to new entry
+        </Button>
         {entryStatus === 'signed' ? (
           <Button
             variant="ghost"

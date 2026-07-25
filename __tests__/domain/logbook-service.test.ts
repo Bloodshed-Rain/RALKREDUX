@@ -1235,3 +1235,77 @@ describe('recents queries', () => {
     expect(new Set(hazards)).toEqual(new Set(['Falling objects', 'Tidal cutoff', 'Public access']));
   });
 });
+
+describe('getRecentGearSet', () => {
+  it('returns null when no entry has gear', async () => {
+    const { service } = await makeServiceWithEntries([{ site: 'Bridge 12' }]);
+    expect(await service.getRecentGearSet()).toBeNull();
+  });
+
+  it('returns the gear from the most recent gear-bearing entry', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const gearService = createGearService(db);
+
+    const harness = await gearService.createGearItem({ name: 'Avao Bod', category: 'harness' });
+    const helmet = await gearService.createGearItem({ name: 'Vertex', category: 'helmet' });
+    const rope = await gearService.createGearItem({ name: 'Axis 11mm', category: 'rope' });
+
+    // Older entry with a different kit — must NOT be the one we read back.
+    const older = await service.createDraft(
+      draftInput({ date_from: '2026-01-02', date_to: '2026-01-02' }),
+    );
+    await service.attachGearToEntry({ entry_id: older.id, gear_id: rope.id, role: 'rope' });
+
+    const newer = await service.createDraft(
+      draftInput({ date_from: '2026-03-09', date_to: '2026-03-09' }),
+    );
+    await service.attachGearToEntry({ entry_id: newer.id, gear_id: harness.id, role: 'harness' });
+    await service.attachGearToEntry({ entry_id: newer.id, gear_id: helmet.id, role: 'helmet' });
+
+    const set = await service.getRecentGearSet();
+    expect(set?.items.map((i) => i.name).sort()).toEqual(['Avao Bod', 'Vertex']);
+    expect(set?.items.every((i) => i.gear_id && i.category)).toBe(true);
+  });
+
+  it('omits retired gear — it cannot be re-attached', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const gearService = createGearService(db);
+
+    const harness = await gearService.createGearItem({ name: 'Avao Bod', category: 'harness' });
+    const helmet = await gearService.createGearItem({ name: 'Vertex', category: 'helmet' });
+    const entry = await service.createDraft(draftInput());
+    await service.attachGearToEntry({ entry_id: entry.id, gear_id: harness.id, role: 'harness' });
+    await service.attachGearToEntry({ entry_id: entry.id, gear_id: helmet.id, role: 'helmet' });
+
+    await db.run('UPDATE gear_items SET retired_at = ? WHERE id = ?', [
+      '2026-04-01T00:00:00.000Z',
+      helmet.id,
+    ]);
+
+    const set = await service.getRecentGearSet();
+    expect(set?.items.map((i) => i.name)).toEqual(['Avao Bod']);
+  });
+
+  it('omits deleted gear even though the entry keeps its usage snapshot', async () => {
+    const db = await createTestClient();
+    const service = createLogbookService(db);
+    const gearService = createGearService(db);
+
+    const harness = await gearService.createGearItem({ name: 'Avao Bod', category: 'harness' });
+    const helmet = await gearService.createGearItem({ name: 'Vertex', category: 'helmet' });
+    const entry = await service.createDraft(draftInput());
+    await service.attachGearToEntry({ entry_id: entry.id, gear_id: harness.id, role: 'harness' });
+    await service.attachGearToEntry({ entry_id: entry.id, gear_id: helmet.id, role: 'helmet' });
+
+    await gearService.deleteGearItem(helmet.id);
+
+    // The entry still prints the deleted item from its snapshot...
+    const detail = await service.getEntryDetail(entry.id);
+    expect(detail?.gear_usage).toHaveLength(2);
+    // ...but it can't be offered for re-attachment.
+    const set = await service.getRecentGearSet();
+    expect(set?.items.map((i) => i.name)).toEqual(['Avao Bod']);
+  });
+});
