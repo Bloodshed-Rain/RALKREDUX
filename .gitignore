@@ -17,6 +17,7 @@ supabase/.temp/
 
 # OS / editor junk
 desktop.ini
+.idea/
 
 # Session artifacts (screenshots, browser-automation cache)
 output/

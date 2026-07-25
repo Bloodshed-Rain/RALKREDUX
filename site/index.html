@@ -1194,6 +1194,14 @@ section.content {
           <p>They don't have to trust it — they can check it. Every signed entry is hashed, and every signature folds in the hash of the signature before it. Change one field after the fact and the chain stops verifying. Ink can be altered quietly; this can't be.</p>
         </details>
         <details class="faq-item">
+          <summary>What is the chain hash, and why should I care?<span class="faq-mark">+</span></summary>
+          <p>It's the reason a signed entry can't be quietly edited later. When your supervisor signs, the app takes a fingerprint of everything they're attesting to — dates, hours, site, tasks, hazards, and their own name and cert number — then folds in the fingerprint of the signature before it. Every entry is glued to the one behind it, back to your first. Change an hour on a job from two years ago and that entry stops matching its own fingerprint, and every entry signed after it stops lining up too. Hiding one edit means rebuilding the entire book. In practice it means the logbook you hand an evaluator in five years is provably the one your supervisor signed on the day.</p>
+        </details>
+        <details class="faq-item">
+          <summary>I'm a SPRAT or IRATA evaluator — what am I meant to do with this chain?<span class="faq-mark">+</span></summary>
+          <p>Two minutes of checking, then evaluate it like any other logbook. Ask the technician to open Export and show you the chain check: the app re-verifies every signed entry in the book and, if anything is off, names the entry it broke at. On the exported PDF, every record prints its own hash and the hash of the record before it — spot-check that two consecutive entries line up. That's the whole cryptographic part, and here's its honest limit: it proves nothing was altered after signing. It does not prove the entry was true when signed. The rest is your normal judgement, and the export is built to support it — supervisor name, scheme, and cert number print on every entry for checking against the registry; signing dates sit alongside the work dates; and work hours are kept separate from training, assessment, and rescue-drill hours so nothing gets quietly folded into a progression total. The chain simply means what you're reading is what was signed.</p>
+        </details>
+        <details class="faq-item">
           <summary>Couldn't I just type in fake hours?<span class="faq-mark">+</span></summary>
           <p>You can write fake hours in a paper book too — a logbook has always been claims plus a supervisor's signature. The difference here is that the signature is bound to the exact content of the entry at the moment of signing. What the app removes is the quiet after-the-fact edit, which is where padded logbooks actually come from.</p>
         </details>
@@ -1231,7 +1239,7 @@ section.content {
         </div>
         <aside class="price-card">
           <span class="eyebrow">14-day free trial</span>
-          <div class="price">$2.99</div>
+          <div class="price">$3.99</div>
           <p>per month after trial. Cancel anytime in your app store's subscription settings.</p>
           <div class="store-badges">
             <a class="store-badge" href="https://apps.apple.com/app/id6775173582" aria-label="Download on the App Store">
